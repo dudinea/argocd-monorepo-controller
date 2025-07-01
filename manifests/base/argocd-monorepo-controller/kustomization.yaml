@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+#- ../application-controller-roles
+- argocd-monorepo-controller-deployment.yaml
+- argocd-monorepo-controller-metrics.yaml
+- argocd-monorepo-controller-network-policy.yaml
