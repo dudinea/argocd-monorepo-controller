@@ -45,8 +45,8 @@ with the upstream Argo-CD.
 The controller will listen to Application events and it will use
 annotations to to indicate actual Change Revision of the application.
 
-* `acr-controller.argoproj.io/change-revision` - Application change revision
-* `acr-controller.argoproj.io/change-revisions` - List of change
+* `mrp-controller.argoproj.io/change-revision` - Application change revision
+* `mrp-controller.argoproj.io/change-revisions` - List of change
   revisions for multisource applications.
 
 ## Initial implementation
