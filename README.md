@@ -9,7 +9,7 @@ repository/branch (monorepos).
 
 ## Documentation
 
-Please see [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/docs/monorepo_controller_proposal.md) for project motivation, architecture 
+Please see [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/blob/main/docs/monorepo_controller_proposal.md)  for project motivation, architecture 
 and description the program functionality.
 
 ## What is its development status?
@@ -27,10 +27,11 @@ existing ArgoCD instance (the `argocd` namespace  in most cases).
 
 One quick way to try it is to use command like this:
 ```
-kubectl apply -n argocd -f https://github.com/argoproj-labs/argocd-monorepo-controller/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/main/manifests/install.yaml
 ```
 
-Or use `kustomize` to install kustomization from [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/manifests/base).
+Or use `kustomize` to install kustomization from
+https://github.com/argoproj-labs/argocd-monorepo-controller/tree/main/manifests
 
 (Note: referenced container images aren't yet unavailable)
 
