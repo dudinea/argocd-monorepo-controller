@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: argocd-monorepo-repo-server
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/component: monorepo-repo-server
+  name: argocd-monorepo-repo-server
