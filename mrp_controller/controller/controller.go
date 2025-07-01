@@ -20,34 +20,34 @@ import (
 
 var watchAPIBufferSize = 1000
 
-type ACRController interface {
+type MRPController interface {
 	Run(ctx context.Context)
 }
 
-type applicationChangeRevisionController struct {
+type monorepoController struct {
 	appBroadcaster           Broadcaster
 	cache                    *servercache.Cache
 	appLister                applisters.ApplicationLister
-	acrService               service.ACRService
+	acrService               service.MRPService
 	applicationClientset     appclientset.Interface
 }
 
-func NewApplicationChangeRevisionController(appInformer cache.SharedIndexInformer, cache *servercache.Cache, /*applicationServiceClient appclient.ApplicationClient,*/ appLister applisters.ApplicationLister, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) ACRController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, cache *servercache.Cache, appLister applisters.ApplicationLister, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
 	appBroadcaster := NewBroadcaster()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
 		log.Error(err)
 	}
-	return &applicationChangeRevisionController{
+	return &monorepoController{
 		appBroadcaster:           appBroadcaster,
 		cache:                    cache,
 		appLister:                appLister,
 		applicationClientset:     applicationClientset,
-		acrService:               service.NewACRService(applicationClientset, db, repoClientset),
+		acrService:               service.NewMRPService(applicationClientset, db, repoClientset),
 	}
 }
 
-func (c *applicationChangeRevisionController) Run(ctx context.Context) {
+func (c *monorepoController) Run(ctx context.Context) {
 	var logCtx log.FieldLogger = log.StandardLogger()
 
 	calculateIfPermitted := func(ctx context.Context, a appv1.Application, eventType watch.EventType) error { //nolint:golint,unparam

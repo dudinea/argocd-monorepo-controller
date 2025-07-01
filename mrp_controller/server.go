@@ -34,8 +34,8 @@ var backoff = wait.Backoff{
 	Jitter:   0.1,
 }
 
-type ACRServer struct {
-	ACRServerOpts
+type MRPServer struct {
+	MRPServerOpts
 
 	settings             *settings_util.ArgoCDSettings
 	log                  *log.Entry
@@ -46,12 +46,12 @@ type ACRServer struct {
 	repoClientset        repoapiclient.Clientset
 	// stopCh is the channel which when closed, will shutdown the Event Reporter server
 	stopCh     chan struct{}
-	serviceSet *ACRServerSet
+	serviceSet *MRPServerSet
 }
 
-type ACRServerSet struct{}
+type MRPServerSet struct{}
 
-type ACRServerOpts struct {
+type MRPServerOpts struct {
 	ListenPort               int
 	ListenHost               string
 	Namespace                string
@@ -95,25 +95,25 @@ func (s *handlerSwitcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ACRServer) healthCheck(_ *http.Request) error {
+func (a *MRPServer) healthCheck(_ *http.Request) error {
 	return nil
 }
 
 // Init starts informers used by the API server
-func (a *ACRServer) Init(ctx context.Context) {
+func (a *MRPServer) Init(ctx context.Context) {
 	go a.appInformer.Run(ctx.Done())
 	svcSet := newApplicationChangeRevisionServiceSet()
 	a.serviceSet = svcSet
 }
 
-func (a *ACRServer) RunController(ctx context.Context) {
-	controller := mrp_controller.NewApplicationChangeRevisionController(a.appInformer, a.Cache, a.appLister, a.applicationClientset, a.db, a.repoClientset)
+func (a *MRPServer) RunController(ctx context.Context) {
+	controller := mrp_controller.NewMonorepoController(a.appInformer, a.Cache, a.appLister, a.applicationClientset, a.db, a.repoClientset)
 	go controller.Run(ctx)
 }
 
 // newHTTPServer returns the HTTP server to serve HTTP/HTTPS requests. This is implemented
 // using grpc-gateway as a proxy to the gRPC server.
-func (a *ACRServer) newHTTPServer(_ context.Context, port int) *http.Server { //nolint:golint,unparam
+func (a *MRPServer) newHTTPServer(_ context.Context, port int) *http.Server { //nolint:golint,unparam
 	endpoint := fmt.Sprintf("localhost:%d", port)
 	mux := http.NewServeMux()
 	httpS := http.Server{
@@ -127,7 +127,7 @@ func (a *ACRServer) newHTTPServer(_ context.Context, port int) *http.Server { //
 	return &httpS
 }
 
-func (a *ACRServer) checkServeErr(name string, err error) {
+func (a *MRPServer) checkServeErr(name string, err error) {
 	if err != nil {
 		if a.stopCh != nil {
 			log.Fatalf("%s: %v", name, err)
@@ -152,7 +152,7 @@ func startListener(host string, port int) (net.Listener, error) {
 	return conn, realErr
 }
 
-func (a *ACRServer) Listen() (*Listeners, error) {
+func (a *MRPServer) Listen() (*Listeners, error) {
 	mainLn, err := startListener(a.ListenHost, a.ListenPort)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (a *ACRServer) Listen() (*Listeners, error) {
 // We use k8s.io/code-generator/cmd/go-to-protobuf to generate the .proto files from the API types.
 // k8s.io/ go-to-protobuf uses protoc-gen-gogo, which comes from gogo/protobuf (a fork of
 // golang/protobuf).
-func (a *ACRServer) Run(ctx context.Context, lns *Listeners) {
+func (a *MRPServer) Run(ctx context.Context, lns *Listeners) {
 	httpS := a.newHTTPServer(ctx, a.ListenPort)
 	tlsConfig := tls.Config{}
 	tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -182,7 +182,7 @@ func (a *ACRServer) Run(ctx context.Context, lns *Listeners) {
 }
 
 // NewServer returns a new instance of the Event Reporter server
-func NewApplicationChangeRevisionServer(ctx context.Context, opts ACRServerOpts) *ACRServer {
+func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 	appInformerNs := opts.Namespace
 	if len(opts.ApplicationNamespaces) > 0 {
 		appInformerNs = ""
@@ -198,8 +198,8 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts ACRServerOpts)
 	// 	repoServerTimeoutSeconds,
 	// 	tlsConfig)
 	
-	server := &ACRServer{
-		ACRServerOpts:        opts,
+	server := &MRPServer{
+		MRPServerOpts:        opts,
 		log:                  log.NewEntry(log.StandardLogger()),
 		appInformer:          appInformer,
 		appLister:            appLister,
@@ -211,6 +211,6 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts ACRServerOpts)
 	return server
 }
 
-func newApplicationChangeRevisionServiceSet() *ACRServerSet {
-	return &ACRServerSet{}
+func newApplicationChangeRevisionServiceSet() *MRPServerSet {
+	return &MRPServerSet{}
 }

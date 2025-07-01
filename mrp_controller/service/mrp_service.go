@@ -23,7 +23,7 @@ import (
 	ioutil "github.com/argoproj/argo-cd/v3/util/io"
 )
 
-type ACRService interface {
+type MRPService interface {
 	ChangeRevision(ctx context.Context, application *application.Application) error
 }
 
@@ -35,7 +35,7 @@ type acrService struct {
 	repoClientset            repoapiclient.Clientset
 }
 
-func NewACRService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) ACRService {
+func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPService {
 	return &acrService{
 		applicationClientset:     applicationClientset,
 		logger:                   log.New(),
