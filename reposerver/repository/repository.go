@@ -1,33 +1,35 @@
 package repository
 
 import (
-	//"bytes"
+	// "bytes"
 	"context"
-	//"encoding/json"
+	// "encoding/json"
 	"errors"
 	"fmt"
 	goio "io"
 	"io/fs"
+
 	//	"net/url"
 	"os"
-	//"path"
+	// "path"
 	"path/filepath"
 	"regexp"
-	//"strings"
+
+	// "strings"
 	"time"
 
-	//"github.com/TomOnTime/utfutil"
+	// "github.com/TomOnTime/utfutil"
 	//	imagev1 "github.com/opencontainers/image-spec/specs-go/v1"
 	//"sigs.k8s.io/yaml"
 
 	"github.com/argoproj/argo-cd/v3/util/oci"
 
-	//"github.com/argoproj/gitops-engine/pkg/utils/kube"
-	//textutils "github.com/argoproj/gitops-engine/pkg/utils/text"
+	// "github.com/argoproj/gitops-engine/pkg/utils/kube"
+	// textutils "github.com/argoproj/gitops-engine/pkg/utils/text"
 	"github.com/argoproj/pkg/v2/sync"
-	//jsonpatch "github.com/evanphx/json-patch"
+	// jsonpatch "github.com/evanphx/json-patch"
 	gogit "github.com/go-git/go-git/v5"
-	//"github.com/golang/protobuf/ptypes/empty"
+	// "github.com/golang/protobuf/ptypes/empty"
 	//"github.com/google/go-jsonnet"
 	//"github.com/google/uuid"
 	//grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
@@ -35,30 +37,32 @@ import (
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	//"google.golang.org/protobuf/types/known/emptypb"
+
+	// "google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/api/resource"
 	//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	//"k8s.io/apimachinery/pkg/runtime"
 	//kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	//pluginclient "github.com/argoproj/argo-cd/v3/cmpserver/apiclient"
+	// pluginclient "github.com/argoproj/argo-cd/v3/cmpserver/apiclient"
 	//"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v3/reposerver/cache"
 	"github.com/argoproj/argo-cd/v3/reposerver/metrics"
-	//"github.com/argoproj/argo-cd/v3/util/app/discovery"
+
+	// "github.com/argoproj/argo-cd/v3/util/app/discovery"
 	//apppathutil "github.com/argoproj/argo-cd/v3/util/app/path"
 	//"github.com/argoproj/argo-cd/v3/util/argo"
 	//"github.com/argoproj/argo-cd/v3/util/cmp"
 	"github.com/argoproj/argo-cd/v3/util/git"
-	//"github.com/argoproj/argo-cd/v3/util/glob"
+	// "github.com/argoproj/argo-cd/v3/util/glob"
 	//"github.com/argoproj/argo-cd/v3/util/gpg"
 	//"github.com/argoproj/argo-cd/v3/util/grpc"
 	"github.com/argoproj/argo-cd/v3/util/helm"
 	utilio "github.com/argoproj/argo-cd/v3/util/io"
-	//"github.com/argoproj/argo-cd/v3/util/io/files"
+	// "github.com/argoproj/argo-cd/v3/util/io/files"
 	//pathutil "github.com/argoproj/argo-cd/v3/util/io/path"
 	//"github.com/argoproj/argo-cd/v3/util/kustomize"
 	//	"github.com/argoproj/argo-cd/v3/util/manifeststream"
@@ -305,7 +309,7 @@ func (s *Service) Init() error {
 // the appPath or GPG verificationResult.
 // Failure to generate either of these values will return an error which may be cached by
 // the calling function (for example, 'runManifestGen')
-//type operationContextSrc = func() (*operationContext, error)
+// type operationContextSrc = func() (*operationContext, error)
 
 // // runRepoOperation downloads either git folder or helm chart and executes specified operation
 // // - Returns a value from the cache if present (by calling getCached(...)); if no value is present, the

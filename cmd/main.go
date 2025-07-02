@@ -1,10 +1,11 @@
 package main
 
 import (
-	//"errors"
+	// "errors"
 	"fmt"
 	"os"
-	//"os/exec"
+
+	// "os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -12,17 +13,17 @@ import (
 
 	monorepocontroller "github.com/argoproj/argo-cd/v3/cmd/monorepo_controller/commands"
 
-	//appcontroller "github.com/argoproj/argo-cd/v3/cmd/argocd-application-controller/commands"
-	//applicationset "github.com/argoproj/argo-cd/v3/cmd/argocd-applicationset-controller/commands"
-	//cmpserver "github.com/argoproj/argo-cd/v3/cmd/argocd-cmp-server/commands"
-	//commitserver "github.com/argoproj/argo-cd/v3/cmd/argocd-commit-server/commands"
-	//dex "github.com/argoproj/argo-cd/v3/cmd/argocd-dex/commands"
+	// appcontroller "github.com/argoproj/argo-cd/v3/cmd/argocd-application-controller/commands"
+	// applicationset "github.com/argoproj/argo-cd/v3/cmd/argocd-applicationset-controller/commands"
+	// cmpserver "github.com/argoproj/argo-cd/v3/cmd/argocd-cmp-server/commands"
+	// commitserver "github.com/argoproj/argo-cd/v3/cmd/argocd-commit-server/commands"
+	// dex "github.com/argoproj/argo-cd/v3/cmd/argocd-dex/commands"
 	gitaskpass "github.com/argoproj/argo-cd/v3/cmd/argocd-git-ask-pass/commands"
-	//k8sauth "github.com/argoproj/argo-cd/v3/cmd/argocd-k8s-auth/commands"
-	//notification "github.com/argoproj/argo-cd/v3/cmd/argocd-notification/commands"
+	// k8sauth "github.com/argoproj/argo-cd/v3/cmd/argocd-k8s-auth/commands"
+	// notification "github.com/argoproj/argo-cd/v3/cmd/argocd-notification/commands"
 	reposerver "github.com/argoproj/argo-cd/v3/cmd/argocd-repo-server/commands"
-	//apiserver "github.com/argoproj/argo-cd/v3/cmd/argocd-server/commands"
-	//cli "github.com/argoproj/argo-cd/v3/cmd/argocd/commands"
+	// apiserver "github.com/argoproj/argo-cd/v3/cmd/argocd-server/commands"
+	// cli "github.com/argoproj/argo-cd/v3/cmd/argocd/commands"
 	"github.com/argoproj/argo-cd/v3/cmd/util"
 	"github.com/argoproj/argo-cd/v3/util/log"
 )
@@ -47,7 +48,7 @@ func main() {
 	isArgocdCLI := false
 
 	switch binaryName {
-	//case "argocd", "argocd-linux-amd64", "argocd-darwin-amd64", "argocd-windows-amd64.exe":
+	// case "argocd", "argocd-linux-amd64", "argocd-darwin-amd64", "argocd-windows-amd64.exe":
 	//	command = cli.NewCommand()
 	//      isArgocdCLI = true
 	// case "argocd-server":
@@ -63,23 +64,23 @@ func main() {
 	// 	isArgocdCLI = true
 	// case "argocd-commit-server":
 	// 	command = commitserver.NewCommand()
-	//case "argocd-dex":
-	//command = dex.NewCommand()
-	//case "argocd-notifications":
-	//command = notification.NewCommand()
+	// case "argocd-dex":
+	// command = dex.NewCommand()
+	// case "argocd-notifications":
+	// command = notification.NewCommand()
 	case "argocd-git-ask-pass":
 		command = gitaskpass.NewCommand()
 		isArgocdCLI = true
-		//case "argocd-applicationset-controller":
-		//command = applicationset.NewCommand()
+		// case "argocd-applicationset-controller":
+		// command = applicationset.NewCommand()
 	// case "argocd-k8s-auth":
 	// 	command = k8sauth.NewCommand()
 	// 	isArgocdCLI = true
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid binary name: '%s'", binaryName)
 		os.Exit(1)
-		//command = cli.NewCommand()
-		//isArgocdCLI = true
+		// command = cli.NewCommand()
+		// isArgocdCLI = true
 	}
 	util.SetAutoMaxProcs(isArgocdCLI)
 

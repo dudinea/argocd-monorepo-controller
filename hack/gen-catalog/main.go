@@ -21,8 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
-
-	//"github.com/argoproj/argo-cd/v3/cmd/argocd/commands/admin"
+	// "github.com/argoproj/argo-cd/v3/cmd/argocd/commands/admin"
 )
 
 func main() {
@@ -168,8 +167,8 @@ func generateCommandsDocs(out io.Writer) error {
 	// create parents so that CommandPath() is correctly resolved
 	mainCmd := &cobra.Command{Use: "argocd"}
 	adminCmd := &cobra.Command{Use: "admin"}
-	//toolCmd := admin.NewNotificationsCommand()
-	//adminCmd.AddCommand(toolCmd)
+	// toolCmd := admin.NewNotificationsCommand()
+	// adminCmd.AddCommand(toolCmd)
 	mainCmd.AddCommand(adminCmd)
 	for _, mainSubCommand := range mainCmd.Commands() {
 		for _, adminSubCommand := range mainSubCommand.Commands() {

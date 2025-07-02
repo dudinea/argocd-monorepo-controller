@@ -14,8 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"github.com/argoproj/argo-cd/v3/util/db"
+
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
+	"github.com/argoproj/argo-cd/v3/util/db"
 
 	mrp_controller "github.com/argoproj/argo-cd/v3/mrp_controller/controller"
 
@@ -52,17 +53,17 @@ type MRPServer struct {
 type MRPServerSet struct{}
 
 type MRPServerOpts struct {
-	ListenPort               int
-	ListenHost               string
-	Namespace                string
-	KubeClientset            kubernetes.Interface
-	AppClientset             appclientset.Interface
-	Cache                    *servercache.Cache
-	RedisClient              *redis.Client
-	ApplicationNamespaces    []string
-	BaseHRef                 string
-	RootPath                 string
-	RepoClientset            repoapiclient.Clientset
+	ListenPort            int
+	ListenHost            string
+	Namespace             string
+	KubeClientset         kubernetes.Interface
+	AppClientset          appclientset.Interface
+	Cache                 *servercache.Cache
+	RedisClient           *redis.Client
+	ApplicationNamespaces []string
+	BaseHRef              string
+	RootPath              string
+	RepoClientset         repoapiclient.Clientset
 }
 
 type handlerSwitcher struct {
@@ -197,7 +198,7 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 	// repoclientset := repoapiclient.NewRepoServerClientset(repoServerAddress,
 	// 	repoServerTimeoutSeconds,
 	// 	tlsConfig)
-	
+
 	server := &MRPServer{
 		MRPServerOpts:        opts,
 		log:                  log.NewEntry(log.StandardLogger()),
