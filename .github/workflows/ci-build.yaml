@@ -264,8 +264,8 @@ jobs:
           go-version: ${{ env.GOLANG_VERSION }}
       - name: Create symlink in GOPATH
         run: |
-          mkdir -p ~/go/src/github.com/argoproj
-          cp -a ../argo-cd ~/go/src/github.com/argoproj
+          mkdir -p ~/go/src/github.com/argoproj-labs
+          cp -a ../argocd-monorepo-controller ~/go/src/github.com/argoproj-labs
       - name: Add ~/go/bin to PATH
         run: |
           echo "/home/runner/go/bin" >> $GITHUB_PATH
@@ -277,23 +277,23 @@ jobs:
           # We need to vendor go modules for codegen yet
           go mod download
           go mod vendor -v
-        working-directory: /home/runner/go/src/github.com/argoproj/argo-cd
+        working-directory: /home/runner/go/src/github.com/argoproj-labs/argocd-monorepo-controller
       - name: Install toolchain for codegen
         run: |
           make install-codegen-tools-local
           make install-go-tools-local
-        working-directory: /home/runner/go/src/github.com/argoproj/argo-cd
+        working-directory: /home/runner/go/src/github.com/argoproj-labs/argocd-monorepo-controller
         # We install kustomize in the dist directory
       - name: Add dist to PATH
         run: |
-          echo "/home/runner/work/argo-cd/argo-cd/dist" >> $GITHUB_PATH
+          echo "/home/runner/work/argocd-monorepo-controller/argocd-monorepo-controller/dist" >> $GITHUB_PATH
       - name: Run codegen
         run: |
           set -x
           export GOPATH=$(go env GOPATH)
           git checkout -- go.mod go.sum
           make codegen-local
-        working-directory: /home/runner/go/src/github.com/argoproj/argo-cd
+        working-directory: /home/runner/go/src/github.com/argoproj-labs/argocd-monorepo-controller
       - name: Check nothing has changed
         run: |
           set -xo pipefail
