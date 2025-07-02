@@ -13,10 +13,9 @@ const (
 	DefaultPortEventReporterServerMetrics = 8087
 	DefaultPortEventReporterServer        = 8088
 
-	DefaultPortMRPServer = 8090
-	DefaultPortMonorepoRepoServer         = 8091
-	DefaultPortMonorepoRepoServerMetrics  = 8094
-	
+	DefaultPortMRPServer                 = 8090
+	DefaultPortMonorepoRepoServer        = 8091
+	DefaultPortMonorepoRepoServerMetrics = 8094
 )
 
 // DefaultAddressAPIServer for ArgoCD components
@@ -24,9 +23,9 @@ const (
 	DefaultAddressEventReporterServer        = "0.0.0.0"
 	DefaultAddressMRPController              = "0.0.0.0"
 	DefaultAddressEventReporterServerMetrics = "0.0.0.0"
-	
-	DefaultAddressMonorepoRepoServerMetrics   = "0.0.0.0"
-	DefaultAddressMonorepoRepoServer = "0.0.0.0"
+
+	DefaultAddressMonorepoRepoServerMetrics = "0.0.0.0"
+	DefaultAddressMonorepoRepoServer        = "0.0.0.0"
 )
 
 // Environment variables for tuning and debugging Argo CD

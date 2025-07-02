@@ -1,14 +1,10 @@
 package util
 
 import (
-
 	"go.uber.org/automaxprocs/maxprocs"
 
-
 	log "github.com/sirupsen/logrus"
-
 )
-
 
 // SetAutoMaxProcs sets the GOMAXPROCS value based on the binary name.
 // It suppresses logs for CLI binaries and logs the setting for services.
@@ -22,4 +18,3 @@ func SetAutoMaxProcs(isCLI bool) {
 		}
 	}
 }
-

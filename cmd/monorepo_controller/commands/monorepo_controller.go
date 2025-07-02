@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
-	"time"
 	"math"
+	"time"
 
 	mrp "github.com/argoproj/argo-cd/v3/mrp_controller"
 	cacheutil "github.com/argoproj/argo-cd/v3/util/cache"
@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
-	
+
 	cmdutil "github.com/argoproj/argo-cd/v3/cmd/util"
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -28,7 +28,6 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/errors"
 	"github.com/argoproj/argo-cd/v3/util/kube"
 )
-
 
 const (
 	failureRetryCountEnv              = "EVENT_REPORTER_K8S_RETRY_COUNT"
@@ -115,15 +114,15 @@ func NewCommand() *cobra.Command {
 				tlsConfig)
 
 			changeRevisionServerOpts := mrp.MRPServerOpts{
-				ListenPort:               listenPort,
-				ListenHost:               listenHost,
-				Namespace:                namespace,
-				KubeClientset:            kubeclientset,
-				AppClientset:             appClientSet,
-				Cache:                    cache,
-				RedisClient:              redisClient,
-				ApplicationNamespaces:    applicationNamespaces,
-				RepoClientset:            repoClientSet,
+				ListenPort:            listenPort,
+				ListenHost:            listenHost,
+				Namespace:             namespace,
+				KubeClientset:         kubeclientset,
+				AppClientset:          appClientSet,
+				Cache:                 cache,
+				RedisClient:           redisClient,
+				ApplicationNamespaces: applicationNamespaces,
+				RepoClientset:         repoClientSet,
 			}
 
 			log.Info("Starting change revision controller server")
@@ -165,7 +164,7 @@ func NewCommand() *cobra.Command {
 	command.Flags().StringVar(&repoServerAddress, "monorepo-repo-server", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER", common.DefaultMonorepoRepoServerAddr), "Monorepo Repo server address")
 	command.Flags().IntVar(&repoServerTimeoutSeconds, "monorepo-repo-server-timeout-seconds", env.ParseNumFromEnv("ARGOCD_MONOREPO_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
 	command.Flags().BoolVar(&repoServerPlaintext, "monorepo-repo-server-plaintext", env.ParseBoolFromEnv("ARGOCD_SERVER_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
-	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("ARGOCD_SERVER_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")	
+	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("ARGOCD_SERVER_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")
 	cacheSrc = servercache.AddCacheFlagsToCmd(command, cacheutil.Options{
 		OnClientCreated: func(client *redis.Client) {
 			redisClient = client

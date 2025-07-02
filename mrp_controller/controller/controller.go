@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+
 	"github.com/argoproj/argo-cd/v3/util/db"
 
 	"github.com/argoproj/argo-cd/v3/mrp_controller/service"
@@ -25,11 +26,11 @@ type MRPController interface {
 }
 
 type monorepoController struct {
-	appBroadcaster           Broadcaster
-	cache                    *servercache.Cache
-	appLister                applisters.ApplicationLister
-	acrService               service.MRPService
-	applicationClientset     appclientset.Interface
+	appBroadcaster       Broadcaster
+	cache                *servercache.Cache
+	appLister            applisters.ApplicationLister
+	acrService           service.MRPService
+	applicationClientset appclientset.Interface
 }
 
 func NewMonorepoController(appInformer cache.SharedIndexInformer, cache *servercache.Cache, appLister applisters.ApplicationLister, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
@@ -39,11 +40,11 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, cache *serverc
 		log.Error(err)
 	}
 	return &monorepoController{
-		appBroadcaster:           appBroadcaster,
-		cache:                    cache,
-		appLister:                appLister,
-		applicationClientset:     applicationClientset,
-		acrService:               service.NewMRPService(applicationClientset, db, repoClientset),
+		appBroadcaster:       appBroadcaster,
+		cache:                cache,
+		appLister:            appLister,
+		applicationClientset: applicationClientset,
+		acrService:           service.NewMRPService(applicationClientset, db, repoClientset),
 	}
 }
 
@@ -66,7 +67,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logCtx.Infof("got Done event")			
+			logCtx.Infof("got Done event")
 			return
 		case event := <-eventsChannel:
 			logCtx.Infof("got event: channel size is %d", len(eventsChannel))

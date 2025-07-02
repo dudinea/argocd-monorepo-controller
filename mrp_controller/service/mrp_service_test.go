@@ -128,7 +128,7 @@ package service
 //         path: apps/guestbook
 //         repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
 //         targetRevision: HEAD
-//   sync: 
+//   sync:
 //     revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
 //     status: Synced
 // `
@@ -199,7 +199,7 @@ package service
 //         path: apps/guestbook
 //         repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
 //         targetRevision: HEAD
-//   sync: 
+//   sync:
 //     revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
 //     status: Synced
 // `

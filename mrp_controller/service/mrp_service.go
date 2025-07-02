@@ -3,47 +3,49 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"fmt"
+	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/argoproj/argo-cd/v3/util/db"
-	
+
 	// "k8s.io/utils/ptr"
-	"github.com/argoproj/argo-cd/v3/util/app/path"
-	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	application "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
-	ioutil "github.com/argoproj/argo-cd/v3/util/io"
+	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
+	"github.com/argoproj/argo-cd/v3/util/app/path"
+	utilio "github.com/argoproj/argo-cd/v3/util/io"
 )
 
-const CHANGE_REVISION_ANN = "mrp-controller.argoproj.io/change-revision"
-const GIT_REVISION_ANN = "mrp-controller.argoproj.io/git-revision"
+const (
+	CHANGE_REVISION_ANN = "mrp-controller.argoproj.io/change-revision"
+	GIT_REVISION_ANN    = "mrp-controller.argoproj.io/git-revision"
+)
 
 type MRPService interface {
 	ChangeRevision(ctx context.Context, application *application.Application) error
 }
 
 type acrService struct {
-	applicationClientset     appclientset.Interface
-	lock                     sync.Mutex
-	logger                   *log.Logger
-	db                       db.ArgoDB
-	repoClientset            repoapiclient.Clientset
+	applicationClientset appclientset.Interface
+	lock                 sync.Mutex
+	logger               *log.Logger
+	db                   db.ArgoDB
+	repoClientset        repoapiclient.Clientset
 }
 
 func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPService {
 	return &acrService{
-		applicationClientset:     applicationClientset,
-		logger:                   log.New(),
-		db:                       db,
-		repoClientset:            repoClientset,
+		applicationClientset: applicationClientset,
+		logger:               log.New(),
+		db:                   db,
+		repoClientset:        repoClientset,
 	}
 }
 
@@ -59,7 +61,7 @@ func getChangeRevisionFromRevisions(revisions []string) string {
 // ChangeRevision (from annotation),
 // GitRevision    (from annotation)
 // ArgoRevision   (from Application Manifest)
-func getApplicationRevisions(app *application.Application) (string, string, string)  {
+func getApplicationRevisions(app *application.Application) (string, string, string) {
 	anns := app.Annotations
 	changeRevision := anns[CHANGE_REVISION_ANN]
 	gitRevision := anns[GIT_REVISION_ANN]
@@ -67,7 +69,7 @@ func getApplicationRevisions(app *application.Application) (string, string, stri
 	if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
 		argoRevision = app.Status.OperationState.Operation.Sync.Revision
 	}
-	if "" == argoRevision {
+	if argoRevision == "" {
 		argoRevision = app.Status.Sync.Revision
 	}
 	return changeRevision, gitRevision, argoRevision
@@ -90,8 +92,8 @@ func (c *acrService) ChangeRevision(ctx context.Context, a *application.Applicat
 	// 	c.logger.Infof("skipping because non-relevant operation: %v", app.Operation)
 	// 	return nil
 	// }
-	changeRevision, gitRevision, argoRevision := getApplicationRevisions(a);
-	
+	changeRevision, gitRevision, argoRevision := getApplicationRevisions(a)
+
 	// current argo revision not changed since the last time we red the revions info
 	c.logger.Infof("ChangeRevision is %s, gitRevision is %s, ArgoRevision is %s for application %s",
 		changeRevision, gitRevision, argoRevision, app.Name)
@@ -114,7 +116,7 @@ func (c *acrService) ChangeRevision(ctx context.Context, a *application.Applicat
 	if changeRevision == *newChangeRevision {
 		c.logger.Infof("Application change revision for %s has not changed", app.Name)
 	}
-	//revisions := []string{*revision}
+	// revisions := []string{*revision}
 
 	/*if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
 		c.logger.Infof("Patch operation status for application %s", app.Name)
@@ -129,28 +131,27 @@ func (c *acrService) calculateRevision(ctx context.Context, a *application.Appli
 	c.logger.Infof("Calculate revision called for application '%s'", a.Name)
 	currentRevision, previousRevision := c.getRevisions(ctx, a)
 	c.logger.Infof("Calculate revision for application '%s', current revision '%s', previous revision '%s'", a.Name, currentRevision, previousRevision)
-	
+
 	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
 	if !ok || val == "" {
 		c.logger.Infof("manifest generation paths not set for application  '%s/%s'", a.Namespace, a.Name)
 		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
 	}
 
-	
 	repo, err := c.db.GetRepository(ctx, a.Spec.GetSource().RepoURL, a.Spec.Project)
 	if err != nil {
- 		return nil, fmt.Errorf("error getting repository: %w", err)
+		return nil, fmt.Errorf("error getting repository: %w", err)
 	}
 	c.logger.Infof("repository is %v", repo)
 
 	closer, client, err := c.repoClientset.NewRepoServerClient()
- 	if err != nil {
- 		return nil, fmt.Errorf("error creating repo server client: %w", err)
- 	}
- 	defer ioutil.Close(closer)
+	if err != nil {
+		return nil, fmt.Errorf("error creating repo server client: %w", err)
+	}
+	defer utilio.Close(closer)
 	c.logger.Infof("repository client  is %v", client)
 
-	//changeRevisionResult, err := client.TestRepository(ctx, &repoapiclient.TestRepositoryRequest{Repo: repo})
+	// changeRevisionResult, err := client.TestRepository(ctx, &repoapiclient.TestRepositoryRequest{Repo: repo})
 	changeRevisionResult, err := client.GetChangeRevision(ctx, &repoapiclient.ChangeRevisionRequest{
 		AppName:          a.GetName(),
 		Namespace:        a.GetNamespace(),
@@ -160,8 +161,8 @@ func (c *acrService) calculateRevision(ctx context.Context, a *application.Appli
 		Repo:             repo,
 	})
 	if err != nil {
- 		return nil, fmt.Errorf("error getting change revision: %w", err)
- 	}
+		return nil, fmt.Errorf("error getting change revision: %w", err)
+	}
 	c.logger.Infof("repo response is %v", changeRevisionResult)
 	// ED: end of application service logic
 	// changeRevisionResult, err := c.applicationServiceClient.GetChangeRevision(ctx, &appclient.ChangeRevisionRequest{
@@ -170,7 +171,7 @@ func (c *acrService) calculateRevision(ctx context.Context, a *application.Appli
 	// 	CurrentRevision:  ptr.To(currentRevision),
 	// 	PreviousRevision: ptr.To(previousRevision),
 	// })
-	//if err != nil {
+	// if err != nil {
 	//		return nil, err
 	//}
 	return &changeRevisionResult.Revision, nil
@@ -183,7 +184,7 @@ func (c *acrService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 		"metadata": map[string]any{
 			"annotations": map[string]any{
 				CHANGE_REVISION_ANN: changeRevision,
-				GIT_REVISION_ANN: argoRevision,
+				GIT_REVISION_ANN:    argoRevision,
 			},
 		},
 	})
@@ -192,7 +193,7 @@ func (c *acrService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 		c.logger.Errorf("failed to annotate: %v", err)
 	}
 	return err
- 	//} else {
+	// } else {
 	//		c.logger.Errorf("annotating multiple with revisions not implemented")
 	//}
 	//return nil
