@@ -78,8 +78,8 @@ jobs:
       platforms: ${{ needs.set-vars.outputs.platforms }}
       push: true
     secrets:
-      quay_username: ${{ secrets.RELEASE_QUAY_USERNAME }}
-      quay_password: ${{ secrets.RELEASE_QUAY_TOKEN }}
+      quay_username: ${{ secrets.QUAY_USERNAME }}
+      quay_password: ${{ secrets.QUAY_TOKEN }}
       ghcr_username: ${{ github.actor }}
       ghcr_password: ${{ secrets.GITHUB_TOKEN }}
 
