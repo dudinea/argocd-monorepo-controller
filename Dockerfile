@@ -25,11 +25,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY hack/install.sh hack/tool-versions.sh ./
-COPY hack/installers installers
+# no need for this in monorepo controller
+#COPY hack/install.sh hack/tool-versions.sh ./
+#COPY hack/installers installers
 
-RUN ./install.sh helm && \
-    INSTALL_PATH=/usr/local/bin ./install.sh kustomize
+#RUN ./install.sh helm && \
+#    INSTALL_PATH=/usr/local/bin ./install.sh kustomize
 
 ####################################################################################################
 # Argo CD Base - used as the base for both the release and dev argocd images
@@ -59,8 +60,8 @@ COPY hack/gpg-wrapper.sh \
     hack/git-verify-wrapper.sh \
     entrypoint.sh \
     /usr/local/bin/
-COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
-COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/kustomize
+#COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+#COPY --from=builder /usr/local/bin/kustomize /usr/local/bin/kustomize
 
 # keep uid_entrypoint.sh for backward compatibility
 RUN ln -s /usr/local/bin/entrypoint.sh /usr/local/bin/uid_entrypoint.sh
