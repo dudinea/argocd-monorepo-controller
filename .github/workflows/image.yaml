@@ -37,7 +37,9 @@ jobs:
           IMAGE_PLATFORMS=linux/amd64
           if [[ "${{ github.event_name }}" == "push" || "${{ contains(github.event.pull_request.labels.*.name, 'test-multi-image') }}" == "true" ]]
           then
-            IMAGE_PLATFORMS=linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+            IMAGE_PLATFORMS=linux/amd64,linux/arm64
+            # temporarily disable to speed things up
+            #,linux/s390x,linux/ppc64le
           fi
           echo "Building image for platforms: $IMAGE_PLATFORMS"
           echo "platforms=$IMAGE_PLATFORMS" >> $GITHUB_OUTPUT
@@ -79,22 +81,22 @@ jobs:
       ghcr_username: ${{ github.actor }}
       ghcr_password: ${{ secrets.GITHUB_TOKEN }}
 
-  # build-and-publish-provenance: # Push attestations to GHCR, latest image is polluting quay.io
-  #   needs:
-  #     - build-and-publish
-  #   permissions:
-  #     actions: read # for detecting the Github Actions environment.
-  #     id-token: write # for creating OIDC tokens for signing.
-  #     packages: write # for uploading attestations. (https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#known-issues)
-  #   if: ${{ github.repository == 'dudinea/argocd-monorepo-controller' && github.event_name == 'push' }}
-  #   # Must be refernced by a tag. https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#referencing-the-slsa-generator
-  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
-  #   with:
-  #     image: ghcr.io/argoproj/argo-cd/argocd
-  #     digest: ${{ needs.build-and-publish.outputs.image-digest }}
-  #     registry-username: ${{ github.actor }}
-  #   secrets:
-  #     registry-password: ${{ secrets.GITHUB_TOKEN }}
+  build-and-publish-provenance: # Push attestations to GHCR, latest image is polluting quay.io
+    needs:
+      - build-and-publish
+    permissions:
+      actions: read # for detecting the Github Actions environment.
+      id-token: write # for creating OIDC tokens for signing.
+      packages: write # for uploading attestations. (https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#known-issues)
+    if: ${{ github.repository == 'dudinea/argocd-monorepo-controller' && github.event_name == 'push' }}
+    # Must be refernced by a tag. https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#referencing-the-slsa-generator
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/dudinea/argocd-monorepo-controller/argocd-monorepo-controller
+      digest: ${{ needs.build-and-publish.outputs.image-digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
 
   # Deploy:
   #   needs:
