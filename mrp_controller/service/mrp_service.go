@@ -57,22 +57,24 @@ func getChangeRevisionFromRevisions(revisions []string) string {
 	return ""
 }
 
-// Return revisions info from the Application manifest:
-// ChangeRevision (from annotation),
-// GitRevision    (from annotation)
-// ArgoRevision   (from Application Manifest)
-func getApplicationRevisions(app *application.Application) (string, string, string) {
+// Get revisions info from the Application manifest:
+// changeRevision   (from annotation),
+// gitRevision      (from annotation)
+// currentRevision  (from Application Manifest)
+// previousRevision (from Application Manifest)
+func getApplicationRevisions(app *application.Application) (string, string, string, string) {
 	anns := app.Annotations
 	changeRevision := anns[CHANGE_REVISION_ANN]
 	gitRevision := anns[GIT_REVISION_ANN]
-	argoRevision := ""
-	if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
-		argoRevision = app.Status.OperationState.Operation.Sync.Revision
-	}
-	if argoRevision == "" {
-		argoRevision = app.Status.Sync.Revision
-	}
-	return changeRevision, gitRevision, argoRevision
+	currentRevision, previousRevision := getRevisions(app)
+	//argoRevision := ""
+	// if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
+	// 	argoRevision = app.Status.OperationState.Operation.Sync.Revision
+	// }
+	// if argoRevision == "" {
+	// 	argoRevision = app.Status.Sync.Revision
+	// }
+	return changeRevision, gitRevision, currentRevision, previousRevision
 }
 
 // FIXME: multisource applications support!
@@ -92,16 +94,17 @@ func (c *acrService) ChangeRevision(ctx context.Context, a *application.Applicat
 	// 	c.logger.Infof("skipping because non-relevant operation: %v", app.Operation)
 	// 	return nil
 	// }
-	changeRevision, gitRevision, argoRevision := getApplicationRevisions(a)
+	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(a)
 
 	// current argo revision not changed since the last time we red the revions info
-	c.logger.Infof("ChangeRevision is %s, gitRevision is %s, ArgoRevision is %s for application %s",
-		changeRevision, gitRevision, argoRevision, app.Name)
-	if gitRevision != "" && gitRevision == argoRevision {
+	c.logger.Infof("changeRevision is %s, gitRevision is %s, currentRevision is %s, previousRevision is %s  for application %s",
+		changeRevision, gitRevision, currentRevision, previousRevision, app.Name)
+	if gitRevision != "" && gitRevision == currentRevision {
 		c.logger.Infof("Change revision already calculated for application %s", app.Name)
 		return nil
 	}
-	newChangeRevision, err := c.calculateRevision(ctx, app)
+	
+	newChangeRevision, err := c.calculateChangeRevision(ctx, app, currentRevision, previousRevision)
 	if err != nil {
 		return err
 	}
@@ -124,12 +127,14 @@ func (c *acrService) ChangeRevision(ctx context.Context, a *application.Applicat
 	}*/
 
 	c.logger.Infof("Patching operation for application %s", app.Name)
-	return c.annotateAppWithChangeRevision(ctx, app, *newChangeRevision, argoRevision)
+	return c.annotateAppWithChangeRevision(ctx, app, *newChangeRevision, currentRevision)
 }
 
-func (c *acrService) calculateRevision(ctx context.Context, a *application.Application) (*string, error) {
+func (c *acrService) calculateChangeRevision(ctx context.Context,
+	a *application.Application,
+	currentRevision string, previousRevision string) (*string, error) {
 	c.logger.Infof("Calculate revision called for application '%s'", a.Name)
-	currentRevision, previousRevision := c.getRevisions(ctx, a)
+	//currentRevision, previousRevision := c.getRevisions(a)
 	c.logger.Infof("Calculate revision for application '%s', current revision '%s', previous revision '%s'", a.Name, currentRevision, previousRevision)
 
 	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
@@ -258,7 +263,7 @@ func getCurrentRevisionFromOperation(a *application.Application) string {
 //
 //
 // Returns: currentRevision, previousRevision
-func (c *acrService) getRevisions(_ context.Context, a *application.Application) (string, string) {
+func getRevisions(a *application.Application) (string, string) {
 	if len(a.Status.History) == 0 {
 		// it is first sync operation, and we have only current revision
 		return getCurrentRevisionFromOperation(a), ""

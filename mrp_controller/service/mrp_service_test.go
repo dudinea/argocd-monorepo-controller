@@ -132,7 +132,7 @@ status:
     phase: Running
     startedAt: "2024-06-20T19:47:34Z"
     syncResult:
-      revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+      revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
       source:
         path: apps/guestbook
         repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
@@ -144,10 +144,11 @@ status:
 
 func Test_GetApplicationRevisions(t *testing.T) {
 	anapp := createTestApp(syncedAppWithSingleHistoryAnnotated)
-	c,g,a := getApplicationRevisions(anapp)
-	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", a)
-	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", c)
-	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", g)
+	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
+	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", currentRevision)
+	assert.Equal(t, "", previousRevision)
+	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", changeRevision)
+	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
 }
 
 // const syncedAppWithHistory = `
@@ -280,7 +281,8 @@ func Test_CalculateRevision_no_paths(t *testing.T) {
 	acrService := newTestACRService(&repomocks.Clientset{},
 		&mocks.Interface{},
 		&dbmocks.ArgoDB{})
-	revision, err := acrService.calculateRevision(t.Context(), createTestApp(fakeApp))
+	app := createTestApp(fakeApp)
+	revision, err := acrService.calculateChangeRevision(t.Context(), app, "", "" )
 	assert.Nil(t, revision)
 	assert.NotNil(t, err)
 	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
@@ -295,7 +297,7 @@ func Test_CalculateRevision(t *testing.T) {
 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
 		AppName:          app.GetName(),
 		Namespace:        app.GetNamespace(),
-		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646505",
+		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
 		PreviousRevision: "",
 		Paths:            path.GetAppRefreshPaths(app),
 		Repo:             &repo,
@@ -308,7 +310,8 @@ func Test_CalculateRevision(t *testing.T) {
  	db.On("GetRepository",t.Context(), "https://github.com/pasha-codefresh/precisely-gitsource.git", "default").
 		Return(&repo, nil).Once()
  	acrService := newTestACRService(clientsetmock, &mocks.Interface{}, &db)
- 	revision, err := acrService.calculateRevision(t.Context(), app )
+	currentRevision, previousRevision := getRevisions(app)
+ 	revision, err := acrService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
 	assert.Nil(t, err)
  	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
