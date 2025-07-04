@@ -151,7 +151,6 @@ func (c *acrService) calculateRevision(ctx context.Context, a *application.Appli
 	defer utilio.Close(closer)
 	c.logger.Infof("repository client  is %v", client)
 
-	// changeRevisionResult, err := client.TestRepository(ctx, &repoapiclient.TestRepositoryRequest{Repo: repo})
 	changeRevisionResult, err := client.GetChangeRevision(ctx, &repoapiclient.ChangeRevisionRequest{
 		AppName:          a.GetName(),
 		Namespace:        a.GetNamespace(),
@@ -164,16 +163,6 @@ func (c *acrService) calculateRevision(ctx context.Context, a *application.Appli
 		return nil, fmt.Errorf("error getting change revision: %w", err)
 	}
 	c.logger.Infof("repo response is %v", changeRevisionResult)
-	// ED: end of application service logic
-	// changeRevisionResult, err := c.applicationServiceClient.GetChangeRevision(ctx, &appclient.ChangeRevisionRequest{
-	// 	AppName:          ptr.To(a.GetName()),
-	// 	Namespace:        ptr.To(a.GetNamespace()),
-	// 	CurrentRevision:  ptr.To(currentRevision),
-	// 	PreviousRevision: ptr.To(previousRevision),
-	// })
-	// if err != nil {
-	//		return nil, err
-	//}
 	return &changeRevisionResult.Revision, nil
 }
 
@@ -262,6 +251,13 @@ func getCurrentRevisionFromOperation(a *application.Application) string {
 	return ""
 }
 
+
+// Get revisions from AgoCD Application Manifest
+// (operation and status sections).
+// Current revision is the revision the application has been synchronized to last time
+//
+//
+// Returns: currentRevision, previousRevision
 func (c *acrService) getRevisions(_ context.Context, a *application.Application) (string, string) {
 	if len(a.Status.History) == 0 {
 		// it is first sync operation, and we have only current revision
