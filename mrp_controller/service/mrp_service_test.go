@@ -287,6 +287,7 @@ func Test_CalculateRevision_no_paths(t *testing.T) {
 }
 
 func Test_CalculateRevision(t *testing.T) {
+	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
  	db := dbmocks.ArgoDB{}
  	repo := appsv1.Repository{Repo : "myrepo"}
 	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
@@ -300,19 +301,17 @@ func Test_CalculateRevision(t *testing.T) {
 		Repo:             &repo,
 	}
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
-	changeRevisionResponce.Revision = "aaa"
+	changeRevisionResponce.Revision = expectedRevision
 	
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
 	
  	db.On("GetRepository",t.Context(), "https://github.com/pasha-codefresh/precisely-gitsource.git", "default").
 		Return(&repo, nil).Once()
- 	acrService := newTestACRService(clientsetmock,        //&repomocks.Clientset{},
- 		&mocks.Interface{},
- 		&db)
+ 	acrService := newTestACRService(clientsetmock, &mocks.Interface{}, &db)
  	revision, err := acrService.calculateRevision(t.Context(), app )
 	assert.Nil(t, err)
  	assert.NotNil(t, revision)
-	assert.Equal(t, "aaa", *revision)
+	assert.Equal(t, expectedRevision, *revision)
 }
 
 
