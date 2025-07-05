@@ -2,6 +2,7 @@
 .idea/
 .DS_Store
 .run/
+.githooks/
 vendor/
 dist/*
 ui/dist/app/*
