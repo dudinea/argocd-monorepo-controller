@@ -5,8 +5,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 	// 	test2 "github.com/sirupsen/logrus/hooks/test"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	//appmocks "github.com/argoproj/argo-cd/v3/
+	"github.com/stretchr/testify/mock"
+	appmocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/typed/application/v1alpha1/mocks"
 	repomocks "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
 	dbmocks "github.com/argoproj/argo-cd/v3/util/db/mocks"
 	mocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
@@ -24,6 +26,7 @@ import (
 	// 	"github.com/stretchr/testify/require"
 	// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// 	"k8s.io/utils/ptr"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 )
 
@@ -142,14 +145,6 @@ status:
     status: Synced
 `
 
-func Test_GetApplicationRevisions(t *testing.T) {
-	anapp := createTestApp(syncedAppWithSingleHistoryAnnotated)
-	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
-	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", currentRevision)
-	assert.Equal(t, "", previousRevision)
-	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", changeRevision)
-	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
-}
 
 // const syncedAppWithHistory = `
 // apiVersion: argoproj.io/v1alpha1
@@ -222,6 +217,76 @@ func Test_GetApplicationRevisions(t *testing.T) {
 //     status: Synced
 // `
 
+func Test_GetApplicationRevisions(t *testing.T) {
+	anapp := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
+	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", currentRevision)
+	assert.Equal(t, "", previousRevision)
+	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", changeRevision)
+	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
+}
+
+
+func Test_CalculateRevision_no_paths(t *testing.T) {
+	acrService := newTestACRService(&repomocks.Clientset{},
+		&mocks.Interface{},
+		&dbmocks.ArgoDB{})
+	app := createTestApp(fakeApp)
+	revision, err := acrService.calculateChangeRevision(t.Context(), app, "", "" )
+	assert.Nil(t, revision)
+	assert.NotNil(t, err)
+	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
+}
+
+func Test_CalculateRevision(t *testing.T) {
+	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
+ 	repo := appsv1.Repository{Repo : "myrepo"}
+	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	db := createTestArgoDbForAppAndRepo(t, app, &repo)
+	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
+		AppName:          app.GetName(),
+		Namespace:        app.GetNamespace(),
+		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
+		PreviousRevision: "",
+		Paths:            path.GetAppRefreshPaths(app),
+		Repo:             &repo,
+	}
+	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
+	changeRevisionResponce.Revision = expectedRevision
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
+	acrService := newTestACRService(clientsetmock, &mocks.Interface{}, db)
+	currentRevision, previousRevision := getRevisions(app)
+ 	revision, err := acrService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
+	assert.Nil(t, err)
+ 	assert.NotNil(t, revision)
+	assert.Equal(t, expectedRevision, *revision)
+}
+
+
+
+func Test_ChangeRevision(t *testing.T) {
+	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
+ 	repo := appsv1.Repository{Repo : "myrepo"}
+	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	appClientMock := createTestAppClientForApp(t, app)
+	db := createTestArgoDbForAppAndRepo(t, app, &repo)
+	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
+		AppName:          app.GetName(),
+		Namespace:        app.GetNamespace(),
+		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
+		PreviousRevision: "",
+		Paths:            path.GetAppRefreshPaths(app),
+		Repo:             &repo,
+	}
+	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
+	changeRevisionResponce.Revision = expectedRevision
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
+ 	acrService := newTestACRService(clientsetmock, appClientMock, db)
+	err := acrService.ChangeRevision(t.Context(), app)
+	assert.Nil(t, err)
+}
+
+
 func newTestACRService(repoClientMock  *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
 	dbMock *dbmocks.ArgoDB) *acrService {
@@ -233,14 +298,6 @@ func newTestACRService(repoClientMock  *repomocks.Clientset,
  	}
 }
 
-// func newTestMRPService(client *mocks.NewRepoServerServiceClient()) *acrService {
-// 	fakeAppsClientset := apps.NewSimpleClientset(createTestApp(syncedAppWithHistory))
-// 	return &acrService{
-// 		applicationClientset:     fakeAppsClientset,
-// 		applicationServiceClient: client,
-// 		logger:                   logrus.New(),
-// 	}
-// }
 
 func createTestApp(testApp string, opts ...func(app *appsv1.Application)) *appsv1.Application {
 	var app appsv1.Application
@@ -267,6 +324,29 @@ func createTestRepoclientForApp(t *testing.T,
 	return &clientsetmock
 }
 
+func createTestAppClientForApp(t *testing.T,app *appsv1.Application) *mocks.Interface {
+	appintMock := &appmocks.ApplicationInterface{}
+	appintMock.On("Get", t.Context(), app.Name, metav1.GetOptions{}).Return(app, nil)
+	appintMock.On("Patch", t.Context(), app.Name, types.MergePatchType,
+		// FIXME: test for the patch
+		mock.MatchedBy(func(i interface{}) bool { return true}),
+		metav1.PatchOptions{}).Return(app, nil)
+
+	av1alpha1 := &appmocks.ArgoprojV1alpha1Interface{}
+	av1alpha1.On("Applications",app.Namespace).Return(appintMock)
+
+	mock := &mocks.Interface{}
+	mock.On("ArgoprojV1alpha1").Return(av1alpha1)
+	return mock
+}
+
+func createTestArgoDbForAppAndRepo(t *testing.T,app *appsv1.Application, repo *appsv1.Repository) *dbmocks.ArgoDB {
+	db := dbmocks.ArgoDB{}
+	db.On("GetRepository",t.Context(), app.Spec.Source.RepoURL, app.Spec.Project).
+		Return(repo, nil).Once()
+	return &db
+}
+
 // func Test_ChangeRevision(r *testing.T) {
 // 	r.Run("history list is empty", func(t *testing.T) {
 // 		acrService := newTestACRService(&mocks.ApplicationClient{})
@@ -277,45 +357,7 @@ func createTestRepoclientForApp(t *testing.T,
 // }
 
 
-func Test_CalculateRevision_no_paths(t *testing.T) {
-	acrService := newTestACRService(&repomocks.Clientset{},
-		&mocks.Interface{},
-		&dbmocks.ArgoDB{})
-	app := createTestApp(fakeApp)
-	revision, err := acrService.calculateChangeRevision(t.Context(), app, "", "" )
-	assert.Nil(t, revision)
-	assert.NotNil(t, err)
-	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
-}
 
-func Test_CalculateRevision(t *testing.T) {
-	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
- 	db := dbmocks.ArgoDB{}
- 	repo := appsv1.Repository{Repo : "myrepo"}
-	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
-
-	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
-		AppName:          app.GetName(),
-		Namespace:        app.GetNamespace(),
-		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
-		PreviousRevision: "",
-		Paths:            path.GetAppRefreshPaths(app),
-		Repo:             &repo,
-	}
-	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
-	changeRevisionResponce.Revision = expectedRevision
-	
-	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
-	
- 	db.On("GetRepository",t.Context(), "https://github.com/pasha-codefresh/precisely-gitsource.git", "default").
-		Return(&repo, nil).Once()
- 	acrService := newTestACRService(clientsetmock, &mocks.Interface{}, &db)
-	currentRevision, previousRevision := getRevisions(app)
- 	revision, err := acrService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
-	assert.Nil(t, err)
- 	assert.NotNil(t, revision)
-	assert.Equal(t, expectedRevision, *revision)
-}
 
 
 // func Test_getRevisions(r *testing.T) {
