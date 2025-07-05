@@ -103,7 +103,7 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 		c.logger.Infof("Change revision already calculated for application %s", app.Name)
 		return nil
 	}
-	
+
 	newChangeRevision, err := c.calculateChangeRevision(ctx, app, currentRevision, previousRevision)
 	if err != nil {
 		return err
@@ -256,11 +256,9 @@ func getCurrentRevisionFromOperation(a *application.Application) string {
 	return ""
 }
 
-
 // Get revisions from AgoCD Application Manifest
 // (operation and status sections).
 // Current revision is the revision the application has been synchronized to last time
-//
 //
 // Returns: currentRevision, previousRevision
 func getRevisions(a *application.Application) (string, string) {

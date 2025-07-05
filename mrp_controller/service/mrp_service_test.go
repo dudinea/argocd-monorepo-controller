@@ -4,30 +4,31 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	// 	test2 "github.com/sirupsen/logrus/hooks/test"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	// 	test2 "github.com/sirupsen/logrus/hooks/test"
+
+	appsv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	mocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
 	appmocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/typed/application/v1alpha1/mocks"
+	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	repomocks "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
 	dbmocks "github.com/argoproj/argo-cd/v3/util/db/mocks"
-	mocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
-	// 	//appclient "github.com/argoproj/argo-cd/v3/pkg/apiclient/application"
-	appsv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
-	//"github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
-	"github.com/stretchr/testify/assert"
+
 	"github.com/argoproj/argo-cd/v3/util/app/path"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
+	//      "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
 	// 	apps "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/fake"
 	// 	"github.com/argoproj/argo-cd/v3/test"
-
 	// 	"github.com/stretchr/testify/assert"
 	// 	"github.com/stretchr/testify/mock"
 	// 	"github.com/stretchr/testify/require"
 	// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// 	"k8s.io/utils/ptr"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/yaml"
 )
 
 const fakeApp = `
@@ -145,7 +146,6 @@ status:
     status: Synced
 `
 
-
 // const syncedAppWithHistory = `
 // apiVersion: argoproj.io/v1alpha1
 // kind: Application
@@ -226,13 +226,12 @@ func Test_GetApplicationRevisions(t *testing.T) {
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
 }
 
-
 func Test_CalculateRevision_no_paths(t *testing.T) {
 	mrpService := newTestMRPService(&repomocks.Clientset{},
 		&mocks.Interface{},
 		&dbmocks.ArgoDB{})
 	app := createTestApp(fakeApp)
-	revision, err := mrpService.calculateChangeRevision(t.Context(), app, "", "" )
+	revision, err := mrpService.calculateChangeRevision(t.Context(), app, "", "")
 	assert.Nil(t, revision)
 	assert.NotNil(t, err)
 	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
@@ -240,7 +239,7 @@ func Test_CalculateRevision_no_paths(t *testing.T) {
 
 func Test_CalculateRevision(t *testing.T) {
 	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
- 	repo := appsv1.Repository{Repo : "myrepo"}
+	repo := appsv1.Repository{Repo: "myrepo"}
 	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
@@ -253,20 +252,18 @@ func Test_CalculateRevision(t *testing.T) {
 	}
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
-	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
 	mrpService := newTestMRPService(clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisions(app)
- 	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
+	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
 	assert.Nil(t, err)
- 	assert.NotNil(t, revision)
+	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
 }
 
-
-
 func Test_ChangeRevision(t *testing.T) {
 	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
- 	repo := appsv1.Repository{Repo : "myrepo"}
+	repo := appsv1.Repository{Repo: "myrepo"}
 	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
 	appClientMock := createTestAppClientForApp(t, app)
 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
@@ -280,24 +277,22 @@ func Test_ChangeRevision(t *testing.T) {
 	}
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
-	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
- 	mrpService := newTestMRPService(clientsetmock, appClientMock, db)
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
+	mrpService := newTestMRPService(clientsetmock, appClientMock, db)
 	err := mrpService.ChangeRevision(t.Context(), app)
 	assert.Nil(t, err)
 }
 
-
-func newTestMRPService(repoClientMock  *repomocks.Clientset,
+func newTestMRPService(repoClientMock *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
 	dbMock *dbmocks.ArgoDB) *mrpService {
 	return &mrpService{
- 		applicationClientset:     applicationClientsetMock,
-		repoClientset:            repoClientMock,
-		db:                       dbMock,
- 		logger:                   logrus.New(),
- 	}
+		applicationClientset: applicationClientsetMock,
+		repoClientset:        repoClientMock,
+		db:                   dbMock,
+		logger:               logrus.New(),
+	}
 }
-
 
 func createTestApp(testApp string, opts ...func(app *appsv1.Application)) *appsv1.Application {
 	var app appsv1.Application
@@ -311,38 +306,37 @@ func createTestApp(testApp string, opts ...func(app *appsv1.Application)) *appsv
 	return &app
 }
 
-
 func createTestRepoclientForApp(t *testing.T,
 	changeRevisionRequest *repoapiclient.ChangeRevisionRequest,
 	changeRevisionResponse *repoapiclient.ChangeRevisionResponse) *repomocks.Clientset {
 
 	clientsetmock := repomocks.Clientset{}
 	clientmock := repomocks.RepoServerServiceClient{}
-	clientmock.On("GetChangeRevision", t.Context(), changeRevisionRequest ).
+	clientmock.On("GetChangeRevision", t.Context(), changeRevisionRequest).
 		Return(changeRevisionResponse, nil).Once()
 	clientsetmock.RepoServerServiceClient = &clientmock
 	return &clientsetmock
 }
 
-func createTestAppClientForApp(t *testing.T,app *appsv1.Application) *mocks.Interface {
+func createTestAppClientForApp(t *testing.T, app *appsv1.Application) *mocks.Interface {
 	appintMock := &appmocks.ApplicationInterface{}
 	appintMock.On("Get", t.Context(), app.Name, metav1.GetOptions{}).Return(app, nil)
 	appintMock.On("Patch", t.Context(), app.Name, types.MergePatchType,
 		// FIXME: test for the patch
-		mock.MatchedBy(func(i interface{}) bool { return true}),
+		mock.MatchedBy(func(i interface{}) bool { return true }),
 		metav1.PatchOptions{}).Return(app, nil)
 
 	av1alpha1 := &appmocks.ArgoprojV1alpha1Interface{}
-	av1alpha1.On("Applications",app.Namespace).Return(appintMock)
+	av1alpha1.On("Applications", app.Namespace).Return(appintMock)
 
 	mock := &mocks.Interface{}
 	mock.On("ArgoprojV1alpha1").Return(av1alpha1)
 	return mock
 }
 
-func createTestArgoDbForAppAndRepo(t *testing.T,app *appsv1.Application, repo *appsv1.Repository) *dbmocks.ArgoDB {
+func createTestArgoDbForAppAndRepo(t *testing.T, app *appsv1.Application, repo *appsv1.Repository) *dbmocks.ArgoDB {
 	db := dbmocks.ArgoDB{}
-	db.On("GetRepository",t.Context(), app.Spec.Source.RepoURL, app.Spec.Project).
+	db.On("GetRepository", t.Context(), app.Spec.Source.RepoURL, app.Spec.Project).
 		Return(repo, nil).Once()
 	return &db
 }
@@ -355,10 +349,6 @@ func createTestArgoDbForAppAndRepo(t *testing.T,app *appsv1.Application, repo *a
 // 		assert.Equal(t, "", previous)
 // 	})
 // }
-
-
-
-
 
 // func Test_getRevisions(r *testing.T) {
 // 	r.Run("history list is empty", func(t *testing.T) {
