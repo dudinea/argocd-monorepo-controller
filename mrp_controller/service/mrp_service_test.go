@@ -228,11 +228,11 @@ func Test_GetApplicationRevisions(t *testing.T) {
 
 
 func Test_CalculateRevision_no_paths(t *testing.T) {
-	acrService := newTestACRService(&repomocks.Clientset{},
+	mrpService := newTestMRPService(&repomocks.Clientset{},
 		&mocks.Interface{},
 		&dbmocks.ArgoDB{})
 	app := createTestApp(fakeApp)
-	revision, err := acrService.calculateChangeRevision(t.Context(), app, "", "" )
+	revision, err := mrpService.calculateChangeRevision(t.Context(), app, "", "" )
 	assert.Nil(t, revision)
 	assert.NotNil(t, err)
 	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
@@ -254,9 +254,9 @@ func Test_CalculateRevision(t *testing.T) {
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
-	acrService := newTestACRService(clientsetmock, &mocks.Interface{}, db)
+	mrpService := newTestMRPService(clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisions(app)
- 	revision, err := acrService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
+ 	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
 	assert.Nil(t, err)
  	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
@@ -281,16 +281,16 @@ func Test_ChangeRevision(t *testing.T) {
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce )
- 	acrService := newTestACRService(clientsetmock, appClientMock, db)
-	err := acrService.ChangeRevision(t.Context(), app)
+ 	mrpService := newTestMRPService(clientsetmock, appClientMock, db)
+	err := mrpService.ChangeRevision(t.Context(), app)
 	assert.Nil(t, err)
 }
 
 
-func newTestACRService(repoClientMock  *repomocks.Clientset,
+func newTestMRPService(repoClientMock  *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
-	dbMock *dbmocks.ArgoDB) *acrService {
-	return &acrService{
+	dbMock *dbmocks.ArgoDB) *mrpService {
+	return &mrpService{
  		applicationClientset:     applicationClientsetMock,
 		repoClientset:            repoClientMock,
 		db:                       dbMock,

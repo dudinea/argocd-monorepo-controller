@@ -32,7 +32,7 @@ type MRPService interface {
 	ChangeRevision(ctx context.Context, application *application.Application) error
 }
 
-type acrService struct {
+type mrpService struct {
 	applicationClientset appclientset.Interface
 	lock                 sync.Mutex
 	logger               *log.Logger
@@ -41,7 +41,7 @@ type acrService struct {
 }
 
 func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPService {
-	return &acrService{
+	return &mrpService{
 		applicationClientset: applicationClientset,
 		logger:               log.New(),
 		db:                   db,
@@ -78,7 +78,7 @@ func getApplicationRevisions(app *application.Application) (string, string, stri
 }
 
 // FIXME: multisource applications support!
-func (c *acrService) ChangeRevision(ctx context.Context, a *application.Application) error {
+func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
 	c.logger.Infof("ChangeRevision called for application %s", a.Name)
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -130,7 +130,7 @@ func (c *acrService) ChangeRevision(ctx context.Context, a *application.Applicat
 	return c.annotateAppWithChangeRevision(ctx, app, *newChangeRevision, currentRevision)
 }
 
-func (c *acrService) calculateChangeRevision(ctx context.Context,
+func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	a *application.Application,
 	currentRevision string, previousRevision string) (*string, error) {
 	c.logger.Infof("Calculate revision called for application '%s'", a.Name)
@@ -172,7 +172,7 @@ func (c *acrService) calculateChangeRevision(ctx context.Context,
 }
 
 // FIXME: multisource annotations support
-func (c *acrService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
+func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
 	// FIXME: make it smarter, do not annotate both whe only one suffice
 	patch, _ := json.Marshal(map[string]any{
 		"metadata": map[string]any{
@@ -193,7 +193,7 @@ func (c *acrService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 	//return nil
 }
 
-// func (c *acrService) patchOperationWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
+// func (c *mrpService) patchOperationWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
 // 	if len(revisions) == 1 {
 // 		patch, _ := json.Marshal(map[string]any{
 // 			"operation": map[string]any{
@@ -217,7 +217,7 @@ func (c *acrService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 // 	return err
 // }
 
-// func (c *acrService) patchOperationSyncResultWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
+// func (c *mrpService) patchOperationSyncResultWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
 // 	if len(revisions) == 1 {
 // 		patch, _ := json.Marshal(map[string]any{
 // 			"status": map[string]any{
