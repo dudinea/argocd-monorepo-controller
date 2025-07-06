@@ -83,6 +83,64 @@ spec:
 //     targetRevision: HEAD
 // `
 
+const syncedAppWithoutHistory = `
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /demo-applications/trioapp-dev
+  name: demo-trioapp-dev
+  namespace: argocd
+spec:
+  destination:
+    name: in-cluster
+    namespace: demo-dev
+  project: default
+  source:
+    path: demo-applications/trioapp-dev
+    repoURL: https://github.com/somehere/repo01.git
+    targetRevision: dev
+  syncPolicy:
+    automated:
+      allowEmpty: false
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - PrunePropagationPolicy=foreground
+    - Replace=false
+    - PruneLast=false
+    - Validate=true
+    - CreateNamespace=true
+    - ApplyOutOfSyncOnly=false
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=false
+status:
+  controllerNamespace: argocd
+  health:
+    lastTransitionTime: "2025-07-05T16:24:49Z"
+    status: Healthy
+  reconciledAt: "2025-07-06T15:57:23Z"
+  resourceHealthSource: appTree
+  resources:
+  - kind: ConfigMap
+    name: config-cm
+    namespace: demo-dev
+    status: Synced
+    version: v1
+  sourceType: Helm
+  sync:
+    comparedTo:
+      destination:
+        name: in-cluster
+        namespace: demo-dev
+      source:
+        path: demo-applications/trioapp-dev
+        repoURL: https://github.com/somehere/repo01.git
+        targetRevision: dev
+    revision: 2b571ad9ceaab7ed1e6225ca674e367f2d07e41d
+    status: Synced
+`
+
 const syncedAppWithSingleHistoryAnnotated = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -225,6 +283,15 @@ func Test_GetApplicationRevisions(t *testing.T) {
 	assert.Empty(t, previousRevision)
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", changeRevision)
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
+}
+
+func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
+	anapp := createTestApp(t, syncedAppWithoutHistory)
+	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
+	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", currentRevision)
+	assert.Empty(t, previousRevision)
+	assert.Equal(t, "", changeRevision)
+	assert.Equal(t, "", gitRevision)
 }
 
 func Test_CalculateRevision_no_paths(t *testing.T) {
