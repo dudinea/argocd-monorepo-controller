@@ -109,6 +109,7 @@ type RepoServerInitConstants struct {
 	DisableHelmManifestMaxExtractedSize          bool
 	IncludeHiddenDirectories                     bool
 	CMPUseManifestGeneratePaths                  bool
+	UseCache                                     bool
 }
 
 // var manifestGenerateLock = sync.NewKeyLock()
