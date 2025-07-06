@@ -2,7 +2,6 @@ package mrp_controller
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,7 +21,8 @@ import (
 
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	appinformer "github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions"
-	applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
+
+	// applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 	servercache "github.com/argoproj/argo-cd/v3/server/cache"
 	"github.com/argoproj/argo-cd/v3/util/healthz"
 	settings_util "github.com/argoproj/argo-cd/v3/util/settings"
@@ -38,16 +38,16 @@ var backoff = wait.Backoff{
 type MRPServer struct {
 	MRPServerOpts
 
-	settings             *settings_util.ArgoCDSettings
-	log                  *log.Entry
-	appInformer          cache.SharedIndexInformer
-	appLister            applisters.ApplicationLister
+	// settings *settings_util.ArgoCDSettings
+	// log                  *log.Entry
+	appInformer cache.SharedIndexInformer
+	// appLister            applisters.ApplicationLister
 	applicationClientset appclientset.Interface
 	db                   db.ArgoDB
 	repoClientset        repoapiclient.Clientset
 	// stopCh is the channel which when closed, will shutdown the Event Reporter server
-	stopCh     chan struct{}
-	serviceSet *MRPServerSet
+	stopCh chan struct{}
+	// serviceSet *MRPServerSet
 }
 
 type MRPServerSet struct{}
@@ -103,12 +103,12 @@ func (a *MRPServer) healthCheck(_ *http.Request) error {
 // Init starts informers used by the API server
 func (a *MRPServer) Init(ctx context.Context) {
 	go a.appInformer.Run(ctx.Done())
-	svcSet := newApplicationChangeRevisionServiceSet()
-	a.serviceSet = svcSet
+	// svcSet := newApplicationChangeRevisionServiceSet()
+	// a.serviceSet = svcSet
 }
 
 func (a *MRPServer) RunController(ctx context.Context) {
-	controller := mrp_controller.NewMonorepoController(a.appInformer, a.Cache, a.appLister, a.applicationClientset, a.db, a.repoClientset)
+	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset)
 	go controller.Run(ctx)
 }
 
@@ -167,10 +167,10 @@ func (a *MRPServer) Listen() (*Listeners, error) {
 // golang/protobuf).
 func (a *MRPServer) Run(ctx context.Context, lns *Listeners) {
 	httpS := a.newHTTPServer(ctx, a.ListenPort)
-	tlsConfig := tls.Config{}
-	tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return a.settings.Certificate, nil
-	}
+	// tlsConfig := tls.Config{}
+	// tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	// 	return a.settings.Certificate, nil
+	// }
 	go func() { a.checkServeErr("httpS", httpS.Serve(lns.Main)) }()
 	go a.RunController(ctx)
 
@@ -191,7 +191,7 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 	appFactory := appinformer.NewSharedInformerFactoryWithOptions(opts.AppClientset, 0, appinformer.WithNamespace(appInformerNs), appinformer.WithTweakListOptions(func(_ *metav1.ListOptions) {}))
 
 	appInformer := appFactory.Argoproj().V1alpha1().Applications().Informer()
-	appLister := appFactory.Argoproj().V1alpha1().Applications().Lister()
+	// appLister := appFactory.Argoproj().V1alpha1().Applications().Lister()
 
 	settingsMgr := settings_util.NewSettingsManager(ctx, opts.KubeClientset, opts.Namespace)
 	dbInstance := db.NewDB(opts.Namespace, settingsMgr, opts.KubeClientset)
@@ -200,10 +200,10 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 	// 	tlsConfig)
 
 	server := &MRPServer{
-		MRPServerOpts:        opts,
-		log:                  log.NewEntry(log.StandardLogger()),
-		appInformer:          appInformer,
-		appLister:            appLister,
+		MRPServerOpts: opts,
+		// log:                  log.NewEntry(log.StandardLogger()),
+		appInformer: appInformer,
+		// appLister:            appLister,
 		applicationClientset: opts.AppClientset,
 		db:                   dbInstance,
 		repoClientset:        opts.RepoClientset,
@@ -212,6 +212,6 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 	return server
 }
 
-func newApplicationChangeRevisionServiceSet() *MRPServerSet {
-	return &MRPServerSet{}
-}
+// func newApplicationChangeRevisionServiceSet() *MRPServerSet {
+// 	return &MRPServerSet{}
+// }
