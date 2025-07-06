@@ -67,8 +67,11 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		return nil, status.Error(codes.InvalidArgument, "must pass a refresh path")
 	}
 
-	gitClientOpts := git.WithCache(s.cache, true)
-	gitClient, revision, err := s.newClientResolveRevision(repo, currentRevision, gitClientOpts)
+	var gitClientOpts []git.ClientOpts
+	if s.initConstants.UseCache {
+		gitClientOpts = append(gitClientOpts, git.WithCache(s.cache, true))
+	}
+	gitClient, revision, err := s.newClientResolveRevision(repo, currentRevision, gitClientOpts...)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to resolve git revision %s: %v", revision, err)
 	}
