@@ -1,11 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+#images:
+#- name: quay.io/argoprojlabs/argocd-monorepo-controller
+#  newName: quay.io/argoprojlabs/argocd-monorepo-controller
+#  newTag: latest
 
-images:
-- name: quay.io/argoproj/argocd-monorepo-controller
-  newName: quay.io/argoprojlabs/argocd-monorepo-controller
-  newTag: latest
 resources:
 - ./argocd-monorepo-controller
 - ./argocd-monorepo-repo-server

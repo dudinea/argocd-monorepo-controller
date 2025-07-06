@@ -34,7 +34,7 @@ which $KUSTOMIZE
 cd ${SRCROOT}/manifests/base && $KUSTOMIZE edit set image quay.io/argoproj/argocd-monorepo-controller=${IMAGE_NAMESPACE}/argocd-monorepo-controller:${IMAGE_TAG}
 
 echo "${AUTOGENMSG}" > "${SRCROOT}/manifests/install.yaml"
-$KUSTOMIZE build "${SRCROOT}/manifests/namespace-install" >> "${SRCROOT}/manifests/install.yaml"
+$KUSTOMIZE build "${SRCROOT}/manifests/base" >> "${SRCROOT}/manifests/install.yaml"
 
 
 
