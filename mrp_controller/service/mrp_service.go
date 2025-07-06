@@ -190,9 +190,12 @@ func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 	return err
 }
 
-func getCurrentRevisionFromOperation(a *application.Application) string {
+func getCurrentRevisionForFirstSync(a *application.Application) string {
 	if a.Operation != nil && a.Operation.Sync != nil {
 		return a.Operation.Sync.Revision
+	}
+	if a.Status.Sync.Status == "Synced" && a.Status.Sync.Revision != "" {
+		return a.Status.Sync.Revision
 	}
 	return ""
 }
@@ -205,7 +208,7 @@ func getCurrentRevisionFromOperation(a *application.Application) string {
 func getRevisions(a *application.Application) (string, string) {
 	if len(a.Status.History) == 0 {
 		// it is first sync operation, and we have only current revision
-		return getCurrentRevisionFromOperation(a), ""
+		return getCurrentRevisionForFirstSync(a), ""
 	}
 
 	// in case if sync is already done, we need to use revision from sync result and previous revision from history
@@ -218,7 +221,7 @@ func getRevisions(a *application.Application) (string, string) {
 		return currentRevision, a.Status.History[len(a.Status.History)-2].Revision
 	}
 	// in case if sync is in progress, we need to use revision from operation and revision from latest history record
-	currentRevision := getCurrentRevisionFromOperation(a)
+	currentRevision := getCurrentRevisionForFirstSync(a)
 	previousRevision := a.Status.History[len(a.Status.History)-1].Revision
 	return currentRevision, previousRevision
 }
