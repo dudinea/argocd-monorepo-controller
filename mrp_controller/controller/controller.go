@@ -15,8 +15,6 @@ import (
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
-	servercache "github.com/argoproj/argo-cd/v3/server/cache"
 )
 
 var watchAPIBufferSize = 1000
@@ -26,25 +24,25 @@ type MRPController interface {
 }
 
 type monorepoController struct {
-	appBroadcaster       Broadcaster
-	cache                *servercache.Cache
-	appLister            applisters.ApplicationLister
-	acrService           service.MRPService
-	applicationClientset appclientset.Interface
+	appBroadcaster Broadcaster
+	// cache                *servercache.Cache
+	// appLister            applisters.ApplicationLister
+	acrService service.MRPService
+	// applicationClientset appclientset.Interface
 }
 
-func NewMonorepoController(appInformer cache.SharedIndexInformer, cache *servercache.Cache, appLister applisters.ApplicationLister, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
 	appBroadcaster := NewBroadcaster()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
 		log.Error(err)
 	}
 	return &monorepoController{
-		appBroadcaster:       appBroadcaster,
-		cache:                cache,
-		appLister:            appLister,
-		applicationClientset: applicationClientset,
-		acrService:           service.NewMRPService(applicationClientset, db, repoClientset),
+		appBroadcaster: appBroadcaster,
+		// cache:                cache,
+		// appLister:            appLister,
+		// applicationClientset: applicationClientset,
+		acrService: service.NewMRPService(applicationClientset, db, repoClientset),
 	}
 }
 

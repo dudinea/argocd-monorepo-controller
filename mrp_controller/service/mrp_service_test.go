@@ -10,7 +10,7 @@ import (
 	// 	test2 "github.com/sirupsen/logrus/hooks/test"
 
 	appsv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	mocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
+	"github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
 	appmocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/typed/application/v1alpha1/mocks"
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	repomocks "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
@@ -21,12 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
+
 	//      "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
 	// 	apps "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/fake"
 	// 	"github.com/argoproj/argo-cd/v3/test"
 	// 	"github.com/stretchr/testify/assert"
 	// 	"github.com/stretchr/testify/mock"
-	// 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/require"
 	// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// 	"k8s.io/utils/ptr"
 )
@@ -218,10 +219,10 @@ status:
 // `
 
 func Test_GetApplicationRevisions(t *testing.T) {
-	anapp := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	anapp := createTestApp(t, syncedAppWithSingleHistoryAnnotated)
 	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
 	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", currentRevision)
-	assert.Equal(t, "", previousRevision)
+	assert.Empty(t, previousRevision)
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", changeRevision)
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", gitRevision)
 }
@@ -230,17 +231,17 @@ func Test_CalculateRevision_no_paths(t *testing.T) {
 	mrpService := newTestMRPService(&repomocks.Clientset{},
 		&mocks.Interface{},
 		&dbmocks.ArgoDB{})
-	app := createTestApp(fakeApp)
+	app := createTestApp(t, fakeApp)
 	revision, err := mrpService.calculateChangeRevision(t.Context(), app, "", "")
 	assert.Nil(t, revision)
-	assert.NotNil(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "rpc error: code = FailedPrecondition desc = manifest generation paths not set", err.Error())
 }
 
 func Test_CalculateRevision(t *testing.T) {
 	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
 	repo := appsv1.Repository{Repo: "myrepo"}
-	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	app := createTestApp(t, syncedAppWithSingleHistoryAnnotated)
 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
 		AppName:          app.GetName(),
@@ -256,7 +257,7 @@ func Test_CalculateRevision(t *testing.T) {
 	mrpService := newTestMRPService(clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisions(app)
 	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
 }
@@ -264,7 +265,7 @@ func Test_CalculateRevision(t *testing.T) {
 func Test_ChangeRevision(t *testing.T) {
 	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
 	repo := appsv1.Repository{Repo: "myrepo"}
-	app := createTestApp(syncedAppWithSingleHistoryAnnotated)
+	app := createTestApp(t, syncedAppWithSingleHistoryAnnotated)
 	appClientMock := createTestAppClientForApp(t, app)
 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
@@ -280,12 +281,13 @@ func Test_ChangeRevision(t *testing.T) {
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
 	mrpService := newTestMRPService(clientsetmock, appClientMock, db)
 	err := mrpService.ChangeRevision(t.Context(), app)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func newTestMRPService(repoClientMock *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
-	dbMock *dbmocks.ArgoDB) *mrpService {
+	dbMock *dbmocks.ArgoDB,
+) *mrpService {
 	return &mrpService{
 		applicationClientset: applicationClientsetMock,
 		repoClientset:        repoClientMock,
@@ -294,7 +296,8 @@ func newTestMRPService(repoClientMock *repomocks.Clientset,
 	}
 }
 
-func createTestApp(testApp string, opts ...func(app *appsv1.Application)) *appsv1.Application {
+func createTestApp(t *testing.T, testApp string, opts ...func(app *appsv1.Application)) *appsv1.Application {
+	t.Helper()
 	var app appsv1.Application
 	err := yaml.Unmarshal([]byte(testApp), &app)
 	if err != nil {
@@ -308,8 +311,9 @@ func createTestApp(testApp string, opts ...func(app *appsv1.Application)) *appsv
 
 func createTestRepoclientForApp(t *testing.T,
 	changeRevisionRequest *repoapiclient.ChangeRevisionRequest,
-	changeRevisionResponse *repoapiclient.ChangeRevisionResponse) *repomocks.Clientset {
-
+	changeRevisionResponse *repoapiclient.ChangeRevisionResponse,
+) *repomocks.Clientset {
+	t.Helper()
 	clientsetmock := repomocks.Clientset{}
 	clientmock := repomocks.RepoServerServiceClient{}
 	clientmock.On("GetChangeRevision", t.Context(), changeRevisionRequest).
@@ -319,11 +323,12 @@ func createTestRepoclientForApp(t *testing.T,
 }
 
 func createTestAppClientForApp(t *testing.T, app *appsv1.Application) *mocks.Interface {
+	t.Helper()
 	appintMock := &appmocks.ApplicationInterface{}
 	appintMock.On("Get", t.Context(), app.Name, metav1.GetOptions{}).Return(app, nil)
 	appintMock.On("Patch", t.Context(), app.Name, types.MergePatchType,
 		// FIXME: test for the patch
-		mock.MatchedBy(func(i interface{}) bool { return true }),
+		mock.MatchedBy(func(_ any) bool { return true }),
 		metav1.PatchOptions{}).Return(app, nil)
 
 	av1alpha1 := &appmocks.ArgoprojV1alpha1Interface{}
@@ -335,6 +340,7 @@ func createTestAppClientForApp(t *testing.T, app *appsv1.Application) *mocks.Int
 }
 
 func createTestArgoDbForAppAndRepo(t *testing.T, app *appsv1.Application, repo *appsv1.Repository) *dbmocks.ArgoDB {
+	t.Helper()
 	db := dbmocks.ArgoDB{}
 	db.On("GetRepository", t.Context(), app.Spec.Source.RepoURL, app.Spec.Project).
 		Return(repo, nil).Once()

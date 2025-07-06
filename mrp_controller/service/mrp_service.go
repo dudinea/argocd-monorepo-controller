@@ -50,12 +50,12 @@ func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, re
 }
 
 // FIXME: remove?
-func getChangeRevisionFromRevisions(revisions []string) string {
-	if len(revisions) > 0 {
-		return revisions[0]
-	}
-	return ""
-}
+// func getChangeRevisionFromRevisions(revisions []string) string {
+// 	if len(revisions) > 0 {
+// 		return revisions[0]
+// 	}
+// 	return ""
+// }
 
 // Get revisions info from the Application manifest:
 // changeRevision   (from annotation),
@@ -67,7 +67,7 @@ func getApplicationRevisions(app *application.Application) (string, string, stri
 	changeRevision := anns[CHANGE_REVISION_ANN]
 	gitRevision := anns[GIT_REVISION_ANN]
 	currentRevision, previousRevision := getRevisions(app)
-	//argoRevision := ""
+	// argoRevision := ""
 	// if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
 	// 	argoRevision = app.Status.OperationState.Operation.Sync.Revision
 	// }
@@ -132,9 +132,10 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 
 func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	a *application.Application,
-	currentRevision string, previousRevision string) (*string, error) {
+	currentRevision string, previousRevision string,
+) (*string, error) {
 	c.logger.Infof("Calculate revision called for application '%s'", a.Name)
-	//currentRevision, previousRevision := c.getRevisions(a)
+	// currentRevision, previousRevision := c.getRevisions(a)
 	c.logger.Infof("Calculate revision for application '%s', current revision '%s', previous revision '%s'", a.Name, currentRevision, previousRevision)
 
 	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
@@ -183,71 +184,11 @@ func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *appli
 		},
 	})
 	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-	if nil != err {
+	if err != nil {
 		c.logger.Errorf("failed to annotate: %v", err)
 	}
 	return err
-	// } else {
-	//		c.logger.Errorf("annotating multiple with revisions not implemented")
-	//}
-	//return nil
 }
-
-// func (c *mrpService) patchOperationWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
-// 	if len(revisions) == 1 {
-// 		patch, _ := json.Marshal(map[string]any{
-// 			"operation": map[string]any{
-// 				"sync": map[string]any{
-// 					"changeRevision": revisions[0],
-// 				},
-// 			},
-// 		})
-// 		_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-// 		return err
-// 	}
-
-// 	patch, _ := json.Marshal(map[string]any{
-// 		"operation": map[string]any{
-// 			"sync": map[string]any{
-// 				"changeRevisions": revisions,
-// 			},
-// 		},
-// 	})
-// 	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-// 	return err
-// }
-
-// func (c *mrpService) patchOperationSyncResultWithChangeRevision(ctx context.Context, a *application.Application, revisions []string) error {
-// 	if len(revisions) == 1 {
-// 		patch, _ := json.Marshal(map[string]any{
-// 			"status": map[string]any{
-// 				"operationState": map[string]any{
-// 					"operation": map[string]any{
-// 						"sync": map[string]any{
-// 							"changeRevision": revisions[0],
-// 						},
-// 					},
-// 				},
-// 			},
-// 		})
-// 		_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-// 		return err
-// 	}
-
-// 	patch, _ := json.Marshal(map[string]any{
-// 		"status": map[string]any{
-// 			"operationState": map[string]any{
-// 				"operation": map[string]any{
-// 					"sync": map[string]any{
-// 						"changeRevisions": revisions,
-// 					},
-// 				},
-// 			},
-// 		},
-// 	})
-// 	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-// 	return err
-// }
 
 func getCurrentRevisionFromOperation(a *application.Application) string {
 	if a.Operation != nil && a.Operation.Sync != nil {

@@ -137,14 +137,14 @@ func NewCommand() *cobra.Command {
 			errors.CheckError(err)
 			for {
 				log.Info("Running change revision controller server")
-				var closer func()
+				// var closer func()
 				ctx, cancel := context.WithCancel(ctx)
 				changeRevisionServer.Run(ctx, lns)
 				log.Info("Change revision controller server exited")
 				cancel()
-				if closer != nil {
-					closer()
-				}
+				// if closer != nil {
+				// 	closer()
+				// }
 			}
 		},
 	}
