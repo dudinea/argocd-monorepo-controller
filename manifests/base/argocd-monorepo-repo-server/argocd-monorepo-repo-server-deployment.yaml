@@ -19,7 +19,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: argocd-monorepo-repo-server
-        image: quay.io/argoproj/argocd-monorepo-controller:latest
+        image: quay.io/argoprojlabs/argocd-monorepo-controller:latest
         imagePullPolicy: Always
         args:
           - /usr/local/bin/argocd-monorepo-repo-server
