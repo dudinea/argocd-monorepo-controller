@@ -290,8 +290,8 @@ func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 	changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp)
 	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", currentRevision)
 	assert.Empty(t, previousRevision)
-	assert.Equal(t, "", changeRevision)
-	assert.Equal(t, "", gitRevision)
+	assert.Empty(t, changeRevision)
+	assert.Empty(t, gitRevision)
 }
 
 func Test_CalculateRevision_no_paths(t *testing.T) {

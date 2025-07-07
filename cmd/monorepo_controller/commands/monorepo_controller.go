@@ -65,8 +65,8 @@ func NewCommand() *cobra.Command {
 	)
 	command := &cobra.Command{
 		Use:               cliName,
-		Short:             "Run the Change Revision Controller server",
-		Long:              "The Change Revision Controller is a service that listens for application events and updates the application's revision in the application CRD",
+		Short:             "Run the ArgoCD Monorepo Controller",
+		Long:              "The ArgoCD Monorepo Controller is a service that listens for application events and updates the application's revision in the application CRD",
 		DisableAutoGenTag: true,
 		Run: func(c *cobra.Command, _ []string) {
 			ctx := c.Context()
@@ -75,7 +75,7 @@ func NewCommand() *cobra.Command {
 			namespace, _, err := clientConfig.Namespace()
 			errors.CheckError(err)
 			vers.LogStartupInfo(
-				"Application Change Revision Controller",
+				"ArgoCD Monorepo Controller",
 				map[string]any{
 					"namespace": namespace,
 					"port":      listenPort,
@@ -125,33 +125,29 @@ func NewCommand() *cobra.Command {
 				RepoClientset:         repoClientSet,
 			}
 
-			log.Info("Starting change revision controller server")
+			log.Debug("Starting Monorepo Controller server")
 			stats.RegisterStackDumper()
 			stats.StartStatsTicker(10 * time.Minute)
 			stats.RegisterHeapDumper("memprofile")
 			changeRevisionServer := mrp.NewApplicationChangeRevisionServer(ctx, changeRevisionServerOpts)
-			log.Info("Initializing change revision controller server")
+			log.Debug("Initializing Monorepo Controller server")
 			changeRevisionServer.Init(ctx)
-			log.Info("Change revision controller server starting listener")
+			log.Debug("Starting listener")
 			lns, err := changeRevisionServer.Listen()
 			errors.CheckError(err)
 			for {
-				log.Info("Running change revision controller server")
-				// var closer func()
+				log.Debug("Running Monorepo controllerserver")
 				ctx, cancel := context.WithCancel(ctx)
 				changeRevisionServer.Run(ctx, lns)
-				log.Info("Change revision controller server exited")
+				log.Debug("Change revision controller server finished")
 				cancel()
-				// if closer != nil {
-				// 	closer()
-				// }
 			}
 		},
 	}
 
 	clientConfig = cli.AddKubectlFlagsToCmd(command)
 	command.Flags().StringVar(&rootpath, "argocd-server-path", env.StringFromEnv("ARGOCD_SERVER_ROOTPATH", ""), "Used if Argo CD is running behind reverse proxy under subpath different from /")
-	command.Flags().StringVar(&cmdutil.LogFormat, "logformat", env.StringFromEnv("ACR_CONTROLLER_LOGFORMAT", "text"), "Set the logging format. One of: text|json")
+	command.Flags().StringVar(&cmdutil.LogFormat, "logformat", env.StringFromEnv("ACR_CONTROLLER_LOGFORMAT", "json"), "Set the logging format. One of: text|json")
 	command.Flags().StringVar(&cmdutil.LogLevel, "loglevel", env.StringFromEnv("ACR_CONTROLLER_LOG_LEVEL", "info"), "Set the logging level. One of: debug|info|warn|error")
 	command.Flags().IntVar(&glogLevel, "gloglevel", 0, "Set the glog logging level")
 	command.Flags().StringVar(&applicationServerAddress, "application-server", env.StringFromEnv("ARGOCD_SERVER", common.DefaultApplicationServerAddr), "Application server address")

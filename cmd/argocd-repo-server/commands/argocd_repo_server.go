@@ -84,15 +84,15 @@ func NewCommand() *cobra.Command {
 	)
 	command := cobra.Command{
 		Use:               cliName,
-		Short:             "Run ArgoCD Repository Server",
-		Long:              "ArgoCD Repository Server is an internal service which maintains a local cache of the Git repository holding the application manifests, and is responsible for generating and returning the Kubernetes manifests.  This command runs Repository Server in the foreground.  It can be configured by following options.",
+		Short:             "Run Monorepo Repository Server",
+		Long:              "Monorepo Repository Server is an internal service that Monorepo Controller uses for Repository access.  This command runs Monorepo Repository Server in the foreground.  It can be configured by following options.",
 		DisableAutoGenTag: true,
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx := c.Context()
 
 			vers := common.GetVersion()
 			vers.LogStartupInfo(
-				"ArgoCD Repository Server",
+				"Monorepo Repository Server",
 				map[string]any{
 					"port": listenPort,
 				},
