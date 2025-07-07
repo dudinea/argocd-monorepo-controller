@@ -75,7 +75,7 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to resolve git revision %s: %v", revision, err)
 	}
-	if "" == previousRevision {
+	if previousRevision == "" {
 		logCtx.Infof("new application: there is no previous revision, using current revision as change revision")
 		return &apiclient.ChangeRevisionResponse{
 			Revision: currentRevision,

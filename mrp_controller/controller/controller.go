@@ -50,7 +50,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 	var logCtx log.FieldLogger = log.StandardLogger()
 
 	calculateIfPermitted := func(ctx context.Context, a appv1.Application, eventType watch.EventType) error { //nolint:golint,unparam
-		logCtx.Infof("calculateIfPermitted called for application '%s' eventType '%v'", a.Name, eventType)
+		logCtx.Debugf("calculateIfPermitted called for application '%s' eventType '%v'", a.Name, eventType)
 		if eventType == watch.Bookmark || eventType == watch.Deleted {
 			return nil // ignore this event
 		}
@@ -65,10 +65,10 @@ func (c *monorepoController) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logCtx.Infof("got Done event")
+			logCtx.Debug("got Done event")
 			return
 		case event := <-eventsChannel:
-			logCtx.Infof("got event: channel size is %d", len(eventsChannel))
+			logCtx.Debugf("got event: channel size is %d", len(eventsChannel))
 
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			err := calculateIfPermitted(ctx, event.Application, event.Type)
