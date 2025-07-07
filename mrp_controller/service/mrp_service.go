@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	CHANGE_REVISION_ANN = "mrp-controller.argoproj.io/change-revision"
-	GIT_REVISION_ANN    = "mrp-controller.argoproj.io/git-revision"
+	CHANGE_REVISION_ANN  = "mrp-controller.argoproj.io/change-revision"
+	CHANGE_REVISIONS_ANN = "mrp-controller.argoproj.io/change-revisions"
+	GIT_REVISION_ANN     = "mrp-controller.argoproj.io/git-revision"
 )
 
 type MRPService interface {
@@ -167,12 +168,15 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context,
 
 // FIXME: multisource annotations support
 func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
-	// FIXME: make it smarter, do not annotate both whe only one suffice
+	// FIXME: make it smarter, annotate only what has changed
+	// FIXME: fake multisource annotation for now
+	changeRevisions := "[\"" + changeRevision + "\"]"
 	patch, _ := json.Marshal(map[string]any{
 		"metadata": map[string]any{
 			"annotations": map[string]any{
-				CHANGE_REVISION_ANN: changeRevision,
-				GIT_REVISION_ANN:    argoRevision,
+				CHANGE_REVISION_ANN:  changeRevision,
+				CHANGE_REVISIONS_ANN: changeRevisions,
+				GIT_REVISION_ANN:     argoRevision,
 			},
 		},
 	})
