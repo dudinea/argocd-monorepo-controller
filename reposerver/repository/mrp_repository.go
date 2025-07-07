@@ -101,6 +101,12 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		logCtx.Debugf("checking for changes in revision %s", rev)
 		files, err := gitClient.DiffTree(rev)
 		if err != nil {
+			logCtx.Errorf("Difftree returned error: %s, continuing to next commit anyway", err.Error())
+			continue
+		}
+		logCtx.Debugf("refreshpath is '%v'", refreshPaths)
+		logCtx.Debugf("files are '%v'", files)
+		if len(files) == 0 {
 			continue
 		}
 		changedFiles := argopath.AppFilesHaveChanged(refreshPaths, files)
