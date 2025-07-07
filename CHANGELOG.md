@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.0.2 (2025-07-29)
+
+### Bug fixes
+
+- fix: missing network policy to allow redis connection
+- fix: not filling change revision for new apps without history
+- fix: change revision was reset to git revision when there were no
+  files changed in the commits
+
+### Tests
+
+- test: add unit tests for monorepo controller service
+- ci: restore running unit tests on CI
+
+### Other Changes
+
+- fix: fixes for excessive logging, some logging cleanup
+- feat: Add option for disabling use of redis cache
+- chore: Fix lots of issues found by linters
+- ci: run lints on CI
+
 ## v0.0.1 (2025-07-01)
 
 ### First published version

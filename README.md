@@ -3,14 +3,14 @@
 ## What is Argo Monorepo Controller?
 
 This controller os an ArgoCD addon that accurately tracks last commits
-that actually changed the application (Change Revision). It is 
-usefull when several Applications are looking at different paths at the same
-repository/branch (monorepos). 
+that actually changed the application (Change Revision). It is usefull
+when several Applications are looking at different paths at the same
+repository/branch (monorepos).
 
 ## Documentation
 
-Please see [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/blob/main/docs/monorepo_controller_proposal.md)  for project motivation, architecture 
-and description the program functionality.
+Please see [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/blob/main/docs/monorepo_controller_proposal.md) for project motivation, architecture and
+description the program functionality.
 
 ## What is its development status?
 
@@ -32,8 +32,6 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argoc
 
 Or use `kustomize` to install kustomization from
 https://github.com/argoproj-labs/argocd-monorepo-controller/tree/main/manifests
-
-(Note: the referenced container images aren't yet available)
 
 
 ## Development 
