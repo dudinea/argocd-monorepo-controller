@@ -2,12 +2,10 @@ package settings
 
 import (
 	"context"
-	//	"fmt"
 
 	//	"github.com/golang/protobuf/ptypes/empty"
 	"sigs.k8s.io/yaml"
 
-	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	//	utilio "github.com/argoproj/argo-cd/v3/util/io"
 
 	sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
@@ -20,7 +18,6 @@ import (
 // Server provides a Settings service
 type Server struct {
 	mgr                       *settings.SettingsManager
-	repoClient                apiclient.Clientset
 	authenticator             Authenticator
 	disableAuth               bool
 	appsInAnyNamespaceEnabled bool
@@ -32,8 +29,8 @@ type Authenticator interface {
 }
 
 // NewServer returns a new instance of the Settings service
-func NewServer(mgr *settings.SettingsManager, repoClient apiclient.Clientset, authenticator Authenticator, disableAuth, appsInAnyNamespaceEnabled bool, hydratorEnabled bool) *Server {
-	return &Server{mgr: mgr, repoClient: repoClient, authenticator: authenticator, disableAuth: disableAuth, appsInAnyNamespaceEnabled: appsInAnyNamespaceEnabled, hydratorEnabled: hydratorEnabled}
+func NewServer(mgr *settings.SettingsManager, authenticator Authenticator, disableAuth, appsInAnyNamespaceEnabled bool, hydratorEnabled bool) *Server {
+	return &Server{mgr: mgr, authenticator: authenticator, disableAuth: disableAuth, appsInAnyNamespaceEnabled: appsInAnyNamespaceEnabled, hydratorEnabled: hydratorEnabled}
 }
 
 // Get returns Argo CD settings

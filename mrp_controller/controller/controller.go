@@ -15,8 +15,6 @@ import (
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
-	applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
-	servercache "github.com/argoproj/argo-cd/v3/server/cache"
 )
 
 var watchAPIBufferSize = 1000
@@ -26,25 +24,25 @@ type MRPController interface {
 }
 
 type monorepoController struct {
-	appBroadcaster       Broadcaster
-	cache                *servercache.Cache
-	appLister            applisters.ApplicationLister
-	acrService           service.MRPService
-	applicationClientset appclientset.Interface
+	appBroadcaster Broadcaster
+	// cache                *servercache.Cache
+	// appLister            applisters.ApplicationLister
+	acrService service.MRPService
+	// applicationClientset appclientset.Interface
 }
 
-func NewMonorepoController(appInformer cache.SharedIndexInformer, cache *servercache.Cache, appLister applisters.ApplicationLister, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
 	appBroadcaster := NewBroadcaster()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
 		log.Error(err)
 	}
 	return &monorepoController{
-		appBroadcaster:       appBroadcaster,
-		cache:                cache,
-		appLister:            appLister,
-		applicationClientset: applicationClientset,
-		acrService:           service.NewMRPService(applicationClientset, db, repoClientset),
+		appBroadcaster: appBroadcaster,
+		// cache:                cache,
+		// appLister:            appLister,
+		// applicationClientset: applicationClientset,
+		acrService: service.NewMRPService(applicationClientset, db, repoClientset),
 	}
 }
 
@@ -52,7 +50,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 	var logCtx log.FieldLogger = log.StandardLogger()
 
 	calculateIfPermitted := func(ctx context.Context, a appv1.Application, eventType watch.EventType) error { //nolint:golint,unparam
-		logCtx.Infof("calculateIfPermitted called for application '%s' eventType '%v'", a.Name, eventType)
+		logCtx.Debugf("calculateIfPermitted called for application '%s' eventType '%v'", a.Name, eventType)
 		if eventType == watch.Bookmark || eventType == watch.Deleted {
 			return nil // ignore this event
 		}
@@ -67,10 +65,10 @@ func (c *monorepoController) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logCtx.Infof("got Done event")
+			logCtx.Debug("got Done event")
 			return
 		case event := <-eventsChannel:
-			logCtx.Infof("got event: channel size is %d", len(eventsChannel))
+			logCtx.Debugf("got event: channel size is %d", len(eventsChannel))
 
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			err := calculateIfPermitted(ctx, event.Application, event.Type)
