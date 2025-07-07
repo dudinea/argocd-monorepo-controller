@@ -97,9 +97,7 @@ jobs:
       contents: read # for actions/checkout to fetch code
       pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
     name: Lint Go code
-    #if: ${{ needs.changes.outputs.backend == 'true' }}
-    # Temporarily disable until all lint errors are fixed
-    if: false
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-22.04
     needs:
       - changes
@@ -119,9 +117,7 @@ jobs:
 
   test-go:
     name: Run unit tests for Go packages
-    # Temporarily disabled until all tests are fixed
-    #if: ${{ needs.changes.outputs.backend == 'true' }}
-    if: false
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-22.04
     needs:
       - build-go

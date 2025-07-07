@@ -10,6 +10,11 @@ packages:
   github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/typed/application/v1alpha1:
     interfaces:
       AppProjectInterface: {}
+      ArgoprojV1alpha1Interface: {}
+      ApplicationInterface: {}
+  github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned:
+    interfaces:
+      Interface: {}
   github.com/argoproj/argo-cd/v3/reposerver/apiclient:
     interfaces:
       RepoServerServiceClient: {}

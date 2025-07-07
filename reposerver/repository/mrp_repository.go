@@ -67,10 +67,19 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		return nil, status.Error(codes.InvalidArgument, "must pass a refresh path")
 	}
 
-	gitClientOpts := git.WithCache(s.cache, true)
-	gitClient, revision, err := s.newClientResolveRevision(repo, currentRevision, gitClientOpts)
+	var gitClientOpts []git.ClientOpts
+	if s.initConstants.UseCache {
+		gitClientOpts = append(gitClientOpts, git.WithCache(s.cache, true))
+	}
+	gitClient, revision, err := s.newClientResolveRevision(repo, currentRevision, gitClientOpts...)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to resolve git revision %s: %v", revision, err)
+	}
+	if previousRevision == "" {
+		logCtx.Infof("new application: there is no previous revision, using current revision as change revision")
+		return &apiclient.ChangeRevisionResponse{
+			Revision: currentRevision,
+		}, nil
 	}
 
 	s.metricsServer.IncPendingRepoRequest(repo.Repo)
@@ -87,14 +96,22 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s", previousRevision, revision)
 	}
+	logCtx.Debugf("got list of %d revisions", len(revisions))
 	for _, rev := range revisions {
+		logCtx.Debugf("checking for changes in revision %s", rev)
 		files, err := gitClient.DiffTree(rev)
 		if err != nil {
+			logCtx.Errorf("Difftree returned error: %s, continuing to next commit anyway", err.Error())
+			continue
+		}
+		logCtx.Debugf("refreshpath is '%v'", refreshPaths)
+		logCtx.Debugf("files are '%v'", files)
+		if len(files) == 0 {
 			continue
 		}
 		changedFiles := argopath.AppFilesHaveChanged(refreshPaths, files)
 		if changedFiles {
-			logCtx.Debugf("changes found for application %s in repo %s from revision %s to revision %s", request.AppName, repo.Repo, previousRevision, revision)
+			logCtx.Debugf("changes found for application %s in repo %s from revision %s to revision %s in revision %s", request.AppName, repo.Repo, previousRevision, revision, rev)
 			return &apiclient.ChangeRevisionResponse{
 				Revision: rev,
 			}, nil

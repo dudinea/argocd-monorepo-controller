@@ -6,3 +6,4 @@ resources:
 - argocd-monorepo-repo-server-deployment.yaml
 - argocd-monorepo-repo-server-service.yaml
 - argocd-monorepo-repo-server-network-policy.yaml
+- argocd-monorepo-repo-server-redis-network-policy.yaml

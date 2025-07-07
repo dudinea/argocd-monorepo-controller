@@ -1,40 +1,30 @@
 package repository
 
 import (
-	// "bytes"
 	"context"
-	// "encoding/json"
 	"errors"
 	"fmt"
 	goio "io"
 	"io/fs"
-
-	//	"net/url"
 	"os"
-	// "path"
 	"path/filepath"
-	"regexp"
-
-	// "strings"
-	"time"
 
 	// "github.com/TomOnTime/utfutil"
 	//	imagev1 "github.com/opencontainers/image-spec/specs-go/v1"
-	//"sigs.k8s.io/yaml"
+	// "sigs.k8s.io/yaml"
 
 	"github.com/argoproj/argo-cd/v3/util/oci"
 
 	// "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	// textutils "github.com/argoproj/gitops-engine/pkg/utils/text"
-	"github.com/argoproj/pkg/v2/sync"
+
 	// jsonpatch "github.com/evanphx/json-patch"
 	gogit "github.com/go-git/go-git/v5"
 	// "github.com/golang/protobuf/ptypes/empty"
-	//"github.com/google/go-jsonnet"
-	//"github.com/google/uuid"
-	//grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
+	// "github.com/google/go-jsonnet"
+	// "github.com/google/uuid"
+	// grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -42,62 +32,62 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	//"k8s.io/apimachinery/pkg/runtime"
-	//kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	// "k8s.io/apimachinery/pkg/runtime"
+	// kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	// pluginclient "github.com/argoproj/argo-cd/v3/cmpserver/apiclient"
-	//"github.com/argoproj/argo-cd/v3/common"
+	// "github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v3/reposerver/cache"
 	"github.com/argoproj/argo-cd/v3/reposerver/metrics"
 
 	// "github.com/argoproj/argo-cd/v3/util/app/discovery"
-	//apppathutil "github.com/argoproj/argo-cd/v3/util/app/path"
-	//"github.com/argoproj/argo-cd/v3/util/argo"
-	//"github.com/argoproj/argo-cd/v3/util/cmp"
+	// apppathutil "github.com/argoproj/argo-cd/v3/util/app/path"
+	// "github.com/argoproj/argo-cd/v3/util/argo"
+	// "github.com/argoproj/argo-cd/v3/util/cmp"
 	"github.com/argoproj/argo-cd/v3/util/git"
 	// "github.com/argoproj/argo-cd/v3/util/glob"
-	//"github.com/argoproj/argo-cd/v3/util/gpg"
-	//"github.com/argoproj/argo-cd/v3/util/grpc"
+	// "github.com/argoproj/argo-cd/v3/util/gpg"
+	// "github.com/argoproj/argo-cd/v3/util/grpc"
 	"github.com/argoproj/argo-cd/v3/util/helm"
 	utilio "github.com/argoproj/argo-cd/v3/util/io"
 	// "github.com/argoproj/argo-cd/v3/util/io/files"
-	//pathutil "github.com/argoproj/argo-cd/v3/util/io/path"
-	//"github.com/argoproj/argo-cd/v3/util/kustomize"
+	// pathutil "github.com/argoproj/argo-cd/v3/util/io/path"
+	// "github.com/argoproj/argo-cd/v3/util/kustomize"
 	//	"github.com/argoproj/argo-cd/v3/util/manifeststream"
-	//"github.com/argoproj/argo-cd/v3/util/versions"
+	// "github.com/argoproj/argo-cd/v3/util/versions"
 )
 
-const (
-	cachedManifestGenerationPrefix = "Manifest generation error (cached)"
-	helmDepUpMarkerFile            = ".argocd-helm-dep-up"
-	repoSourceFile                 = ".argocd-source.yaml"
-	appSourceFile                  = ".argocd-source-%s.yaml"
-	ociPrefix                      = "oci://"
-	skipFileRenderingMarker        = "+argocd:skip-file-rendering"
-)
+// const (
+// cachedManifestGenerationPrefix = "Manifest generation error (cached)"
+// helmDepUpMarkerFile = ".argocd-helm-dep-up"
+// repoSourceFile = ".argocd-source.yaml"
+// appSourceFile                  = ".argocd-source-%s.yaml"
+// ociPrefix                      = "oci://"
+// skipFileRenderingMarker        = "+argocd:skip-file-rendering"
+//)
 
 var ErrExceededMaxCombinedManifestFileSize = errors.New("exceeded max combined manifest file size")
 
 // Service implements ManifestService interface
 type Service struct {
-	gitCredsStore             git.CredsStore
-	rootDir                   string
-	gitRepoPaths              utilio.TempPaths
-	chartPaths                utilio.TempPaths
-	ociPaths                  utilio.TempPaths
-	gitRepoInitializer        func(rootPath string) goio.Closer
-	repoLock                  *repositoryLock
-	cache                     *cache.Cache
-	parallelismLimitSemaphore *semaphore.Weighted
-	metricsServer             *metrics.MetricsServer
-	newOCIClient              func(repoURL string, creds oci.Creds, proxy string, noProxy string, mediaTypes []string, opts ...oci.ClientOpts) (oci.Client, error)
-	newGitClient              func(rawRepoURL string, root string, creds git.Creds, insecure bool, enableLfs bool, proxy string, noProxy string, opts ...git.ClientOpts) (git.Client, error)
-	newHelmClient             func(repoURL string, creds helm.Creds, enableOci bool, proxy string, noProxy string, opts ...helm.ClientOpts) helm.Client
-	initConstants             RepoServerInitConstants
+	gitCredsStore git.CredsStore
+	rootDir       string
+	gitRepoPaths  utilio.TempPaths
+	// chartPaths    utilio.TempPaths
+	// ociPaths           utilio.TempPaths
+	gitRepoInitializer func(rootPath string) goio.Closer
+	repoLock           *repositoryLock
+	cache              *cache.Cache
+	// parallelismLimitSemaphore *semaphore.Weighted
+	metricsServer *metrics.MetricsServer
+	// newOCIClient              func(repoURL string, creds oci.Creds, proxy string, noProxy string, mediaTypes []string, opts ...oci.ClientOpts) (oci.Client, error)
+	newGitClient func(rawRepoURL string, root string, creds git.Creds, insecure bool, enableLfs bool, proxy string, noProxy string, opts ...git.ClientOpts) (git.Client, error)
+	// newHelmClient             func(repoURL string, creds helm.Creds, enableOci bool, proxy string, noProxy string, opts ...helm.ClientOpts) helm.Client
+	initConstants RepoServerInitConstants
 	// now is usually just time.Now, but may be replaced by unit tests for testing purposes
-	now func() time.Time
+	// now func() time.Time
 }
 
 type RepoServerInitConstants struct {
@@ -119,36 +109,37 @@ type RepoServerInitConstants struct {
 	DisableHelmManifestMaxExtractedSize          bool
 	IncludeHiddenDirectories                     bool
 	CMPUseManifestGeneratePaths                  bool
+	UseCache                                     bool
 }
 
-var manifestGenerateLock = sync.NewKeyLock()
+// var manifestGenerateLock = sync.NewKeyLock()
 
 // NewService returns a new instance of the Manifest service
 func NewService(metricsServer *metrics.MetricsServer, cache *cache.Cache, initConstants RepoServerInitConstants, gitCredsStore git.CredsStore, rootDir string) *Service {
-	var parallelismLimitSemaphore *semaphore.Weighted
-	if initConstants.ParallelismLimit > 0 {
-		parallelismLimitSemaphore = semaphore.NewWeighted(initConstants.ParallelismLimit)
-	}
+	// var parallelismLimitSemaphore *semaphore.Weighted
+	// if initConstants.ParallelismLimit > 0 {
+	//	parallelismLimitSemaphore = semaphore.NewWeighted(initConstants.ParallelismLimit)
+	//}
 	repoLock := NewRepositoryLock()
 	gitRandomizedPaths := utilio.NewRandomizedTempPaths(rootDir)
-	helmRandomizedPaths := utilio.NewRandomizedTempPaths(rootDir)
-	ociRandomizedPaths := utilio.NewRandomizedTempPaths(rootDir)
+	// helmRandomizedPaths := utilio.NewRandomizedTempPaths(rootDir)
+	// ociRandomizedPaths := utilio.NewRandomizedTempPaths(rootDir)
 	return &Service{
-		parallelismLimitSemaphore: parallelismLimitSemaphore,
-		repoLock:                  repoLock,
-		cache:                     cache,
-		metricsServer:             metricsServer,
-		newGitClient:              git.NewClientExt,
-		newOCIClient:              oci.NewClient,
-		newHelmClient: func(repoURL string, creds helm.Creds, enableOci bool, proxy string, noProxy string, opts ...helm.ClientOpts) helm.Client {
-			return helm.NewClientWithLock(repoURL, creds, sync.NewKeyLock(), enableOci, proxy, noProxy, opts...)
-		},
-		initConstants:      initConstants,
-		now:                time.Now,
-		gitCredsStore:      gitCredsStore,
-		gitRepoPaths:       gitRandomizedPaths,
-		chartPaths:         helmRandomizedPaths,
-		ociPaths:           ociRandomizedPaths,
+		// parallelismLimitSemaphore: parallelismLimitSemaphore,
+		repoLock:      repoLock,
+		cache:         cache,
+		metricsServer: metricsServer,
+		newGitClient:  git.NewClientExt,
+		// newOCIClient:              oci.NewClient,
+		// newHelmClient: func(repoURL string, creds helm.Creds, enableOci bool, proxy string, noProxy string, opts ...helm.ClientOpts) helm.Client {
+		//	return helm.NewClientWithLock(repoURL, creds, sync.NewKeyLock(), enableOci, proxy, noProxy, opts...)
+		// },
+		initConstants: initConstants,
+		// now:                time.Now,
+		gitCredsStore: gitCredsStore,
+		gitRepoPaths:  gitRandomizedPaths,
+		// chartPaths:         helmRandomizedPaths,
+		// ociPaths:           ociRandomizedPaths,
 		gitRepoInitializer: directoryPermissionInitializer,
 		rootDir:            rootDir,
 	}
@@ -530,7 +521,7 @@ func (s *Service) Init() error {
 // 	return regexp.MustCompile(regexp.QuoteMeta(rootDir) + `/[^ /]*`)
 // }
 
-type gitClientGetter func(repo *v1alpha1.Repository, revision string, opts ...git.ClientOpts) (git.Client, string, error)
+// type gitClientGetter func(repo *v1alpha1.Repository, revision string, opts ...git.ClientOpts) (git.Client, string, error)
 
 // // resolveReferencedSources resolves the revisions for the given referenced sources. This lets us invalidate the cached
 // // when one or more referenced sources change.
@@ -1718,7 +1709,7 @@ type gitClientGetter func(repo *v1alpha1.Repository, revision string, opts ...gi
 // 	return field == nil
 // }
 
-var manifestFile = regexp.MustCompile(`^.*\.(yaml|yml|json|jsonnet)$`)
+// var manifestFile = regexp.MustCompile(`^.*\.(yaml|yml|json|jsonnet)$`)
 
 // // findManifests looks at all yaml files in a directory and unmarshals them into a list of unstructured objects
 // func findManifests(logCtx *log.Entry, appPath string, repoRoot string, env *v1alpha1.Env, directory v1alpha1.ApplicationSourceDirectory, enabledManifestGeneration map[string]bool, maxCombinedManifestQuantity resource.Quantity) ([]*unstructured.Unstructured, error) {

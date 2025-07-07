@@ -80,18 +80,19 @@ func NewCommand() *cobra.Command {
 		includeHiddenDirectories           bool
 		cmpUseManifestGeneratePaths        bool
 		ociMediaTypes                      []string
+		useCache                           bool
 	)
 	command := cobra.Command{
 		Use:               cliName,
-		Short:             "Run ArgoCD Repository Server",
-		Long:              "ArgoCD Repository Server is an internal service which maintains a local cache of the Git repository holding the application manifests, and is responsible for generating and returning the Kubernetes manifests.  This command runs Repository Server in the foreground.  It can be configured by following options.",
+		Short:             "Run Monorepo Repository Server",
+		Long:              "Monorepo Repository Server is an internal service that Monorepo Controller uses for Repository access.  This command runs Monorepo Repository Server in the foreground.  It can be configured by following options.",
 		DisableAutoGenTag: true,
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx := c.Context()
 
 			vers := common.GetVersion()
 			vers.LogStartupInfo(
-				"ArgoCD Repository Server",
+				"Monorepo Repository Server",
 				map[string]any{
 					"port": listenPort,
 				},
@@ -155,6 +156,7 @@ func NewCommand() *cobra.Command {
 				IncludeHiddenDirectories:                     includeHiddenDirectories,
 				CMPUseManifestGeneratePaths:                  cmpUseManifestGeneratePaths,
 				OCIMediaTypes:                                ociMediaTypes,
+				UseCache:                                     useCache,
 			}, askPassServer)
 			errors.CheckError(err)
 
@@ -264,6 +266,7 @@ func NewCommand() *cobra.Command {
 	command.Flags().BoolVar(&includeHiddenDirectories, "include-hidden-directories", env.ParseBoolFromEnv("ARGOCD_REPO_SERVER_INCLUDE_HIDDEN_DIRECTORIES", false), "Include hidden directories from Git")
 	command.Flags().BoolVar(&cmpUseManifestGeneratePaths, "plugin-use-manifest-generate-paths", env.ParseBoolFromEnv("ARGOCD_REPO_SERVER_PLUGIN_USE_MANIFEST_GENERATE_PATHS", false), "Pass the resources described in argocd.argoproj.io/manifest-generate-paths value to the cmpserver to generate the application manifests.")
 	command.Flags().StringSliceVar(&ociMediaTypes, "oci-layer-media-types", env.StringsFromEnv("ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES", []string{"application/vnd.oci.image.layer.v1.tar", "application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.cncf.helm.chart.content.v1.tar+gzip"}, ","), "Comma separated list of allowed media types for OCI media types. This only accounts for media types within layers.")
+	command.Flags().BoolVar(&useCache, "monorepo-repo-server-use-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE", true), "Use Redis cache")
 	tlsConfigCustomizerSrc = tls.AddTLSFlagsToCmd(&command)
 	cacheSrc = reposervercache.AddCacheFlagsToCmd(&command, cacheutil.Options{
 		OnClientCreated: func(client *redis.Client) {
