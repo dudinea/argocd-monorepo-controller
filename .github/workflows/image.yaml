@@ -67,7 +67,6 @@ jobs:
       contents: read
       packages: write # for pushing packages to GHCR, which is used by cd.apps.argoproj.io to avoid polluting Quay with tags
       id-token: write # for creating OIDC tokens for signing.
-
     if: ${{ github.repository == 'dudinea/argocd-monorepo-controller' && github.event_name == 'push' }}
     uses: ./.github/workflows/image-reuse.yaml
     with:
@@ -90,6 +89,7 @@ jobs:
     permissions:
       actions: read # for detecting the Github Actions environment.
       id-token: write # for creating OIDC tokens for signing.
+      packages: write # for uploading attestations. (https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#known-issues)
     if: ${{ github.repository == 'dudinea/argocd-monorepo-controller' && github.event_name == 'push' }}
     # Must be refernced by a tag. https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#referencing-the-slsa-generator
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
