@@ -33,6 +33,10 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argoc
 Or use `kustomize` to install kustomization from
 https://github.com/argoproj-labs/argocd-monorepo-controller/tree/main/manifests
 
+## Configuring notifications
+
+See sample triggers and templates in samples/notifications.
+
 
 ## Development 
 
