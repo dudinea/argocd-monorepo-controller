@@ -42,8 +42,8 @@ jobs:
       image: quay.io/argoprojlabs/argocd-monorepo-controller
       digest: ${{ needs.argocd-image.outputs.image-digest }}
     secrets:
-      registry-username: ${{ secrets.RELEASE_QUAY_USERNAME }}
-      registry-password: ${{ secrets.RELEASE_QUAY_TOKEN }}
+      registry-username: ${{ secrets.QUAY_USER }}
+      registry-password: ${{ secrets.QUAY_TOKEN }}
 
   goreleaser:
     needs:
