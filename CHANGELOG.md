@@ -1,6 +1,11 @@
 # Changelog
+## v0.0.3 (2025-07-09)
 
-## v0.0.2 (2025-07-29)
+- ci: publishing images to `quay.io/argoprojlabs/argocd-monorepo-controller`
+- ci: add release workflow
+- docs: add a sample notification trigger/template configuration
+
+## v0.0.2 (2025-07-07)
 
 ### Bug fixes
 
