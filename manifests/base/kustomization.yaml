@@ -6,5 +6,5 @@ resources:
 - ./argocd-monorepo-repo-server
 images:
 - name: quay.io/argoprojlabs/argocd-monorepo-controller
-  newName: quay.io/argoproj-labs/argocd-monorepo-controller
+  newName: quay.io/argoprojlabs/argocd-monorepo-controller
   newTag: latest
