@@ -23,7 +23,7 @@ import (
 	appinformer "github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions"
 
 	// applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
-	servercache "github.com/argoproj/argo-cd/v3/server/cache"
+
 	"github.com/argoproj/argo-cd/v3/util/healthz"
 	settings_util "github.com/argoproj/argo-cd/v3/util/settings"
 )
@@ -53,12 +53,12 @@ type MRPServer struct {
 type MRPServerSet struct{}
 
 type MRPServerOpts struct {
-	ListenPort            int
-	ListenHost            string
-	Namespace             string
-	KubeClientset         kubernetes.Interface
-	AppClientset          appclientset.Interface
-	Cache                 *servercache.Cache
+	ListenPort int
+	//ListenHost            string
+	Namespace     string
+	KubeClientset kubernetes.Interface
+	AppClientset  appclientset.Interface
+	//Cache                 *servercache.Cache
 	RedisClient           *redis.Client
 	ApplicationNamespaces []string
 	BaseHRef              string
@@ -153,25 +153,25 @@ func startListener(host string, port int) (net.Listener, error) {
 	return conn, realErr
 }
 
-func (a *MRPServer) Listen() (*Listeners, error) {
-	mainLn, err := startListener(a.ListenHost, a.ListenPort)
-	if err != nil {
-		return nil, err
-	}
-	return &Listeners{Main: mainLn}, nil
-}
+// func (a *MRPServer) Listen() (*Listeners, error) {
+// 	mainLn, err := startListener(a.ListenHost, a.ListenPort)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &Listeners{Main: mainLn}, nil
+// }
 
 // Run runs the API Server
 // We use k8s.io/code-generator/cmd/go-to-protobuf to generate the .proto files from the API types.
 // k8s.io/ go-to-protobuf uses protoc-gen-gogo, which comes from gogo/protobuf (a fork of
 // golang/protobuf).
-func (a *MRPServer) Run(ctx context.Context, lns *Listeners) {
-	httpS := a.newHTTPServer(ctx, a.ListenPort)
+func (a *MRPServer) Run(ctx context.Context /*, lns *Listeners*/) {
+	//httpS := a.newHTTPServer(ctx, a.ListenPort)
 	// tlsConfig := tls.Config{}
 	// tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	// 	return a.settings.Certificate, nil
 	// }
-	go func() { a.checkServeErr("httpS", httpS.Serve(lns.Main)) }()
+	//go func() { a.checkServeErr("httpS", httpS.Serve(lns.Main)) }()
 	go a.RunController(ctx)
 
 	if !cache.WaitForCacheSync(ctx.Done(), a.appInformer.HasSynced) {

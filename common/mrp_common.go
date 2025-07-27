@@ -10,9 +10,6 @@ const (
 
 // Default listener ports for ArgoCD components
 const (
-	DefaultPortEventReporterServerMetrics = 8087
-	DefaultPortEventReporterServer        = 8088
-
 	DefaultPortMRPServer                 = 8090
 	DefaultPortMonorepoRepoServer        = 8091
 	DefaultPortMonorepoRepoServerMetrics = 8094
