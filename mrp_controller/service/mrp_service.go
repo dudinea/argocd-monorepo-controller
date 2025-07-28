@@ -17,6 +17,7 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/db"
 
 	// "k8s.io/utils/ptr"
+	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 	application "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
@@ -40,14 +41,16 @@ type mrpService struct {
 	logger               *log.Logger
 	db                   db.ArgoDB
 	repoClientset        repoapiclient.Clientset
+	metricsServer        *metrics.MetricsServer
 }
 
-func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPService {
+func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer) MRPService {
 	return &mrpService{
 		applicationClientset: applicationClientset,
 		logger:               log.New(),
 		db:                   db,
 		repoClientset:        repoClientset,
+		metricsServer:        metricsServer,
 	}
 }
 

@@ -15,12 +15,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
-
 	cmdutil "github.com/argoproj/argo-cd/v3/cmd/util"
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
+	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v3/util/cli"
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/errors"
@@ -40,8 +39,8 @@ var (
 // NewCommand returns a new instance of an application change revision command
 func NewCommand() *cobra.Command {
 	var (
-		redisClient *redis.Client
-		//listenHost   string
+		redisClient  *redis.Client
+		listenHost   string
 		listenPort   int
 		glogLevel    int
 		clientConfig clientcmd.ClientConfig
@@ -107,8 +106,8 @@ func NewCommand() *cobra.Command {
 				tlsConfig)
 
 			changeRevisionServerOpts := mrp.MRPServerOpts{
-				ListenPort: listenPort,
-				//ListenHost:            listenHost,
+				ListenPort:    listenPort,
+				ListenHost:    listenHost,
 				Namespace:     namespace,
 				KubeClientset: kubeclientset,
 				AppClientset:  appClientSet,
@@ -127,11 +126,11 @@ func NewCommand() *cobra.Command {
 			changeRevisionServer.Init(ctx)
 			//log.Debug("Starting listener")
 			//lns, err := changeRevisionServer.Listen()
-			errors.CheckError(err)
+			//errors.CheckError(err)
 			for {
 				log.Debug("Running Monorepo controllerserver")
 				ctx, cancel := context.WithCancel(ctx)
-				changeRevisionServer.Run(ctx /*, lns*/)
+				changeRevisionServer.Run(ctx)
 				log.Debug("Change revision controller server finished")
 				cancel()
 			}
@@ -145,14 +144,14 @@ func NewCommand() *cobra.Command {
 	//command.Flags().StringVar(&applicationServerAddress, "application-server", env.StringFromEnv("ARGOCD_SERVER", common.DefaultApplicationServerAddr), "Application server address")
 	//command.Flags().StringVar(&argocdToken, "argocd-token", env.StringFromEnv("ARGOCD_TOKEN", ""), "ArgoCD server JWT token")
 	command.AddCommand(cli.NewVersionCmd(cliName))
-	//command.Flags().StringVar(&listenHost, "address", env.StringFromEnv("ACR_CONTROLLER_LISTEN_ADDRESS", common.DefaultAddressMRPController), "Listen on given address")
-	command.Flags().IntVar(&listenPort, "port", common.DefaultPortMRPServer, "Listen on given port")
-	command.Flags().StringVar(&contentSecurityPolicy, "content-security-policy", env.StringFromEnv("ACR_CONTROLLER_CONTENT_SECURITY_POLICY", "frame-ancestors 'self';"), "Set Content-Security-Policy header in HTTP responses to `value`. To disable, set to \"\".")
-	command.Flags().StringSliceVar(&applicationNamespaces, "application-namespaces", env.StringsFromEnv("ARGOCD_APPLICATION_NAMESPACES", []string{}, ","), "List of additional namespaces where application resources can be managed in")
-	command.Flags().StringVar(&repoServerAddress, "monorepo-repo-server", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER", common.DefaultMonorepoRepoServerAddr), "Monorepo Repo server address")
-	command.Flags().IntVar(&repoServerTimeoutSeconds, "monorepo-repo-server-timeout-seconds", env.ParseNumFromEnv("ARGOCD_MONOREPO_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
-	command.Flags().BoolVar(&repoServerPlaintext, "monorepo-repo-server-plaintext", env.ParseBoolFromEnv("ARGOCD_SERVER_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
-	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("ARGOCD_SERVER_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")
+	command.Flags().StringVar(&listenHost, "address", env.StringFromEnv("MONOREPO_CONTROLLER_LISTEN_ADDRESS", common.DefaultAddressMRPControllerMetrics), "Listen on given address")
+	command.Flags().IntVar(&listenPort, "port", env.ParseNumFromEnv("MONOREPO_CONTROLLER_LISTEN_PORT", common.DefaultPortMRPServerMetrics, 1, math.MaxInt16), "Listen on given port")
+	command.Flags().StringVar(&contentSecurityPolicy, "content-security-policy", env.StringFromEnv("MONOREPO_CONTROLLER_CONTENT_SECURITY_POLICY", "frame-ancestors 'self';"), "Set Content-Security-Policy header in HTTP responses to `value`. To disable, set to \"\".")
+	command.Flags().StringSliceVar(&applicationNamespaces, "application-namespaces", env.StringsFromEnv("MONOREPO_CONTROLLER_APPLICATION_NAMESPACES", []string{}, ","), "List of additional namespaces where application resources can be managed in")
+	command.Flags().StringVar(&repoServerAddress, "monorepo-repo-server", env.StringFromEnv("MONOREPO_REPO_SERVER", common.DefaultMonorepoRepoServerAddr), "Monorepo Repo server address")
+	command.Flags().IntVar(&repoServerTimeoutSeconds, "monorepo-repo-server-timeout-seconds", env.ParseNumFromEnv("MONOREPO_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
+	command.Flags().BoolVar(&repoServerPlaintext, "monorepo-repo-server-plaintext", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
+	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")
 	// cacheSrc = servercache.AddCacheFlagsToCmd(command, cacheutil.Options{
 	// 	OnClientCreated: func(client *redis.Client) {
 	// 		redisClient = client

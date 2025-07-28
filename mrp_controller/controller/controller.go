@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/argoproj/argo-cd/v3/util/db"
-
+	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 	"github.com/argoproj/argo-cd/v3/mrp_controller/service"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
+	"github.com/argoproj/argo-cd/v3/util/db"
 
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
@@ -31,7 +31,7 @@ type monorepoController struct {
 	// applicationClientset appclientset.Interface
 }
 
-func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset) MRPController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer) MRPController {
 	appBroadcaster := NewBroadcaster()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
@@ -42,7 +42,7 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 		// cache:                cache,
 		// appLister:            appLister,
 		// applicationClientset: applicationClientset,
-		acrService: service.NewMRPService(applicationClientset, db, repoClientset),
+		acrService: service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
 	}
 }
 
