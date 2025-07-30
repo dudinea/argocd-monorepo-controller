@@ -10,7 +10,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -21,22 +20,16 @@ import (
 	mrp_controller "github.com/argoproj/argo-cd/v3/mrp_controller/controller"
 	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 
+	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	appinformer "github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions"
 	applister "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
+	"github.com/argoproj/argo-cd/v3/util/glob"
 
 	// applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 
-	"github.com/argoproj/argo-cd/v3/util/healthz"
 	settings_util "github.com/argoproj/argo-cd/v3/util/settings"
 )
-
-var backoff = wait.Backoff{
-	Steps:    5,
-	Duration: 500 * time.Millisecond,
-	Factor:   1.0,
-	Jitter:   0.1,
-}
 
 type MRPServer struct {
 	MRPServerOpts
@@ -64,11 +57,12 @@ type MRPServerOpts struct {
 	KubeClientset kubernetes.Interface
 	AppClientset  appclientset.Interface
 	//Cache                 *servercache.Cache
-	RedisClient           *redis.Client
-	ApplicationNamespaces []string
-	BaseHRef              string
-	RootPath              string
-	RepoClientset         repoapiclient.Clientset
+	RedisClient            *redis.Client
+	ApplicationNamespaces  []string
+	BaseHRef               string
+	RootPath               string
+	RepoClientset          repoapiclient.Clientset
+	MetricsCacheExpiration time.Duration
 }
 
 type handlerSwitcher struct {
@@ -91,16 +85,6 @@ func (l *Listeners) Close() error {
 	return nil
 }
 
-func (s *handlerSwitcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if urlHandler, ok := s.urlToHandler[r.URL.Path]; ok {
-		urlHandler.ServeHTTP(w, r)
-	} else if contentHandler, ok := s.contentTypeToHandler[r.Header.Get("content-type")]; ok {
-		contentHandler.ServeHTTP(w, r)
-	} else {
-		s.handler.ServeHTTP(w, r)
-	}
-}
-
 func (a *MRPServer) healthCheck(_ *http.Request) error {
 	return nil
 }
@@ -117,24 +101,6 @@ func (a *MRPServer) RunController(ctx context.Context) {
 	go controller.Run(ctx)
 }
 
-// newHTTPServer returns the HTTP server to serve HTTP/HTTPS requests. This is implemented
-// using grpc-gateway as a proxy to the gRPC server.
-func (a *MRPServer) newHTTPServer(_ context.Context, port int) *http.Server { //nolint:golint,unparam
-	endpoint := fmt.Sprintf("localhost:%d", port)
-	mux := http.NewServeMux()
-	httpS := http.Server{
-		Addr: endpoint,
-		Handler: &handlerSwitcher{
-			handler: mux,
-		},
-	}
-
-	healthz.ServeHealthCheck(mux, a.healthCheck)
-	//mux.Handle("/metrics", a.metricsServer.GetHandler())
-	//http.Handle(
-	return &httpS
-}
-
 func (a *MRPServer) checkServeErr(name string, err error) {
 	if err != nil {
 		if a.stopCh != nil {
@@ -147,59 +113,33 @@ func (a *MRPServer) checkServeErr(name string, err error) {
 	}
 }
 
-func startListener(host string, port int) (net.Listener, error) {
-	var conn net.Listener
-	var realErr error
-	_ = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		conn, realErr = net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-		if realErr != nil {
-			return false, nil
-		}
-		return true, nil
-	})
-	return conn, realErr
-}
-
-func (a *MRPServer) Listen() (*Listeners, error) {
-	mainLn, err := startListener(a.ListenHost, a.ListenPort)
-	if err != nil {
-		return nil, err
-	}
-	return &Listeners{Main: mainLn}, nil
+// isAppNamespaceAllowed returns whether the application is allowed in the
+// namespace it's residing in.
+func (a *MRPServer) isAppNamespaceAllowed(app *appv1.Application) bool {
+	return app.Namespace == a.Namespace ||
+		glob.MatchStringInList(a.ApplicationNamespaces, app.Namespace, glob.REGEXP)
 }
 
 func (a *MRPServer) canProcessApp(obj any) bool {
 	return true
-	// app, ok := obj.(*appv1.Application)
-	// if !ok {
-	// 	return false
-	// }
+	app, ok := obj.(*appv1.Application)
+	if !ok {
+		return false
+	}
 
-	// // Only process given app if it exists in a watched namespace, or in the
-	// // control plane's namespace.
-	// if !ctrl.isAppNamespaceAllowed(app) {
-	// 	return false
-	// }
+	if !a.isAppNamespaceAllowed(app) {
+		return false
+	}
 
-	// if annotations := app.GetAnnotations(); annotations != nil {
-	// 	if skipVal, ok := annotations[common.AnnotationKeyAppSkipReconcile]; ok {
-	// 		logCtx := log.WithFields(applog.GetAppLogFields(app))
-	// 		if skipReconcile, err := strconv.ParseBool(skipVal); err == nil {
-	// 			if skipReconcile {
-	// 				logCtx.Debugf("Skipping Application reconcile based on annotation %s", common.AnnotationKeyAppSkipReconcile)
-	// 				return false
-	// 			}
-	// 		} else {
-	// 			logCtx.Debugf("Unable to determine if Application should skip reconcile based on annotation %s: %v", common.AnnotationKeyAppSkipReconcile, err)
-	// 		}
-	// 	}
-	// }
-
-	// destCluster, err := argo.GetDestinationCluster(context.Background(), app.Spec.Destination, ctrl.db)
-	// if err != nil {
-	// 	return ctrl.clusterSharding.IsManagedCluster(nil)
-	// }
-	// return ctrl.clusterSharding.IsManagedCluster(destCluster)
+	annotations := app.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	val, ok := annotations[appv1.AnnotationKeyManifestGeneratePaths]
+	if !ok || val == "" {
+		return false
+	}
+	return true
 }
 
 // Run runs the API Server
@@ -228,11 +168,11 @@ func (a *MRPServer) Run(ctx context.Context /* lns *Listeners*/) {
 	if err != nil {
 		log.Fatal("Failed to configure metrics server: %w", err)
 	}
+	if a.MetricsCacheExpiration.Seconds() > 0 {
+		metricsServer.SetExpiration(a.MetricsCacheExpiration)
+	}
 	a.metricsServer = metricsServer
 
-	//http.Handle("/metrics", a.metricsServer.GetHandler())
-	//	go func() { a.checkServeErr("httpS", httpS.Serve(lns.Main)) }()
-	//go a.metricsServer.ListenAndServe()
 	go func() { errors.CheckError(a.metricsServer.ListenAndServe()) }()
 	go a.RunController(ctx)
 
@@ -244,8 +184,8 @@ func (a *MRPServer) Run(ctx context.Context /* lns *Listeners*/) {
 	<-a.stopCh
 }
 
-// NewServer returns a new instance of the Event Reporter server
-func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
+// Returns a new instance of the Monorepo Controller Server
+func NewMRPServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 	appInformerNs := opts.Namespace
 	if len(opts.ApplicationNamespaces) > 0 {
 		appInformerNs = ""
@@ -274,7 +214,3 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 
 	return server
 }
-
-// func newApplicationChangeRevisionServiceSet() *MRPServerSet {
-// 	return &MRPServerSet{}
-// }

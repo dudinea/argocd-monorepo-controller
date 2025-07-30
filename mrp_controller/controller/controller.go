@@ -69,7 +69,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 			return
 		case event := <-eventsChannel:
 			logCtx.Debugf("got event: channel size is %d", len(eventsChannel))
-
+			//c.acrService.
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			err := calculateIfPermitted(ctx, event.Application, event.Type)
 			if err != nil {

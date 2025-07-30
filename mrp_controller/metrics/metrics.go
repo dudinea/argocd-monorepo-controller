@@ -34,20 +34,15 @@ import (
 
 type MetricsServer struct {
 	*http.Server
-	syncCounter  *prometheus.CounterVec
-	syncDuration *prometheus.CounterVec
-	//kubectlExecCounter                *prometheus.CounterVec
-	//kubectlExecPendingGauge           *prometheus.GaugeVec
-	//orphanedResourcesGauge            *prometheus.GaugeVec
-	k8sRequestCounter                 *prometheus.CounterVec
-	redisRequestCounter               *prometheus.CounterVec
-	reconcileHistogram                *prometheus.HistogramVec
-	redisRequestHistogram             *prometheus.HistogramVec
-	resourceEventsProcessingHistogram *prometheus.HistogramVec
-	resourceEventsNumberGauge         *prometheus.GaugeVec
-	registry                          *prometheus.Registry
-	hostname                          string
-	cron                              *cron.Cron
+	syncCounter                *prometheus.CounterVec
+	syncDuration               *prometheus.CounterVec
+	k8sRequestCounter          *prometheus.CounterVec
+	repoServerRequestCounter   *prometheus.CounterVec
+	reconcileHistogram         *prometheus.HistogramVec
+	repoServerRequestHistogram *prometheus.HistogramVec
+	registry                   *prometheus.Registry
+	hostname                   string
+	cron                       *cron.Cron
 }
 
 const (
@@ -109,24 +104,24 @@ var (
 			Name: "argocd_app_reconcile",
 			Help: "Application reconciliation performance in seconds.",
 			// Buckets chosen after observing a ~2100ms mean reconcile time
-			Buckets: []float64{0.25, .5, 1, 2, 4, 8, 16},
+			Buckets: []float64{0.03125, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
-		[]string{"namespace", "dest_server"},
+		[]string{"namespace", "application"},
 	)
 
-	redisRequestCounter = prometheus.NewCounterVec(
+	repoServerRequestCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "argocd_redis_request_total",
-			Help: "Number of redis requests executed during application reconciliation.",
+			Name: "argocd_repo_server_request_total",
+			Help: "Number of repo server requests executed during application reconciliation.",
 		},
 		[]string{"hostname", "initiator", "failed"},
 	)
 
-	redisRequestHistogram = prometheus.NewHistogramVec(
+	repoServerRequestHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "argocd_redis_request_duration",
-			Help:    "Redis requests duration.",
-			Buckets: []float64{0.01, 0.05, 0.10, 0.25, .5, 1},
+			Name:    "argocd_repo_server_request_duration",
+			Help:    "Repo server requests duration.",
+			Buckets: []float64{0.03125, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
 		[]string{"hostname", "initiator"},
 	)
@@ -200,8 +195,8 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(orphanedResourcesGauge)
 	registry.MustRegister(reconcileHistogram)
 	//registry.MustRegister(clusterEventsCounter)
-	registry.MustRegister(redisRequestCounter)
-	registry.MustRegister(redisRequestHistogram)
+	registry.MustRegister(repoServerRequestCounter)
+	registry.MustRegister(repoServerRequestHistogram)
 	registry.MustRegister(resourceEventsProcessingHistogram)
 	registry.MustRegister(resourceEventsNumberGauge)
 
@@ -220,12 +215,10 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		//kubectlExecCounter:                kubectlExecCounter,
 		//kubectlExecPendingGauge:           kubectlExecPendingGauge,
 		//orphanedResourcesGauge:            orphanedResourcesGauge,
-		reconcileHistogram:                reconcileHistogram,
-		redisRequestCounter:               redisRequestCounter,
-		redisRequestHistogram:             redisRequestHistogram,
-		resourceEventsProcessingHistogram: resourceEventsProcessingHistogram,
-		resourceEventsNumberGauge:         resourceEventsNumberGauge,
-		hostname:                          hostname,
+		reconcileHistogram:         reconcileHistogram,
+		repoServerRequestCounter:   repoServerRequestCounter,
+		repoServerRequestHistogram: repoServerRequestHistogram,
+		hostname:                   hostname,
 		// This cron is used to expire the metrics cache.
 		// Currently clearing the metrics cache is logging and deleting from the map
 		// so there is no possibility of panic, but we will add a chain to keep robfig/cron v1 behavior.
@@ -252,22 +245,6 @@ func (m *MetricsServer) IncAppSyncDuration(app *argoappv1.Application, destServe
 	}
 }
 
-// func (m *MetricsServer) IncKubectlExec(command string) {
-// 	m.kubectlExecCounter.WithLabelValues(m.hostname, command).Inc()
-// }
-
-// func (m *MetricsServer) IncKubectlExecPending(command string) {
-// 	m.kubectlExecPendingGauge.WithLabelValues(m.hostname, command).Inc()
-// }
-
-// func (m *MetricsServer) DecKubectlExecPending(command string) {
-// 	m.kubectlExecPendingGauge.WithLabelValues(m.hostname, command).Dec()
-// }
-
-// func (m *MetricsServer) SetOrphanedResourcesMetric(app *argoappv1.Application, numOrphanedResources int) {
-// 	m.orphanedResourcesGauge.WithLabelValues(app.Namespace, app.Name, app.Spec.GetProject()).Set(float64(numOrphanedResources))
-// }
-
 // IncKubernetesRequest increments the kubernetes requests counter for an application
 func (m *MetricsServer) IncKubernetesRequest(app *argoappv1.Application, server, statusCode, verb, resourceKind, resourceNamespace string) {
 	var namespace, name, project string
@@ -284,24 +261,17 @@ func (m *MetricsServer) IncKubernetesRequest(app *argoappv1.Application, server,
 	).Inc()
 }
 
-func (m *MetricsServer) IncRedisRequest(failed bool) {
-	m.redisRequestCounter.WithLabelValues(m.hostname, common.ApplicationController, strconv.FormatBool(failed)).Inc()
+func (m *MetricsServer) IncRepoServerRequest(failed bool) {
+	m.repoServerRequestCounter.WithLabelValues(m.hostname, common.ApplicationController, strconv.FormatBool(failed)).Inc()
 }
 
-// ObserveRedisRequestDuration observes redis request duration
-func (m *MetricsServer) ObserveRedisRequestDuration(duration time.Duration) {
-	m.redisRequestHistogram.WithLabelValues(m.hostname, common.ApplicationController).Observe(duration.Seconds())
-}
-
-// ObserveResourceEventsProcessingDuration observes resource events processing duration
-func (m *MetricsServer) ObserveResourceEventsProcessingDuration(server string, duration time.Duration, processedEventsNumber int) {
-	m.resourceEventsProcessingHistogram.WithLabelValues(server).Observe(duration.Seconds())
-	m.resourceEventsNumberGauge.WithLabelValues(server).Set(float64(processedEventsNumber))
+func (m *MetricsServer) ObserveRepoServerRequestDuration(duration time.Duration) {
+	m.repoServerRequestHistogram.WithLabelValues(m.hostname, common.ApplicationController).Observe(duration.Seconds())
 }
 
 // IncReconcile increments the reconcile counter for an application
-func (m *MetricsServer) IncReconcile(app *argoappv1.Application, destServer string, duration time.Duration) {
-	m.reconcileHistogram.WithLabelValues(app.Namespace, destServer).Observe(duration.Seconds())
+func (m *MetricsServer) IncReconcile(app *argoappv1.Application, duration time.Duration) {
+	m.reconcileHistogram.WithLabelValues(app.Namespace, app.Name).Observe(duration.Seconds())
 }
 
 // HasExpiration return true if expiration is set
@@ -323,11 +293,9 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		//		m.kubectlExecPendingGauge.Reset()
 		//m.orphanedResourcesGauge.Reset()
 		m.k8sRequestCounter.Reset()
-		m.redisRequestCounter.Reset()
+		m.repoServerRequestCounter.Reset()
 		m.reconcileHistogram.Reset()
-		m.redisRequestHistogram.Reset()
-		m.resourceEventsProcessingHistogram.Reset()
-		m.resourceEventsNumberGauge.Reset()
+		m.repoServerRequestHistogram.Reset()
 		kubectl.ResetAll()
 	})
 	if err != nil {
@@ -394,7 +362,7 @@ func (c *appCollector) Collect(ch chan<- prometheus.Metric) {
 		// if destCluster != nil {
 		// 	destServer = destCluster.Server
 		// }
-		c.collectApps(ch, app, "FFFXS" /*destServer */)
+		c.collectApps(ch, app)
 	}
 }
 
@@ -405,7 +373,7 @@ func boolFloat64(b bool) float64 {
 	return 0
 }
 
-func (c *appCollector) collectApps(ch chan<- prometheus.Metric, app *argoappv1.Application, destServer string) {
+func (c *appCollector) collectApps(ch chan<- prometheus.Metric, app *argoappv1.Application) {
 	addConstMetric := func(desc *prometheus.Desc, t prometheus.ValueType, v float64, lv ...string) {
 		project := app.Spec.GetProject()
 		lv = append([]string{app.Namespace, app.Name, project}, lv...)
@@ -432,7 +400,7 @@ func (c *appCollector) collectApps(ch chan<- prometheus.Metric, app *argoappv1.A
 
 	autoSyncEnabled := app.Spec.SyncPolicy != nil && app.Spec.SyncPolicy.IsAutomatedSyncEnabled()
 
-	addGauge(descAppInfo, 1, strconv.FormatBool(autoSyncEnabled), git.NormalizeGitURL(app.Spec.GetSource().RepoURL), "destserver", app.Spec.Destination.Namespace, string(syncStatus), string(healthStatus), operation)
+	addGauge(descAppInfo, 1, strconv.FormatBool(autoSyncEnabled), git.NormalizeGitURL(app.Spec.GetSource().RepoURL), app.Spec.Destination.Name, app.Spec.Destination.Namespace, string(syncStatus), string(healthStatus), operation)
 
 	if len(c.appLabels) > 0 {
 		labelValues := []string{}

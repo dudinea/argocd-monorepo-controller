@@ -50,8 +50,9 @@ func NewCommand() *cobra.Command {
 		repoServerPlaintext      bool
 		repoServerStrictTLS      bool
 		//cacheSrc                 func() (*servercache.Cache, error)
-		contentSecurityPolicy string
-		applicationNamespaces []string
+		contentSecurityPolicy  string
+		applicationNamespaces  []string
+		metricsCacheExpiration time.Duration
 		//argocdToken              string
 		//rootpath                 string
 	)
@@ -112,16 +113,17 @@ func NewCommand() *cobra.Command {
 				KubeClientset: kubeclientset,
 				AppClientset:  appClientSet,
 				//Cache:                 cache,
-				RedisClient:           redisClient,
-				ApplicationNamespaces: applicationNamespaces,
-				RepoClientset:         repoClientSet,
+				RedisClient:            redisClient,
+				ApplicationNamespaces:  applicationNamespaces,
+				RepoClientset:          repoClientSet,
+				MetricsCacheExpiration: metricsCacheExpiration,
 			}
 
 			log.Debug("Starting Monorepo Controller server")
 			stats.RegisterStackDumper()
 			stats.StartStatsTicker(10 * time.Minute)
 			stats.RegisterHeapDumper("memprofile")
-			changeRevisionServer := mrp.NewApplicationChangeRevisionServer(ctx, changeRevisionServerOpts)
+			changeRevisionServer := mrp.NewMRPServer(ctx, changeRevisionServerOpts)
 			log.Debug("Initializing Monorepo Controller server")
 			changeRevisionServer.Init(ctx)
 			//log.Debug("Starting listener")
@@ -152,6 +154,8 @@ func NewCommand() *cobra.Command {
 	command.Flags().IntVar(&repoServerTimeoutSeconds, "monorepo-repo-server-timeout-seconds", env.ParseNumFromEnv("MONOREPO_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
 	command.Flags().BoolVar(&repoServerPlaintext, "monorepo-repo-server-plaintext", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
 	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")
+	command.Flags().DurationVar(&metricsCacheExpiration, "metrics-cache-expiration", env.ParseDurationFromEnv("MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION", 0*time.Second, 0, math.MaxInt64), "Prometheus metrics cache expiration (disabled  by default. e.g. 24h0m0s)")
+
 	// cacheSrc = servercache.AddCacheFlagsToCmd(command, cacheutil.Options{
 	// 	OnClientCreated: func(client *redis.Client) {
 	// 		redisClient = client

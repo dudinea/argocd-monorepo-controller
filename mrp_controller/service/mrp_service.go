@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -84,7 +85,13 @@ func getApplicationRevisions(app *application.Application) (string, string, stri
 
 // FIXME: multisource applications support!
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
+	startTime := time.Now()
+	defer func() {
+		reconcileDuration := time.Since(startTime)
+		c.metricsServer.IncReconcile(a, reconcileDuration)
+	}()
 	c.logger.Infof("ChangeRevision called for application %s", a.Name)
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -150,7 +157,15 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("error creating repo server client: %w", err)
 	}
-	defer utilio.Close(closer)
+
+	repoRequestStartTime := time.Now()
+	defer func() {
+		repoRequestDuration := time.Since(repoRequestStartTime)
+		c.metricsServer.ObserveRepoServerRequestDuration(repoRequestDuration)
+		c.metricsServer.IncRepoServerRequest(err != nil)
+		utilio.Close(closer)
+	}()
+
 	changeRevisionResult, err := client.GetChangeRevision(ctx, &repoapiclient.ChangeRevisionRequest{
 		AppName:          a.GetName(),
 		Namespace:        a.GetNamespace(),
