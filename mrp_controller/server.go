@@ -197,9 +197,6 @@ func NewMRPServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 
 	settingsMgr := settings_util.NewSettingsManager(ctx, opts.KubeClientset, opts.Namespace)
 	dbInstance := db.NewDB(opts.Namespace, settingsMgr, opts.KubeClientset)
-	// repoclientset := repoapiclient.NewRepoServerClientset(repoServerAddress,
-	// 	repoServerTimeoutSeconds,
-	// 	tlsConfig)
 
 	server := &MRPServer{
 		MRPServerOpts: opts,
