@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -9,14 +10,16 @@ import (
 
 	// 	test2 "github.com/sirupsen/logrus/hooks/test"
 
+	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 	appsv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/mocks"
 	appmocks "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/typed/application/v1alpha1/mocks"
+	applistermocks "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1/mocks"
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	repomocks "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
-	dbmocks "github.com/argoproj/argo-cd/v3/util/db/mocks"
 
 	"github.com/argoproj/argo-cd/v3/util/app/path"
+	dbmocks "github.com/argoproj/argo-cd/v3/util/db/mocks"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -295,7 +298,8 @@ func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 }
 
 func Test_CalculateRevision_no_paths(t *testing.T) {
-	mrpService := newTestMRPService(&repomocks.Clientset{},
+	mrpService := newTestMRPService(t,
+		&repomocks.Clientset{},
 		&mocks.Interface{},
 		&dbmocks.ArgoDB{})
 	app := createTestApp(t, fakeApp)
@@ -321,7 +325,7 @@ func Test_CalculateRevision(t *testing.T) {
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
-	mrpService := newTestMRPService(clientsetmock, &mocks.Interface{}, db)
+	mrpService := newTestMRPService(t, clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisions(app)
 	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
 	require.NoError(t, err)
@@ -346,12 +350,30 @@ func Test_ChangeRevision(t *testing.T) {
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
 	changeRevisionResponce.Revision = expectedRevision
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
-	mrpService := newTestMRPService(clientsetmock, appClientMock, db)
+	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
 	err := mrpService.ChangeRevision(t.Context(), app)
 	assert.NoError(t, err)
 }
 
-func newTestMRPService(repoClientMock *repomocks.Clientset,
+func newTestMetricsServer(t *testing.T, dbMock *dbmocks.ArgoDB) *metrics.MetricsServer {
+	healthcheck := func(_ *http.Request) error { return nil }
+	var appConditions []string
+	var appLabels []string
+	canProcessApp := func(obj any) bool { return false }
+	appLister := &applistermocks.ApplicationLister{}
+	result, err := metrics.NewMetricsServer("0.0.0.0:8091",
+		appLister,     /*AppLister*/
+		canProcessApp, /*AppFilter*/
+		healthcheck,   /*healthCheck */
+		appLabels,     /* appLabels */
+		appConditions, /* appCondition */
+		dbMock,
+	)
+	assert.NoError(t, err)
+	return result
+}
+
+func newTestMRPService(t *testing.T, repoClientMock *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
 	dbMock *dbmocks.ArgoDB,
 ) *mrpService {
@@ -360,6 +382,7 @@ func newTestMRPService(repoClientMock *repomocks.Clientset,
 		repoClientset:        repoClientMock,
 		db:                   dbMock,
 		logger:               logrus.New(),
+		metricsServer:        newTestMetricsServer(t, dbMock),
 	}
 }
 
