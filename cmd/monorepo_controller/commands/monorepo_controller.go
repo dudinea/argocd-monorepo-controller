@@ -50,7 +50,6 @@ func NewCommand() *cobra.Command {
 		repoServerPlaintext      bool
 		repoServerStrictTLS      bool
 		//cacheSrc                 func() (*servercache.Cache, error)
-		contentSecurityPolicy  string
 		applicationNamespaces  []string
 		metricsCacheExpiration time.Duration
 		//argocdToken              string
@@ -61,10 +60,12 @@ func NewCommand() *cobra.Command {
 		Short:             "Run the ArgoCD Monorepo Controller",
 		Long:              "The ArgoCD Monorepo Controller is a service that listens for application events and updates the application's revision in the application CRD",
 		DisableAutoGenTag: true,
-		Run: func(c *cobra.Command, _ []string) {
+		Run: func(c *cobra.Command, args []string) {
+
 			ctx := c.Context()
 
 			vers := common.GetVersion()
+
 			namespace, _, err := clientConfig.Namespace()
 			errors.CheckError(err)
 			vers.LogStartupInfo(
@@ -126,9 +127,6 @@ func NewCommand() *cobra.Command {
 			changeRevisionServer := mrp.NewMRPServer(ctx, changeRevisionServerOpts)
 			log.Debug("Initializing Monorepo Controller server")
 			changeRevisionServer.Init(ctx)
-			//log.Debug("Starting listener")
-			//lns, err := changeRevisionServer.Listen()
-			//errors.CheckError(err)
 			for {
 				log.Debug("Running Monorepo controllerserver")
 				ctx, cancel := context.WithCancel(ctx)
@@ -143,13 +141,10 @@ func NewCommand() *cobra.Command {
 	command.Flags().StringVar(&cmdutil.LogFormat, "logformat", env.StringFromEnv("MONOREPO_CONTROLLER_LOGFORMAT", "json"), "Set the logging format. One of: text|json")
 	command.Flags().StringVar(&cmdutil.LogLevel, "loglevel", env.StringFromEnv("MONOREPO_CONTROLLER_LOGLEVEL", "info"), "Set the logging level. One of: debug|info|warn|error")
 	command.Flags().IntVar(&glogLevel, "gloglevel", 0, "Set the glog logging level")
-	//command.Flags().StringVar(&applicationServerAddress, "application-server", env.StringFromEnv("ARGOCD_SERVER", common.DefaultApplicationServerAddr), "Application server address")
-	//command.Flags().StringVar(&argocdToken, "argocd-token", env.StringFromEnv("ARGOCD_TOKEN", ""), "ArgoCD server JWT token")
 	command.AddCommand(cli.NewVersionCmd(cliName))
-	command.Flags().StringVar(&listenHost, "address", env.StringFromEnv("MONOREPO_CONTROLLER_LISTEN_ADDRESS", common.DefaultAddressMRPControllerMetrics), "Listen on given address")
-	command.Flags().IntVar(&listenPort, "port", env.ParseNumFromEnv("MONOREPO_CONTROLLER_LISTEN_PORT", common.DefaultPortMRPServerMetrics, 1, math.MaxInt16), "Listen on given port")
-	command.Flags().StringVar(&contentSecurityPolicy, "content-security-policy", env.StringFromEnv("MONOREPO_CONTROLLER_CONTENT_SECURITY_POLICY", "frame-ancestors 'self';"), "Set Content-Security-Policy header in HTTP responses to `value`. To disable, set to \"\".")
-	command.Flags().StringSliceVar(&applicationNamespaces, "application-namespaces", env.StringsFromEnv("MONOREPO_CONTROLLER_APPLICATION_NAMESPACES", []string{}, ","), "List of additional namespaces where application resources can be managed in")
+	command.Flags().StringVar(&listenHost, "address", env.StringFromEnv("MONOREPO_CONTROLLER_LISTEN_ADDRESS", common.DefaultAddressMRPControllerMetrics), "Metrics server will listen on given address")
+	command.Flags().IntVar(&listenPort, "port", env.ParseNumFromEnv("MONOREPO_CONTROLLER_LISTEN_PORT", common.DefaultPortMRPServerMetrics, 1, math.MaxInt16), "Metrics server will listen on given port")
+	command.Flags().StringSliceVar(&applicationNamespaces, "application-namespaces", env.StringsFromEnv("MONOREPO_CONTROLLER_APPLICATION_NAMESPACES", []string{}, ","), "Comma separated list of additional namespaces where application resources can be managed in")
 	command.Flags().StringVar(&repoServerAddress, "monorepo-repo-server", env.StringFromEnv("MONOREPO_REPO_SERVER", common.DefaultMonorepoRepoServerAddr), "Monorepo Repo server address")
 	command.Flags().IntVar(&repoServerTimeoutSeconds, "monorepo-repo-server-timeout-seconds", env.ParseNumFromEnv("MONOREPO_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
 	command.Flags().BoolVar(&repoServerPlaintext, "monorepo-repo-server-plaintext", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
