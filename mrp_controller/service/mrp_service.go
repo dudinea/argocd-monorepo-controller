@@ -58,18 +58,6 @@ func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, re
 	}
 }
 
-// FIXME: remove?
-// func getChangeRevisionFromRevisions(revisions []string) string {
-// 	if len(revisions) > 0 {
-// 		return revisions[0]
-// 	}
-// 	return ""
-// }
-
-//func isMultisource(app *application.Application) bool {
-//	return len(a.Spec.GetSources()) > 0
-//}
-
 func (c *mrpService) getArrayFromAnnotation(app *application.Application, annotationName string) []string {
 	var result []string
 	annStr, ok := app.Annotations[annotationName]

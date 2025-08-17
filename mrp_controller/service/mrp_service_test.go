@@ -144,7 +144,7 @@ status:
     status: Synced
 `
 
-const syncedAppWithSingleHistory1Annotated = `
+const runningAppWithSingleHistory1Annotated = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -165,7 +165,7 @@ operation:
     limit: 5
   sync:
     prune: true
-    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
     syncOptions:
     - CreateNamespace=true
 spec:
@@ -205,6 +205,143 @@ status:
         targetRevision: HEAD
   sync:
     revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+    status: Running
+`
+
+const syncedAppWithSingleHistory1Annotated = `
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    mrp-controller.argoproj.io/change-revision: 792822850fd2f6db63597533e16dfa27e6757dc5
+    mrp-controller.argoproj.io/git-revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/instance: guestbook
+  name: guestbook
+  namespace: argocd
+operation:
+  initiatedBy:
+    automated: true
+  retry:
+    limit: 5
+  sync:
+    prune: true
+    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+    syncOptions:
+    - CreateNamespace=true
+spec:
+  destination:
+    namespace: guestbook
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: apps/guestbook
+    repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+    targetRevision: HEAD
+status:
+  history:
+  - deployStartedAt: "2024-06-20T19:35:36Z"
+    deployedAt: "2024-06-20T19:35:44Z"
+    id: 3
+    initiatedBy: {}
+    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+    source:
+      path: apps/guestbook
+      repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+      targetRevision: HEAD
+  operationState:
+    operation:
+      sync:
+        prune: true
+        revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+        syncOptions:
+        - CreateNamespace=true
+    phase: Synced
+    startedAt: "2024-06-20T19:47:34Z"
+    syncResult:
+      revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+      source:
+        path: apps/guestbook
+        repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+        targetRevision: HEAD
+  sync:
+    revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+    status: Synced
+`
+
+const syncedAppWithSingleHistory2Annotated = `
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    mrp-controller.argoproj.io/change-revision: 792822850fd2f6db63597533e16dfa27e6757dc5
+    mrp-controller.argoproj.io/git-revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/instance: guestbook
+  name: guestbook
+  namespace: argocd
+operation:
+  initiatedBy:
+    automated: true
+  retry:
+    limit: 5
+  sync:
+    prune: true
+    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+    syncOptions:
+    - CreateNamespace=true
+spec:
+  destination:
+    namespace: guestbook
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: apps/guestbook
+    repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+    targetRevision: HEAD
+status:
+  history:
+  - deployStartedAt: "2024-06-20T18:30:00Z"
+    deployedAt: "2024-06-20T18:30:01Z"
+    id: 2
+    initiatedBy: {}
+    revision: 1af87672323345954554587665757e0999678678
+    source:
+      path: apps/guestbook
+      repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+      targetRevision: HEAD
+  - deployStartedAt: "2024-06-20T19:35:36Z"
+    deployedAt: "2024-06-20T19:35:44Z"
+    id: 3
+    initiatedBy: {}
+    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+    source:
+      path: apps/guestbook
+      repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+      targetRevision: HEAD
+  operationState:
+    operation:
+      sync:
+        prune: true
+        revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+        syncOptions:
+        - CreateNamespace=true
+    phase: Synced
+    startedAt: "2024-06-20T19:47:34Z"
+    syncResult:
+      revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+      source:
+        path: apps/guestbook
+        repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+        targetRevision: HEAD
+  sync:
+    revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
     status: Synced
 `
 
@@ -213,8 +350,13 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   annotations:
-    argocd.argoproj.io/manifest-generate-paths: /demo-applications/try-ms02a;/demo-applications/try-ms02b
-    mrp-controller.argoproj.io/change-revisions: '["52abb13f857c76928503689f832a40a4cc240074","52abb13f857c76928503689f832a40a4cc240074","4d5eab4cf4f0254e03ff1969e9a64ab4554720a0","4d5eab4cf4f0254e03ff1969e9a64ab4554720a0"]'
+    valid: '["a","b", null]'
+    empty-array: '[]'
+    empty: ''
+    invalid-json: '["fooo"'
+    invalid-entries: '["fooo", "2"]'
+    invalid-map: '{}'
+    invalid-string: '"foo"'
   name: demo-ms-a
   namespace: argocd
 `
@@ -1076,9 +1218,37 @@ status:
 func Test_getArrayFromAnnotation(t *testing.T) {
 	anapp := createTestApp(t, multiSourceAppAnnotations)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	arr := mrpService.getArrayFromAnnotation(anapp, CHANGE_REVISIONS_ANN)
+	arr := mrpService.getArrayFromAnnotation(anapp, "valid")
 	assert.NotNil(t, arr)
-	assert.Equal(t, 4, len(arr))
+	assert.Equal(t, 3, len(arr))
+	assert.Equal(t, arr[0], "a")
+	assert.Equal(t, arr[1], "b")
+	assert.Equal(t, arr[2], "")
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "empty-array")
+	assert.NotNil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "empty")
+	assert.Nil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-json")
+	assert.Nil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-map")
+	assert.Nil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-string")
+	assert.Nil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
+	arr = mrpService.getArrayFromAnnotation(anapp, "unknown-annotation")
+	assert.Nil(t, arr)
+	assert.Equal(t, 0, len(arr))
+
 }
 
 func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
@@ -1094,7 +1264,19 @@ func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
 	assert.Equal(t, "", sourcesRevisions[0].changeRevision)
 }
 
-func Test_GetSourceRevisionsSSWithHistory(t *testing.T) {
+func Test_GetSourceRevisionsSSWithHistory1Running(t *testing.T) {
+	anapp := createTestApp(t, runningAppWithSingleHistory1Annotated)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	assert.NotNil(t, sourcesRevisions)
+	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
+	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
+	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
+	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].previousRevision)
+}
+
+func Test_GetSourceRevisionsSSWithHistory1Synced(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithSingleHistory1Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
@@ -1104,7 +1286,18 @@ func Test_GetSourceRevisionsSSWithHistory(t *testing.T) {
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
 	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
 	assert.Equal(t, "", sourcesRevisions[0].previousRevision)
+}
 
+func Test_GetSourceRevisionsSSWithHistory2Synced(t *testing.T) {
+	anapp := createTestApp(t, syncedAppWithSingleHistory2Annotated)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	assert.NotNil(t, sourcesRevisions)
+	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
+	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
+	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
+	assert.Equal(t, "1af87672323345954554587665757e0999678678", sourcesRevisions[0].previousRevision)
 }
 
 func Test_GetSourceRevisionsMSWithHistory(t *testing.T) {
