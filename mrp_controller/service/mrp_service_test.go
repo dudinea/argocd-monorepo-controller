@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -215,7 +216,9 @@ metadata:
   annotations:
     argocd.argoproj.io/manifest-generate-paths: .
     mrp-controller.argoproj.io/change-revision: 792822850fd2f6db63597533e16dfa27e6757dc5
+    mrp-controller.argoproj.io/change-revisions: "[\"792822850fd2f6db63597533e16dfa27e6757dc5\"]"
     mrp-controller.argoproj.io/git-revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+    mrp-controller.argoproj.io/git-revisions: "[\"00d423763fbf56d2ea452de7b26a0ab20590f521\"]"
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
@@ -1431,28 +1434,130 @@ func Test_CalculateRevision(t *testing.T) {
 	assert.Equal(t, expectedRevision, *revision)
 }
 
-// WHY FAILS?
-// func Test_ChangeRevision(t *testing.T) {
-// 	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
-// 	repo := appsv1.Repository{Repo: "myrepo"}
-// 	app := createTestApp(t, syncedAppWithSingleHistoryAnnotated)
-// 	appClientMock := createTestAppClientForApp(t, app)
-// 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
-// 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
-// 		AppName:          app.GetName(),
-// 		Namespace:        app.GetNamespace(),
-// 		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
-// 		PreviousRevision: "",
-// 		Paths:            path.GetAppRefreshPaths(app),
-// 		Repo:             &repo,
-// 	}
-// 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
-// 	changeRevisionResponce.Revision = expectedRevision
-// 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
-// 	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
-// 	err := mrpService.ChangeRevision(t.Context(), app)
-// 	assert.NoError(t, err)
-// }
+func Test_addPatchIfNeeded(t *testing.T) {
+	key := "foo"
+	val := "bar"
+	val2 := "baz"
+	key2 := "goo"
+
+	annotations := map[string]string{}
+	currentAnnotations := map[string]string{key: val}
+
+	addPatchIfNeeded(annotations, currentAnnotations, key, val)
+	assert.Equal(t, 0, len(annotations))
+
+	addPatchIfNeeded(annotations, currentAnnotations, key, val2)
+	assert.Equal(t, 1, len(annotations))
+	patchVal, ok := annotations[key]
+	assert.True(t, ok)
+	assert.Equal(t, val2, patchVal)
+
+	addPatchIfNeeded(annotations, currentAnnotations, key2, val)
+	assert.Equal(t, 2, len(annotations))
+	patchVal, ok = annotations[key2]
+	assert.True(t, ok)
+	assert.Equal(t, val, patchVal)
+}
+
+func getPatchAnnotations(t *testing.T, patch map[string]any) map[string]string {
+	assert.NotNil(t, patch)
+	meta := patch["metadata"].(map[string]any)
+	assert.NotNil(t, meta)
+	annotations := meta["annotations"].(map[string]string)
+	return annotations
+}
+
+func Test_makeAnnotationPatchNoChange(t *testing.T) {
+	a := createTestApp(t, syncedAppWithSingleHistory1Annotated)
+
+	var changeRevisions []string
+	err := json.Unmarshal([]byte(a.Annotations[CHANGE_REVISIONS_ANN]), &changeRevisions)
+	assert.Nil(t, err)
+
+	var gitRevisions []string
+	err = json.Unmarshal([]byte(a.Annotations[GIT_REVISIONS_ANN]), &gitRevisions)
+	assert.Nil(t, err)
+
+	patch, err := makeAnnotationPatch(a, a.Annotations[CHANGE_REVISION_ANN], changeRevisions,
+		a.Annotations[GIT_REVISION_ANN], gitRevisions)
+	assert.Nil(t, err)
+	assert.NotNil(t, patch)
+	annotations := getPatchAnnotations(t, patch)
+	assert.Equal(t, 0, len(annotations))
+}
+
+func Test_makeAnnotationPatch(t *testing.T) {
+
+	changeRevision := "12345"
+	changeRevisions := []string{changeRevision}
+	gitRevision := "56789"
+	gitRevisions := []string{gitRevision}
+
+	a := createTestApp(t, syncedAppWithSingleHistory1Annotated)
+	patch, err := makeAnnotationPatch(a, changeRevision, changeRevisions, gitRevision, gitRevisions)
+	assert.Nil(t, err)
+	annotations := getPatchAnnotations(t, patch)
+	assert.Equal(t, 4, len(annotations))
+	assert.Equal(t, changeRevision, annotations[CHANGE_REVISION_ANN])
+	assert.Equal(t, gitRevision, annotations[GIT_REVISION_ANN])
+
+	changeRevisionsBytes, err := json.Marshal(changeRevisions)
+	assert.NoError(t, err)
+	assert.Equal(t, string(changeRevisionsBytes), annotations[CHANGE_REVISIONS_ANN])
+
+	gitRevisionsBytes, err := json.Marshal(gitRevisions)
+	assert.NoError(t, err)
+	assert.Equal(t, string(gitRevisionsBytes), annotations[GIT_REVISIONS_ANN])
+
+}
+
+func Test_ChangeRevision(t *testing.T) {
+	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
+	repo := appsv1.Repository{Repo: "myrepo"}
+	app := createTestApp(t, syncedAppWithSingleHistory1Annotated)
+	appClientMock := createTestAppClientForApp(t, app)
+	db := createTestArgoDbForAppAndRepo(t, app, &repo)
+	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
+		AppName:          app.GetName(),
+		Namespace:        app.GetNamespace(),
+		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
+		PreviousRevision: "",
+		Paths:            path.GetAppRefreshPaths(app),
+		Repo:             &repo,
+	}
+	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
+	changeRevisionResponce.Revision = expectedRevision
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
+	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
+	err := mrpService.ChangeRevision(t.Context(), app)
+	assert.NoError(t, err)
+}
+
+func Test_makeChangeRevisionPatch(t *testing.T) {
+	expectedRevision := "ffffffffffffffffffffffffffffffffffffffff"
+	repo := appsv1.Repository{Repo: "myrepo"}
+	app := createTestApp(t, syncedAppWithSingleHistory1Annotated)
+	appClientMock := createTestAppClientForApp(t, app)
+	db := createTestArgoDbForAppAndRepo(t, app, &repo)
+	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
+		AppName:          app.GetName(),
+		Namespace:        app.GetNamespace(),
+		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
+		PreviousRevision: "",
+		Paths:            path.GetAppRefreshPaths(app),
+		Repo:             &repo,
+	}
+	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
+	changeRevisionResponce.Revision = expectedRevision
+	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
+	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
+	patch, err := mrpService.makeChangeRevisionPatch(t.Context(), app)
+	assert.NoError(t, err)
+	assert.NotNil(t, patch)
+	annotations := getPatchAnnotations(t, patch)
+	assert.Equal(t, expectedRevision, annotations[CHANGE_REVISION_ANN])
+	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", annotations[GIT_REVISION_ANN])
+}
 
 func newTestMetricsServer(t *testing.T, dbMock *dbmocks.ArgoDB) *metrics.MetricsServer {
 	healthcheck := func(_ *http.Request) error { return nil }

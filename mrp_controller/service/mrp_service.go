@@ -146,7 +146,139 @@ type sourceRevisions struct {
 	previousRevision string
 }
 
-// FIXME: multisource applications support!
+func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application.Application) (map[string]any, error) {
+	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Get(ctx, a.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	c.logger.Debugf("retrieved app: %s", app.Name)
+	// we just need to know it exists, actual use of the value will be in calculateChangeRevision
+	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
+	if !ok || val == "" {
+		c.logger.Infof("manifest generation paths not set for application  '%s/%s'", a.Namespace, a.Name)
+		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
+	}
+	// FIXED: race condition: sync may already be completed!
+	// if app.Operation == nil || app.Operation.Sync == nil {
+	// 	c.logger.Infof("skipping because non-relevant operation: %v", app.Operation)
+	// 	return nil
+	// }
+	//from, to := getSourceIndices(a)
+	sourcesRevisions := c.getSourcesRevisions(a)
+	numSources := len(sourcesRevisions)
+	patchChangeRevisions := make([]string, numSources)
+	patchGitRevisions := make([]string, numSources)
+
+	for idx, r := range sourcesRevisions {
+		c.logger.Infof("applicationSource %d changeRevision is %s, gitRevision is %s, currentRevision is %s, previousRevision is %s  for application %s",
+			idx, r.changeRevision, r.gitRevision, r.currentRevision, r.previousRevision, app.Name)
+
+		patchGitRevisions[idx] = r.currentRevision
+		// keep current change revision if there is no new value calculated
+		patchChangeRevisions[idx] = r.changeRevision
+
+		// current argo revision not changed since the last time we red the revions info
+		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
+			c.logger.Infof("Change revision already calculated for application %s source %d", app.Name, idx)
+			continue
+		}
+
+		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision)
+		if err != nil {
+			c.logger.Errorf("Failed to calculate revision for app %s source %d: %v", app.Name, idx, err)
+			continue
+		}
+		c.logger.Infof("New change revision #%d for application %s is %s", idx, app.Name, *newChangeRevision)
+		if newChangeRevision == nil || *newChangeRevision == "" {
+			c.logger.Infof("Revision #%d for application %s is empty", idx, app.Name)
+		}
+		if r.changeRevision == *newChangeRevision {
+			c.logger.Infof("revision #%d for application %s has not changed", idx, app.Name)
+		}
+		patchChangeRevisions[idx] = *newChangeRevision
+	}
+	result, err := makeAnnotationPatch(a,
+		patchChangeRevisions[0], patchChangeRevisions,
+		patchGitRevisions[0], patchGitRevisions)
+	if err != nil {
+		c.logger.Errorf("Failed to make annotations patch for app %s: %v", app.Name, err)
+		return nil, err
+	}
+	c.logger.Infof("patch for application %s: %v", app.Name, result)
+	return result, nil
+}
+
+func addPatchIfNeeded(annotations map[string]string, currentAnnotations map[string]string, key string, val string) {
+	currentVal, ok := currentAnnotations[key]
+	if !ok || currentVal != val {
+		annotations[key] = val
+	}
+}
+
+func makeAnnotationPatch(a *application.Application,
+	changeRevision string,
+	changeRevisions []string,
+	gitRevision string,
+	gitRevisions []string) (map[string]any, error) {
+	annotations := map[string]string{}
+	currentAnnotations := a.Annotations
+
+	changeRevisionsJson, err := json.Marshal(changeRevisions)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to marshall changeRevisions %v: %v", changeRevisions, err)
+	}
+	gitRevisionsJson, err := json.Marshal(gitRevisions)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to marshall changeRevisions %v: %v", changeRevisions, err)
+	}
+
+	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISION_ANN, changeRevision)
+	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISIONS_ANN, string(changeRevisionsJson))
+	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISION_ANN, gitRevision)
+	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISIONS_ANN, string(gitRevisionsJson))
+
+	return map[string]any{
+		"metadata": map[string]any{
+			"annotations": annotations,
+		},
+	}, nil
+}
+
+// FIXME: multisource annotations support
+func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application,
+	changeRevision string, gitRevision string) error {
+	// FIXME: make it smarter, annotate only what has changed
+	// FIXME: fake multisource annotation for now
+	changeRevisions := "[\"" + changeRevision + "\"]"
+	patch, _ := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				CHANGE_REVISION_ANN:  changeRevision,
+				CHANGE_REVISIONS_ANN: changeRevisions,
+				GIT_REVISION_ANN:     gitRevision,
+			},
+		},
+	})
+	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		c.logger.Errorf("failed to annotate: %v", err)
+	}
+	return err
+}
+
+func (c *mrpService) annotateApplication(ctx context.Context, a *application.Application, patch map[string]any) error {
+	patchBytes, err := json.Marshal(patch)
+	if nil != err {
+		c.logger.Errorf("failed to marshal patch into json: %v", err)
+		return err
+	}
+	_, err = c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		c.logger.Errorf("failed to annotate application: %v", err)
+	}
+	return err
+}
+
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
 	startTime := time.Now()
 	defer func() {
@@ -158,51 +290,12 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Get(ctx, a.Name, metav1.GetOptions{})
-	if err != nil {
-		return err
+	patch, error := c.makeChangeRevisionPatch(ctx, a)
+	if nil == error {
+		c.logger.Infof("patch to be applied: %v", patch)
+		error = c.annotateApplication(ctx, a, patch)
 	}
-	c.logger.Debugf("ChangeRevision retrieved app: %s", app.Name)
-	// we just need to know it exists, actual use of the value will be in calculateChangeRevision
-	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
-	if !ok || val == "" {
-		c.logger.Infof("manifest generation paths not set for application  '%s/%s'", a.Namespace, a.Name)
-		return status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
-	}
-	// FIXED: race condition: sync may already be completed!
-	// if app.Operation == nil || app.Operation.Sync == nil {
-	// 	c.logger.Infof("skipping because non-relevant operation: %v", app.Operation)
-	// 	return nil
-	// }
-	//from, to := getSourceIndices(a)
-	sourcesRevisions := c.getSourcesRevisions(a)
-	for idx, r := range sourcesRevisions {
-		//changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(a, idx)
-		c.logger.Infof("applicationSource %d changeRevision is %s, gitRevision is %s, currentRevision is %s, previousRevision is %s  for application %s",
-			idx, r.changeRevision, r.gitRevision, r.currentRevision, r.previousRevision, app.Name)
-		// current argo revision not changed since the last time we red the revions info
-		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
-			c.logger.Infof("Change revision already calculated for application %s source %d", app.Name, idx)
-			continue
-		}
-		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision)
-		if err != nil {
-			// FIXME: probably need to continue and and finish updates for all repositories
-			return err
-		}
-		c.logger.Infof("New change revision #%d for application %s is %s", idx, app.Name, *newChangeRevision)
-		if newChangeRevision == nil || *newChangeRevision == "" {
-			c.logger.Infof("Revision #%d for application %s is empty", idx, app.Name)
-			continue
-		}
-		if r.changeRevision == *newChangeRevision {
-			c.logger.Infof("Application change revision for %s has not changed", app.Name)
-		}
-		return c.annotateAppWithChangeRevision(ctx, app, *newChangeRevision, r.currentRevision)
-	}
-
-	c.logger.Infof("Patching operation for application %s", app.Name)
-	return nil
+	return error
 }
 
 func (c *mrpService) calculateChangeRevision(ctx context.Context,
@@ -248,26 +341,26 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	return &changeRevisionResult.Revision, nil
 }
 
-// FIXME: multisource annotations support
-func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
-	// FIXME: make it smarter, annotate only what has changed
-	// FIXME: fake multisource annotation for now
-	changeRevisions := "[\"" + changeRevision + "\"]"
-	patch, _ := json.Marshal(map[string]any{
-		"metadata": map[string]any{
-			"annotations": map[string]any{
-				CHANGE_REVISION_ANN:  changeRevision,
-				CHANGE_REVISIONS_ANN: changeRevisions,
-				GIT_REVISION_ANN:     argoRevision,
-			},
-		},
-	})
-	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		c.logger.Errorf("failed to annotate: %v", err)
-	}
-	return err
-}
+// // FIXME: multisource annotations support
+// func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
+// 	// FIXME: make it smarter, annotate only what has changed
+// 	// FIXME: fake multisource annotation for now
+// 	changeRevisions := "[\"" + changeRevision + "\"]"
+// 	patch, _ := json.Marshal(map[string]any{
+// 		"metadata": map[string]any{
+// 			"annotations": map[string]any{
+// 				CHANGE_REVISION_ANN:  changeRevision,
+// 				CHANGE_REVISIONS_ANN: changeRevisions,
+// 				GIT_REVISION_ANN:     argoRevision,
+// 			},
+// 		},
+// 	})
+// 	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+// 	if err != nil {
+// 		c.logger.Errorf("failed to annotate: %v", err)
+// 	}
+// 	return err
+// }
 
 func getCurrentRevisionForFirstSyncMultiSource(a *application.Application, idx int) string {
 	if a.Operation != nil && a.Operation.Sync != nil {
