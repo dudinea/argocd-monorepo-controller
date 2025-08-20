@@ -18,39 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// func (s *Service) getCacheKeyWithKustomizeComponents(
-// 	revision string,
-// 	repo *v1alpha1.Repository,
-// 	source *v1alpha1.ApplicationSource,
-// 	settings operationSettings,
-// 	gitClient git.Client,
-// ) (string, error) {
-// 	closer, err := s.repoLock.Lock(gitClient.Root(), revision, settings.allowConcurrent, func() (goio.Closer, error) {
-// 		return s.checkoutRevision(gitClient, revision, s.initConstants.SubmoduleEnabled)
-// 	})
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	defer io.Close(closer)
-
-// 	appPath, err := argopath.Path(gitClient.Root(), source.Path)
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	k := kustomize.NewKustomizeApp(gitClient.Root(), appPath, repo.GetGitCreds(s.gitCredsStore), repo.Repo, source.Kustomize.Version, "", "")
-
-// 	resolveRevisionFunc := func(repoURL, revision string, _ git.Creds) (string, error) {
-// 		cloneRepo := *repo
-// 		cloneRepo.Repo = repoURL
-// 		_, res, err := s.newClientResolveRevision(&cloneRepo, revision)
-// 		return res, err
-// 	}
-
-// 	return k.GetCacheKeyWithComponents(revision, source.Kustomize, resolveRevisionFunc)
-// }
-
 func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.ChangeRevisionRequest) (*apiclient.ChangeRevisionResponse, error) {
 	logCtx := log.WithFields(log.Fields{"application": request.AppName, "appNamespace": request.Namespace})
 
@@ -76,7 +43,7 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		return nil, status.Errorf(codes.Internal, "unable to resolve git revision %s: %v", revision, err)
 	}
 	if previousRevision == "" {
-		logCtx.Infof("new application: there is no previous revision, using current revision as change revision")
+		logCtx.Infof("there is no previous revision (new app or source), using current revision as change revision")
 		return &apiclient.ChangeRevisionResponse{
 			Revision: currentRevision,
 		}, nil
@@ -96,11 +63,12 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	logCtx.Debugf("running list revisions '%s' .. '%s'", previousRevision, revision)
 	revisions, err := gitClient.ListRevisions(previousRevision, revision)
 	if err != nil {
+		logCtx.Warnf("no path between revisions '%s' and '%s', using current revision as change revision", previousRevision, revision)
 		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s", previousRevision, revision)
 	}
 	logCtx.Debugf("got list of %d revisions: %v", len(revisions), revisions)
 	if len(revisions) == 0 {
-		logCtx.Debugf("no path between revisions '%s' and '%s', using current revision as change revision", previousRevision, revision)
+		logCtx.Infof("no path between revisions '%s' and '%s', using current revision as change revision", previousRevision, revision)
 		return &apiclient.ChangeRevisionResponse{
 			Revision: revision,
 		}, nil
@@ -109,7 +77,7 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		logCtx.Debugf("checking for changes in revision '%s'", rev)
 		files, err := gitClient.DiffTree(rev)
 		if err != nil {
-			logCtx.Errorf("Difftree returned error: %s, continuing to next commit anyway", err.Error())
+			logCtx.Warnf("Difftree returned error: %s, continuing to next commit anyway", err.Error())
 			continue
 		}
 		logCtx.Debugf("refreshpath is '%v'", refreshPaths)
@@ -119,13 +87,13 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		}
 		changedFiles := argopath.AppFilesHaveChanged(refreshPaths, files)
 		if changedFiles {
-			logCtx.Debugf("changes found for application %s in repo %s from revision %s to revision %s in revision %s", request.AppName, repo.Repo, previousRevision, revision, rev)
+			logCtx.Infof("changes found in repo %s from revision %s to revision %s in revision %s", repo.Repo, previousRevision, revision, rev)
 			return &apiclient.ChangeRevisionResponse{
 				Revision: rev,
 			}, nil
 		}
 	}
 
-	logCtx.Debugf("changes not found for application %s in repo %s from revision %s to revision %s", request.AppName, repo.Repo, previousRevision, revision)
+	logCtx.Infof("changes not found in repo %s from revision %s to revision %s", repo.Repo, previousRevision, revision)
 	return &apiclient.ChangeRevisionResponse{}, nil
 }
