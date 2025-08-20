@@ -24,6 +24,9 @@ func (m *nativeGitClient) ListRevisions(revision string, targetRevision string) 
 	if err != nil {
 		return nil, err
 	}
+	if out == "" {
+		return []string{}, nil
+	}
 	ss := strings.Split(out, "\n")
 	return ss, nil
 }

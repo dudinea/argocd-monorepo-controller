@@ -92,13 +92,21 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 		return nil, status.Errorf(codes.Internal, "unable to checkout git repo %s with revision %s: %v", repo.Repo, revision, err)
 	}
 	defer io.Close(closer)
+
+	logCtx.Debugf("running list revisions '%s' .. '%s'", previousRevision, revision)
 	revisions, err := gitClient.ListRevisions(previousRevision, revision)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s", previousRevision, revision)
 	}
-	logCtx.Debugf("got list of %d revisions", len(revisions))
+	logCtx.Debugf("got list of %d revisions: %v", len(revisions), revisions)
+	if len(revisions) == 0 {
+		logCtx.Debugf("no path between revisions '%s' and '%s', using current revision as change revision", previousRevision, revision)
+		return &apiclient.ChangeRevisionResponse{
+			Revision: revision,
+		}, nil
+	}
 	for _, rev := range revisions {
-		logCtx.Debugf("checking for changes in revision %s", rev)
+		logCtx.Debugf("checking for changes in revision '%s'", rev)
 		files, err := gitClient.DiffTree(rev)
 		if err != nil {
 			logCtx.Errorf("Difftree returned error: %s, continuing to next commit anyway", err.Error())
