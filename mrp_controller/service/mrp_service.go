@@ -90,6 +90,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 				gitRevision:      sliceGetString(&gitRevisions, idx),
 				currentRevision:  currentRevision,
 				previousRevision: previousRevision,
+				repoUrl:          app.Spec.Sources[idx].RepoURL,
 			}
 		}
 	} else {
@@ -103,6 +104,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 			gitRevision:      gitRevision,
 			currentRevision:  currentRevision,
 			previousRevision: previousRevision,
+			repoUrl:          app.Spec.Source.RepoURL,
 		}
 	}
 	return result
@@ -144,6 +146,7 @@ type sourceRevisions struct {
 	gitRevision      string
 	currentRevision  string
 	previousRevision string
+	repoUrl          string
 }
 
 func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application.Application) (map[string]any, error) {
@@ -183,7 +186,7 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 			continue
 		}
 
-		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision)
+		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision, r.repoUrl)
 		if err != nil {
 			c.logger.Errorf("Failed to calculate revision for app %s source %d: %v", app.Name, idx, err)
 			continue
@@ -197,7 +200,7 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 		}
 		patchChangeRevisions[idx] = *newChangeRevision
 	}
-	result, err := makeAnnotationPatch(a,
+	result, err := c.makeAnnotationPatch(a,
 		patchChangeRevisions[0], patchChangeRevisions,
 		patchGitRevisions[0], patchGitRevisions)
 	if err != nil {
@@ -215,11 +218,13 @@ func addPatchIfNeeded(annotations map[string]string, currentAnnotations map[stri
 	}
 }
 
-func makeAnnotationPatch(a *application.Application,
+func (c *mrpService) makeAnnotationPatch(a *application.Application,
 	changeRevision string,
 	changeRevisions []string,
 	gitRevision string,
 	gitRevisions []string) (map[string]any, error) {
+	c.logger.Debugf("makeAnnotationPatch for app %s, changeRevision=%s, changeRevisions=%v, gitRevision=%s, gitRevisions=%v",
+		a.Name, changeRevision, changeRevisions, gitRevision, gitRevisions)
 	annotations := map[string]string{}
 	currentAnnotations := a.Annotations
 
@@ -236,6 +241,10 @@ func makeAnnotationPatch(a *application.Application,
 	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISIONS_ANN, string(changeRevisionsJson))
 	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISION_ANN, gitRevision)
 	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISIONS_ANN, string(gitRevisionsJson))
+
+	if len(annotations) == 0 {
+		return nil, nil
+	}
 
 	return map[string]any{
 		"metadata": map[string]any{
@@ -292,7 +301,10 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 
 	patch, error := c.makeChangeRevisionPatch(ctx, a)
 	if nil == error {
-		c.logger.Infof("patch to be applied: %v", patch)
+		if nil == patch {
+			c.logger.Infof("no need to patch the application %s", a.Name)
+			return nil
+		}
 		error = c.annotateApplication(ctx, a, patch)
 	}
 	return error
@@ -300,11 +312,10 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 
 func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	a *application.Application,
-	currentRevision string, previousRevision string,
-) (*string, error) {
+	currentRevision string, previousRevision string, repoURL string) (*string, error) {
 	c.logger.Debugf("Calculate revision for application '%s', current revision '%s', previous revision '%s'", a.Name, currentRevision, previousRevision)
 
-	repo, err := c.db.GetRepository(ctx, a.Spec.GetSource().RepoURL, a.Spec.Project)
+	repo, err := c.db.GetRepository(ctx, repoURL, a.Spec.Project)
 	if err != nil {
 		return nil, fmt.Errorf("error getting repository: %w", err)
 	}

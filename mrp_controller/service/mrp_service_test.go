@@ -1428,7 +1428,7 @@ func Test_CalculateRevision(t *testing.T) {
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
 	mrpService := newTestMRPService(t, clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisionsSingleSource(app)
-	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision)
+	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision, app.Spec.Source.RepoURL)
 	require.NoError(t, err)
 	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
@@ -1469,6 +1469,7 @@ func getPatchAnnotations(t *testing.T, patch map[string]any) map[string]string {
 
 func Test_makeAnnotationPatchNoChange(t *testing.T) {
 	a := createTestApp(t, syncedAppWithSingleHistory1Annotated)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 
 	var changeRevisions []string
 	err := json.Unmarshal([]byte(a.Annotations[CHANGE_REVISIONS_ANN]), &changeRevisions)
@@ -1478,23 +1479,21 @@ func Test_makeAnnotationPatchNoChange(t *testing.T) {
 	err = json.Unmarshal([]byte(a.Annotations[GIT_REVISIONS_ANN]), &gitRevisions)
 	assert.Nil(t, err)
 
-	patch, err := makeAnnotationPatch(a, a.Annotations[CHANGE_REVISION_ANN], changeRevisions,
+	patch, err := mrpService.makeAnnotationPatch(a, a.Annotations[CHANGE_REVISION_ANN], changeRevisions,
 		a.Annotations[GIT_REVISION_ANN], gitRevisions)
 	assert.Nil(t, err)
-	assert.NotNil(t, patch)
-	annotations := getPatchAnnotations(t, patch)
-	assert.Equal(t, 0, len(annotations))
+	assert.Nil(t, patch)
 }
 
 func Test_makeAnnotationPatch(t *testing.T) {
-
 	changeRevision := "12345"
 	changeRevisions := []string{changeRevision}
 	gitRevision := "56789"
 	gitRevisions := []string{gitRevision}
 
 	a := createTestApp(t, syncedAppWithSingleHistory1Annotated)
-	patch, err := makeAnnotationPatch(a, changeRevision, changeRevisions, gitRevision, gitRevisions)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
+	patch, err := mrpService.makeAnnotationPatch(a, changeRevision, changeRevisions, gitRevision, gitRevisions)
 	assert.Nil(t, err)
 	annotations := getPatchAnnotations(t, patch)
 	assert.Equal(t, 4, len(annotations))
