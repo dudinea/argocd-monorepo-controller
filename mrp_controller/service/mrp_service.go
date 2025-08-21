@@ -174,12 +174,12 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 		}
 		sourceLogCtx.Infof("New change revision for source is '%s'", *newChangeRevision)
 		if newChangeRevision == nil || *newChangeRevision == "" {
-			sourceLogCtx.Infof("new ChangeRevision is empty")
-		}
-		if r.changeRevision == *newChangeRevision {
+			sourceLogCtx.Infof("no new changes found, keeping existing change revision")
+		} else if patchChangeRevisions[idx] == *newChangeRevision {
 			sourceLogCtx.Infof("ChangeRevision has not changed")
+		} else {
+			patchChangeRevisions[idx] = *newChangeRevision
 		}
-		patchChangeRevisions[idx] = *newChangeRevision
 	}
 	result, err := c.makeAnnotationPatch(a,
 		patchChangeRevisions[0], patchChangeRevisions,
