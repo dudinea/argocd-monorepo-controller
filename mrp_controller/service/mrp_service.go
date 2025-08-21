@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -58,30 +57,27 @@ func NewMRPService(applicationClientset appclientset.Interface, db db.ArgoDB, re
 	}
 }
 
-func (c *mrpService) getArrayFromAnnotation(app *application.Application, annotationName string) []string {
+func (c *mrpService) getArrayFromAnnotation(app *application.Application, logCtx *log.Entry, annotationName string) []string {
 	var result []string
 	annStr, ok := app.Annotations[annotationName]
 	if ok && strings.TrimSpace(annStr) != "" {
 		err := json.Unmarshal([]byte(annStr), &result)
 		if err != nil {
-			c.logger.Warnf("application %s/%s, Failed to parse annotation %s as array: %v",
-				app.Namespace, app.Name, annotationName, err)
+			logCtx.Warnf("application Failed to parse annotation '%s' as array: %v", annotationName, err)
 		}
 	}
 	return result
-
 }
 
-func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceRevisions {
+func (c *mrpService) getSourcesRevisions(app *application.Application, logCtx *log.Entry) []sourceRevisions {
 	var result []sourceRevisions
 	sources := app.Spec.GetSources()
-	fmt.Fprintf(os.Stderr, "sources=%v", sources)
 	numSources := len(sources)
 	anns := app.Annotations
 	if app.Spec.HasMultipleSources() {
 		result = make([]sourceRevisions, numSources)
-		changeRevisions := c.getArrayFromAnnotation(app, CHANGE_REVISIONS_ANN)
-		gitRevisions := c.getArrayFromAnnotation(app, GIT_REVISIONS_ANN)
+		changeRevisions := c.getArrayFromAnnotation(app, logCtx, CHANGE_REVISIONS_ANN)
+		gitRevisions := c.getArrayFromAnnotation(app, logCtx, GIT_REVISIONS_ANN)
 		for idx, _ := range sources {
 			currentRevision, previousRevision := getRevisionsMultiSource(app, idx)
 			result[idx] = sourceRevisions{
@@ -120,17 +116,19 @@ type sourceRevisions struct {
 	isHelmRepo       bool
 }
 
-func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application.Application) (map[string]any, error) {
+func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.Entry, a *application.Application) (map[string]any, error) {
 	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Get(ctx, a.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	c.logger.Debugf("retrieved app: %s", app.Name)
+	logCtx.Debugf("retrieved application resource version %s", app.ResourceVersion)
 	// we just need to know it exists, actual use of the value will be in calculateChangeRevision
-	val, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
-	if !ok || val == "" {
-		c.logger.Infof("manifest generation paths not set for application  '%s/%s'", a.Namespace, a.Name)
+	manifestGenerationPaths, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
+	if !ok || manifestGenerationPaths == "" {
+		logCtx.Infof("manifest generation paths not set for the application")
 		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
+	} else {
+		logCtx.Infof("manifest generation paths is %s", manifestGenerationPaths)
 	}
 	// FIXED: race condition: sync may already be completed!
 	// if app.Operation == nil || app.Operation.Sync == nil {
@@ -138,14 +136,19 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 	// 	return nil
 	// }
 	//from, to := getSourceIndices(a)
-	sourcesRevisions := c.getSourcesRevisions(a)
+	sourcesRevisions := c.getSourcesRevisions(a, logCtx)
 	numSources := len(sourcesRevisions)
 	patchChangeRevisions := make([]string, numSources)
 	patchGitRevisions := make([]string, numSources)
 
 	for idx, r := range sourcesRevisions {
-		c.logger.Infof("applicationSource %d changeRevision is %s, gitRevision is %s, currentRevision is %s, previousRevision is %s  for application %s",
-			idx, r.changeRevision, r.gitRevision, r.currentRevision, r.previousRevision, app.Name)
+		sourceLogCtx := logCtx.WithFields(log.Fields{"sourceIdx": idx})
+		sourceLogCtx.WithFields(log.Fields{
+			"changeRevision":   r.changeRevision,
+			"gitRevision":      r.gitRevision,
+			"currentRevision":  r.currentRevision,
+			"previousRevision": r.previousRevision,
+		}).Debugf("processing source")
 		patchGitRevisions[idx] = r.currentRevision
 		// keep current change revision if there is no new value calculated
 		patchChangeRevisions[idx] = r.changeRevision
@@ -154,27 +157,27 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 			// FIXME: not really git revision, helm repositories are
 			// not really supported, just use helm version for both
 			// git and change revisions for now
-			c.logger.Errorf("Source %d uses Helm repo, skipping", idx)
+			sourceLogCtx.Errorf("this source uses Helm repo, skipping")
 			patchChangeRevisions[idx] = r.gitRevision
 			continue
 		}
 
 		// current argo revision not changed since the last time we red the revions info
 		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
-			c.logger.Infof("Change revision already calculated for application %s source %d", app.Name, idx)
+			sourceLogCtx.Infof("Change revision already calculated")
 			continue
 		}
-		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision, r.repoUrl)
+		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoUrl)
 		if err != nil {
-			c.logger.Errorf("Failed to calculate revision for app %s source %d: %v", app.Name, idx, err)
+			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
 			continue
 		}
-		c.logger.Infof("New change revision #%d for application %s is %s", idx, app.Name, *newChangeRevision)
+		sourceLogCtx.Infof("New change revision for source is '%s'", *newChangeRevision)
 		if newChangeRevision == nil || *newChangeRevision == "" {
-			c.logger.Infof("Revision #%d for application %s is empty", idx, app.Name)
+			sourceLogCtx.Infof("new ChangeRevision is empty")
 		}
 		if r.changeRevision == *newChangeRevision {
-			c.logger.Infof("revision #%d for application %s has not changed", idx, app.Name)
+			sourceLogCtx.Infof("ChangeRevision has not changed")
 		}
 		patchChangeRevisions[idx] = *newChangeRevision
 	}
@@ -182,10 +185,10 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 		patchChangeRevisions[0], patchChangeRevisions,
 		patchGitRevisions[0], patchGitRevisions)
 	if err != nil {
-		c.logger.Errorf("Failed to make annotations patch for app %s: %v", app.Name, err)
+		logCtx.Errorf("Failed to make annotations patch: %v", err)
 		return nil, err
 	}
-	c.logger.Infof("patch for application %s: %v", app.Name, result)
+	logCtx.Infof("patch for application: %v", result)
 	return result, nil
 }
 
@@ -231,15 +234,15 @@ func (c *mrpService) makeAnnotationPatch(a *application.Application,
 	}, nil
 }
 
-func (c *mrpService) annotateApplication(ctx context.Context, a *application.Application, patch map[string]any) error {
+func (c *mrpService) annotateApplication(ctx context.Context, logCtx *log.Entry, a *application.Application, patch map[string]any) error {
 	patchBytes, err := json.Marshal(patch)
 	if nil != err {
-		c.logger.Errorf("failed to marshal patch into json: %v", err)
+		logCtx.Errorf("failed to marshal patch into json: %v", err)
 		return err
 	}
-	_, err = c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		c.logger.Errorf("failed to annotate application: %v", err)
+		logCtx.Errorf("failed to annotate application: %v: %v", app, err)
 	}
 	return err
 }
@@ -250,32 +253,41 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 		reconcileDuration := time.Since(startTime)
 		c.metricsServer.IncReconcile(a, reconcileDuration)
 	}()
-	c.logger.Infof("ChangeRevision called for application %s", a.Name)
+	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
+	logCtx.Infof("ChangeRevision called")
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	patch, error := c.makeChangeRevisionPatch(ctx, a)
-	if nil == error {
+	patch, err := c.makeChangeRevisionPatch(ctx, logCtx, a)
+	if err != nil {
+		logCtx.Errorf("Failed to make change revision patch: %v", err)
+	} else {
 		if nil == patch {
-			c.logger.Infof("no need to patch the application %s", a.Name)
+			logCtx.Infof("no need to patch the application")
 			return nil
 		}
-		error = c.annotateApplication(ctx, a, patch)
+		err = c.annotateApplication(ctx, logCtx, a, patch)
+		if err != nil {
+			logCtx.Errorf("Failed to patch application: %v", err)
+		} else {
+			logCtx.Infof("Successfully patched the application")
+		}
 	}
-	return error
+	return err
 }
 
-func (c *mrpService) calculateChangeRevision(ctx context.Context,
+func (c *mrpService) calculateChangeRevision(ctx context.Context, logCtx *log.Entry,
 	a *application.Application,
 	currentRevision string, previousRevision string, repoURL string) (*string, error) {
-	c.logger.Debugf("Calculate revision for application '%s', current revision '%s', previous revision '%s'", a.Name, currentRevision, previousRevision)
+	logCtx.Debugf("Calculate revision: current revision '%s', previous revision '%s'",
+		currentRevision, previousRevision)
 
 	repo, err := c.db.GetRepository(ctx, repoURL, a.Spec.Project)
 	if err != nil {
 		return nil, fmt.Errorf("error getting repository: %w", err)
 	}
-	c.logger.Debugf("repository is %s of type %s", repo.Name, repo.Type)
+	logCtx.Debugf("repository %s is of type %s", repo.Name, repo.Type)
 
 	closer, client, err := c.repoClientset.NewRepoServerClient()
 	if err != nil {
@@ -304,7 +316,7 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	if changeRevisionResult == nil {
 		return nil, errors.New("got nil change revision result, this cannot not happen")
 	}
-	c.logger.Infof("change revision result from repo server: %s", changeRevisionResult.Revision)
+	logCtx.Infof("change revision result from repo server: %s", changeRevisionResult.Revision)
 	return &changeRevisionResult.Revision, nil
 }
 

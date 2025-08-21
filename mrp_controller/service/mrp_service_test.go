@@ -6,10 +6,9 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	// 	test2 "github.com/sirupsen/logrus/hooks/test"
 
 	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 	appsv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -26,14 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
-	//      "github.com/argoproj/argo-cd/v3/reposerver/apiclient/mocks"
-	// 	apps "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned/fake"
-	// 	"github.com/argoproj/argo-cd/v3/test"
-	// 	"github.com/stretchr/testify/assert"
-	// 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// 	"k8s.io/utils/ptr"
 )
 
 const fakeApp = `
@@ -1151,104 +1143,111 @@ status:
 // apiVersion: argoproj.io/v1alpha1
 // kind: Application
 // metadata:
-//   annotations:
-//     argocd.argoproj.io/manifest-generate-paths: .
-//   finalizers:
-//   - resources-finalizer.argocd.argoproj.io
-//   labels:
-//     app.kubernetes.io/instance: guestbook
-//   name: guestbook
-//   namespace: argocd
+//
+//	annotations:
+//	  argocd.argoproj.io/manifest-generate-paths: .
+//	finalizers:
+//	- resources-finalizer.argocd.argoproj.io
+//	labels:
+//	  app.kubernetes.io/instance: guestbook
+//	name: guestbook
+//	namespace: argocd
+//
 // operation:
-//   initiatedBy:
-//     automated: true
-//   retry:
-//     limit: 5
-//   sync:
-//     prune: true
-//     revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
-//     syncOptions:
-//     - CreateNamespace=true
+//
+//	initiatedBy:
+//	  automated: true
+//	retry:
+//	  limit: 5
+//	sync:
+//	  prune: true
+//	  revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+//	  syncOptions:
+//	  - CreateNamespace=true
+//
 // spec:
-//   destination:
-//     namespace: guestbook
-//     server: https://kubernetes.default.svc
-//   project: default
-//   source:
-//     path: apps/guestbook
-//     repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
-//     targetRevision: HEAD
+//
+//	destination:
+//	  namespace: guestbook
+//	  server: https://kubernetes.default.svc
+//	project: default
+//	source:
+//	  path: apps/guestbook
+//	  repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+//	  targetRevision: HEAD
+//
 // status:
-//   history:
-//   - deployStartedAt: "2024-06-20T19:35:36Z"
-//     deployedAt: "2024-06-20T19:35:44Z"
-//     id: 3
-//     initiatedBy: {}
-//     revision: 792822850fd2f6db63597533e16dfa27e6757dc5
-//     source:
-//       path: apps/guestbook
-//       repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
-//       targetRevision: HEAD
-//   - deployStartedAt: "2024-06-20T19:36:34Z"
-//     deployedAt: "2024-06-20T19:36:42Z"
-//     id: 4
-//     initiatedBy: {}
-//     revision: ee5373eb9814e247ec6944e8b8897a8ec2f8528e
-//     source:
-//       path: apps/guestbook
-//       repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
-//       targetRevision: HEAD
-//   operationState:
-//     operation:
-//       sync:
-//         prune: true
-//         revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
-//         syncOptions:
-//         - CreateNamespace=true
-//     phase: Running
-//     startedAt: "2024-06-20T19:47:34Z"
-//     syncResult:
-//       revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
-//       source:
-//         path: apps/guestbook
-//         repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
-//         targetRevision: HEAD
-//   sync:
-//     revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
-//     status: Synced
+//
+//	history:
+//	- deployStartedAt: "2024-06-20T19:35:36Z"
+//	  deployedAt: "2024-06-20T19:35:44Z"
+//	  id: 3
+//	  initiatedBy: {}
+//	  revision: 792822850fd2f6db63597533e16dfa27e6757dc5
+//	  source:
+//	    path: apps/guestbook
+//	    repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+//	    targetRevision: HEAD
+//	- deployStartedAt: "2024-06-20T19:36:34Z"
+//	  deployedAt: "2024-06-20T19:36:42Z"
+//	  id: 4
+//	  initiatedBy: {}
+//	  revision: ee5373eb9814e247ec6944e8b8897a8ec2f8528e
+//	  source:
+//	    path: apps/guestbook
+//	    repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+//	    targetRevision: HEAD
+//	operationState:
+//	  operation:
+//	    sync:
+//	      prune: true
+//	      revision: c732f4d2ef24c7eeb900e9211ff98f90bb646506
+//	      syncOptions:
+//	      - CreateNamespace=true
+//	  phase: Running
+//	  startedAt: "2024-06-20T19:47:34Z"
+//	  syncResult:
+//	    revision: c732f4d2ef24c7eeb900e9211ff98f90bb646505
+//	    source:
+//	      path: apps/guestbook
+//	      repoURL: https://github.com/pasha-codefresh/precisely-gitsource.git
+//	      targetRevision: HEAD
+//	sync:
+//	  revision: 00d423763fbf56d2ea452de7b26a0ab20590f521
+//	  status: Synced
+//
 // `
-
 func Test_getArrayFromAnnotation(t *testing.T) {
 	anapp := createTestApp(t, multiSourceAppAnnotations)
+	logCtx := createLogCtx(anapp)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	arr := mrpService.getArrayFromAnnotation(anapp, "valid")
+	arr := mrpService.getArrayFromAnnotation(anapp, logCtx, "valid")
 	assert.NotNil(t, arr)
 	assert.Equal(t, 3, len(arr))
 	assert.Equal(t, arr[0], "a")
 	assert.Equal(t, arr[1], "b")
 	assert.Equal(t, arr[2], "")
-
-	arr = mrpService.getArrayFromAnnotation(anapp, "empty-array")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "empty-array")
 	assert.NotNil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
-	arr = mrpService.getArrayFromAnnotation(anapp, "empty")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "empty")
 	assert.Nil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
-	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-json")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-json")
 	assert.Nil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
-	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-map")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-map")
 	assert.Nil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
-	arr = mrpService.getArrayFromAnnotation(anapp, "invalid-string")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-string")
 	assert.Nil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
-	arr = mrpService.getArrayFromAnnotation(anapp, "unknown-annotation")
+	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "unknown-annotation")
 	assert.Nil(t, arr)
 	assert.Equal(t, 0, len(arr))
 
@@ -1257,7 +1256,8 @@ func Test_getArrayFromAnnotation(t *testing.T) {
 func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithoutHistory)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	//changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp, -1)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 1, len(sourcesRevisions))
@@ -1270,7 +1270,8 @@ func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
 func Test_GetSourceRevisionsSSWithHistory1Running(t *testing.T) {
 	anapp := createTestApp(t, runningAppWithSingleHistory1Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 1, len(sourcesRevisions))
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
@@ -1282,7 +1283,8 @@ func Test_GetSourceRevisionsSSWithHistory1Running(t *testing.T) {
 func Test_GetSourceRevisionsSSWithHistory1Synced(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithSingleHistory1Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 1, len(sourcesRevisions))
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
@@ -1294,7 +1296,8 @@ func Test_GetSourceRevisionsSSWithHistory1Synced(t *testing.T) {
 func Test_GetSourceRevisionsSSWithHistory2Synced(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithSingleHistory2Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 1, len(sourcesRevisions))
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
@@ -1306,7 +1309,8 @@ func Test_GetSourceRevisionsSSWithHistory2Synced(t *testing.T) {
 func Test_GetSourceRevisionsMSWithHistory(t *testing.T) {
 	anapp := createTestApp(t, syncedMSAppWithSingleHistory1Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 4, len(sourcesRevisions))
 
@@ -1334,7 +1338,8 @@ func Test_GetSourceRevisionsMSWithHistory(t *testing.T) {
 func Test_GetSourceRevisionsMSWithHistorySwapped(t *testing.T) {
 	anapp := createTestApp(t, syncedMSAppWithSingleHistory2Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 4, len(sourcesRevisions))
 
@@ -1362,7 +1367,8 @@ func Test_GetSourceRevisionsMSWithHistorySwapped(t *testing.T) {
 func Test_GetSourceRevisionsMSWithHistoryAdded(t *testing.T) {
 	anapp := createTestApp(t, syncedMSAppWithSingleHistory3Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourcesRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
 	assert.Equal(t, 4, len(sourcesRevisions))
 
@@ -1390,7 +1396,8 @@ func Test_GetSourceRevisionsMSWithHistoryAdded(t *testing.T) {
 func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithoutHistory)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
-	sourceRevisions := mrpService.getSourcesRevisions(anapp)
+	logCtx := createLogCtx(anapp)
+	sourceRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.Equal(t, 1, len(sourceRevisions))
 	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", sourceRevisions[0].currentRevision)
 	assert.Empty(t, sourceRevisions[0].previousRevision)
@@ -1428,7 +1435,8 @@ func Test_CalculateRevision(t *testing.T) {
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
 	mrpService := newTestMRPService(t, clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisionsSingleSource(app)
-	revision, err := mrpService.calculateChangeRevision(t.Context(), app, currentRevision, previousRevision, app.Spec.Source.RepoURL)
+	logCtx := logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
+	revision, err := mrpService.calculateChangeRevision(t.Context(), logCtx, app, currentRevision, previousRevision, app.Spec.Source.RepoURL)
 	require.NoError(t, err)
 	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)
@@ -1550,7 +1558,8 @@ func Test_makeChangeRevisionPatch(t *testing.T) {
 	changeRevisionResponce.Revision = expectedRevision
 	clientsetmock := createTestRepoclientForApp(t, &changeRevisionRequest, &changeRevisionResponce)
 	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
-	patch, err := mrpService.makeChangeRevisionPatch(t.Context(), app)
+	logCtx := logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
+	patch, err := mrpService.makeChangeRevisionPatch(t.Context(), logCtx, app)
 	assert.NoError(t, err)
 	assert.NotNil(t, patch)
 	annotations := getPatchAnnotations(t, patch)
@@ -1587,6 +1596,10 @@ func newTestMRPService(t *testing.T, repoClientMock *repomocks.Clientset,
 		logger:               logrus.New(),
 		metricsServer:        newTestMetricsServer(t, dbMock),
 	}
+}
+
+func createLogCtx(app *appsv1.Application) *log.Entry {
+	return logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
 }
 
 func createTestApp(t *testing.T, testApp string, opts ...func(app *appsv1.Application)) *appsv1.Application {
