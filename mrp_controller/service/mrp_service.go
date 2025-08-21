@@ -83,7 +83,6 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 		changeRevisions := c.getArrayFromAnnotation(app, CHANGE_REVISIONS_ANN)
 		gitRevisions := c.getArrayFromAnnotation(app, GIT_REVISIONS_ANN)
 		for idx, _ := range sources {
-			//  FIXME: filter out helm sources
 			currentRevision, previousRevision := getRevisionsMultiSource(app, idx)
 			result[idx] = sourceRevisions{
 				changeRevision:   sliceGetString(&changeRevisions, idx),
@@ -91,6 +90,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 				currentRevision:  currentRevision,
 				previousRevision: previousRevision,
 				repoUrl:          app.Spec.Sources[idx].RepoURL,
+				isHelmRepo:       isHelmRepoMultiSource(app, idx),
 			}
 		}
 	} else {
@@ -105,6 +105,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 			currentRevision:  currentRevision,
 			previousRevision: previousRevision,
 			repoUrl:          app.Spec.Source.RepoURL,
+			isHelmRepo:       isHelmRepoSingleSource(app),
 		}
 	}
 	return result
@@ -116,6 +117,7 @@ type sourceRevisions struct {
 	currentRevision  string
 	previousRevision string
 	repoUrl          string
+	isHelmRepo       bool
 }
 
 func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application.Application) (map[string]any, error) {
@@ -144,17 +146,24 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, a *application
 	for idx, r := range sourcesRevisions {
 		c.logger.Infof("applicationSource %d changeRevision is %s, gitRevision is %s, currentRevision is %s, previousRevision is %s  for application %s",
 			idx, r.changeRevision, r.gitRevision, r.currentRevision, r.previousRevision, app.Name)
-
 		patchGitRevisions[idx] = r.currentRevision
 		// keep current change revision if there is no new value calculated
 		patchChangeRevisions[idx] = r.changeRevision
+
+		if r.isHelmRepo {
+			// FIXME: not really git revision, helm repositories are
+			// not really supported, just use helm version for both
+			// git and change revisions for now
+			c.logger.Errorf("Source %d uses Helm repo, skipping", idx)
+			patchChangeRevisions[idx] = r.gitRevision
+			continue
+		}
 
 		// current argo revision not changed since the last time we red the revions info
 		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
 			c.logger.Infof("Change revision already calculated for application %s source %d", app.Name, idx)
 			continue
 		}
-
 		newChangeRevision, err := c.calculateChangeRevision(ctx, app, r.currentRevision, r.previousRevision, r.repoUrl)
 		if err != nil {
 			c.logger.Errorf("Failed to calculate revision for app %s source %d: %v", app.Name, idx, err)
@@ -357,12 +366,13 @@ func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourc
 	}
 }
 
-// func getRevisions(a *application.Application, idx int) (string, string) {
-// 	if idx == -1 {
-// 		return getRevisionsSingleSource(a)
-// 	}
-// 	return getRevisionsMultiSource(a, idx)
-// }
+func isHelmRepoMultiSource(a *application.Application, idx int) bool {
+	return strings.TrimSpace(a.Spec.Sources[idx].Chart) != ""
+}
+
+func isHelmRepoSingleSource(a *application.Application) bool {
+	return strings.TrimSpace(a.Spec.Source.Chart) != ""
+}
 
 // Get revisions from AgoCD Application Manifest
 // (operation and status sections).
