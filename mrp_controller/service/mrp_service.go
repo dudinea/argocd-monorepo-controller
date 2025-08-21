@@ -110,37 +110,6 @@ func (c *mrpService) getSourcesRevisions(app *application.Application) []sourceR
 	return result
 }
 
-// // Get revisions info from the Application manifest:
-// // changeRevision   (from annotation),
-// // gitRevision      (from annotation)
-// // currentRevision  (from Application Manifest)
-// // previousRevision (from Application Manifest)
-// func getApplicationRevisions(app *application.Application, idx int) (string, string, string, string) {
-// 	anns := app.Annotations
-// 	changeRevision := anns[CHANGE_REVISION_ANN]
-// 	gitRevision := anns[GIT_REVISION_ANN]
-// 	currentRevision, previousRevision := getRevisions(app, idx)
-// 	// argoRevision := ""
-// 	// if app.Status.OperationState != nil && app.Status.OperationState.Operation.Sync != nil {
-// 	// 	argoRevision = app.Status.OperationState.Operation.Sync.Revision
-// 	// }
-// 	// if argoRevision == "" {
-// 	// 	argoRevision = app.Status.Sync.Revision
-// 	// }
-// 	return changeRevision, gitRevision, currentRevision, previousRevision
-// }
-
-// func getSourceIndices(a *application.Application) (from int, to int) {
-// 	sources := a.Spec.GetSources()
-// 	numSources := len(sources)
-// 	// according to Argo Docs, if there is sources[] array, source attribute is ignored
-// 	if numSources == 0 {
-// 		return -1, 0
-// 	} else {
-// 		return 0, numSources
-// 	}
-// }
-
 type sourceRevisions struct {
 	changeRevision   string
 	gitRevision      string
@@ -253,28 +222,6 @@ func (c *mrpService) makeAnnotationPatch(a *application.Application,
 	}, nil
 }
 
-// FIXME: multisource annotations support
-func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application,
-	changeRevision string, gitRevision string) error {
-	// FIXME: make it smarter, annotate only what has changed
-	// FIXME: fake multisource annotation for now
-	changeRevisions := "[\"" + changeRevision + "\"]"
-	patch, _ := json.Marshal(map[string]any{
-		"metadata": map[string]any{
-			"annotations": map[string]any{
-				CHANGE_REVISION_ANN:  changeRevision,
-				CHANGE_REVISIONS_ANN: changeRevisions,
-				GIT_REVISION_ANN:     gitRevision,
-			},
-		},
-	})
-	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		c.logger.Errorf("failed to annotate: %v", err)
-	}
-	return err
-}
-
 func (c *mrpService) annotateApplication(ctx context.Context, a *application.Application, patch map[string]any) error {
 	patchBytes, err := json.Marshal(patch)
 	if nil != err {
@@ -351,27 +298,6 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context,
 	c.logger.Infof("change revision result from repo server: %s", changeRevisionResult.Revision)
 	return &changeRevisionResult.Revision, nil
 }
-
-// // FIXME: multisource annotations support
-// func (c *mrpService) annotateAppWithChangeRevision(ctx context.Context, a *application.Application, changeRevision string, argoRevision string) error {
-// 	// FIXME: make it smarter, annotate only what has changed
-// 	// FIXME: fake multisource annotation for now
-// 	changeRevisions := "[\"" + changeRevision + "\"]"
-// 	patch, _ := json.Marshal(map[string]any{
-// 		"metadata": map[string]any{
-// 			"annotations": map[string]any{
-// 				CHANGE_REVISION_ANN:  changeRevision,
-// 				CHANGE_REVISIONS_ANN: changeRevisions,
-// 				GIT_REVISION_ANN:     argoRevision,
-// 			},
-// 		},
-// 	})
-// 	_, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patch, metav1.PatchOptions{})
-// 	if err != nil {
-// 		c.logger.Errorf("failed to annotate: %v", err)
-// 	}
-// 	return err
-// }
 
 func getCurrentRevisionForFirstSyncMultiSource(a *application.Application, idx int) string {
 	if a.Operation != nil && a.Operation.Sync != nil {
