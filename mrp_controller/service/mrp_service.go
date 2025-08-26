@@ -150,6 +150,8 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			"previousRevision": r.previousRevision,
 		}).Debugf("processing source")
 		patchGitRevisions[idx] = r.currentRevision
+
+		// new change revision to be set in the annotation
 		// keep current change revision if there is no new value calculated
 		patchChangeRevisions[idx] = r.changeRevision
 
@@ -172,9 +174,14 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
 			continue
 		}
-		sourceLogCtx.Infof("New change revision for source is '%s'", *newChangeRevision)
+		sourceLogCtx.Infof("calculated change revision is '%s'", *newChangeRevision)
 		if newChangeRevision == nil || *newChangeRevision == "" {
-			sourceLogCtx.Infof("no new changes found, keeping existing change revision")
+			if r.changeRevision == "" {
+				sourceLogCtx.Infof("no change revision found, defaulting to current revision")
+				patchChangeRevisions[idx] = r.currentRevision
+			} else {
+				sourceLogCtx.Infof("no new change revision found, keeping existing change revision")
+			}
 		} else if patchChangeRevisions[idx] == *newChangeRevision {
 			sourceLogCtx.Infof("ChangeRevision has not changed")
 		} else {
