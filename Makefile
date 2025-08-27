@@ -480,6 +480,11 @@ release-precheck: manifests
 .PHONY: release
 release: pre-commit release-precheck image release-cli
 
+.PHONY: gen-docs-local
+gen-docs-local: dist/argocd
+	hack/generate_command_ref.py "ARGOCD_BINARY_NAME=argocd-monorepo-controller ./dist/argocd  --help"  ./cmd/monorepo_controller/commands/monorepo_controller.go  ./util/cache/cache.go > docs/monorepo_controller_conf.md
+	hack/generate_command_ref.py "ARGOCD_BINARY_NAME=argocd-monorepo-repo-server ./dist/argocd  --help"  cmd/argocd-repo-server/commands/argocd_repo_server.go ./util/cache/cache.go > docs/monorepo_repo_server_conf.md
+
 .PHONY: build-docs-local
 build-docs-local:
 	mkdocs build

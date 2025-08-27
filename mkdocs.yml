@@ -12,6 +12,16 @@ markdown_extensions:
 - pymdownx.superfences
 nav:
 - Overview: index.md
+- Installation: install.md
+- Principles of Operation: architecture.md
+- Configuration Reference:
+    - "Monorepo Controller Configuration": monorepo_controller_conf.md
+    - "Monorepo Repo Server Configuration": monorepo_repo_server_conf.md
+- Notifications: notifications.md
+  
+- Releases ⧉: https://github.com/argoproj-labs/argocd-image-updater/releases
+- Roadmap ⧉: https://github.com/argoproj-labs/argocd-image-updater/milestones
+      
 # - understand_the_basics.md
 # - core_concepts.md
 # - getting_started.md
