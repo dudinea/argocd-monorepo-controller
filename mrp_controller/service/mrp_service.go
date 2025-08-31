@@ -159,7 +159,7 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			// FIXME: not really git revision, helm repositories are
 			// not really supported, just use helm version for both
 			// git and change revisions for now
-			sourceLogCtx.Errorf("this source uses Helm repo, skipping")
+			sourceLogCtx.Infof("this source uses Helm repo, skipping")
 			patchChangeRevisions[idx] = r.gitRevision
 			continue
 		}
