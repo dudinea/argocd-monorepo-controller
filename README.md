@@ -1,8 +1,12 @@
 # Argo Monorepo Controller
 
+[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller-dev/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/master/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
+
+
 ## What is Argo Monorepo Controller?
 
-This controller os an ArgoCD addon that accurately tracks last commits
+This controller is an ArgoCD addon that accurately tracks last commits
 that actually changed the application (Change Revision). It is usefull
 when several Applications are looking at different paths at the same
 repository/branch (monorepos).

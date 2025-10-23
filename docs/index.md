@@ -1,24 +1,26 @@
-# Argo Monorepo Controller
+# Argo CD Monorepo Controller
 
-## What is Argo Monorepo Controller?
+[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller-dev/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/master/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
+
+
+## Introduction
 
 This controller is an ArgoCD addon that accurately tracks last commits
 that actually changed the application (Change Revision). It is usefull
 when several Applications are looking at different paths at the same
 repository/branch (monorepos).
 
+!!!warning "A Note on the Current Status"
+    Argo CD Image Updater is under active development.
+    You are welcome to test it out on non-critical environments, and of
+    course to contribute.
+
 ## Documentation
 
 Please see [Proposal](https://github.com/argoproj-labs/argocd-monorepo-controller/blob/main/docs/monorepo_controller_proposal.md) for project motivation, architecture and
 description the program functionality.
 
-## What is its development status?
-
-This is a newly created Argoproj-Labs project. It is WIP and still is
-not production ready, does not have working tests, CI, release
-process, etc.
-
-_USE AT YOUR OWN RISK!_
 
 ## Installation
 
