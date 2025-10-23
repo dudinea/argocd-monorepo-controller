@@ -4,8 +4,16 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 **Usage:**
 
 * argocd-repo-server [flags]
+* argocd-repo-server [command]
+
+**Available Commands:**
+
+* completion  Generate the autocompletion script for the specified shell
+* help        Help about any command
+* version     Print version information
 
 **Flags:**
+
 
 | Argument                                | Type        | Environment Variable                         | Description                                                  |
 | --------------------------------------- | ----------- | -------------------------------------------- | ------------------------------------------------------------ |

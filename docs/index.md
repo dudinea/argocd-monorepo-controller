@@ -1,8 +1,8 @@
 # Argo CD Monorepo Controller
 
-![Integration tests](https://github.com/argoproj-labs/argocd-image-updater/workflows/Integration%20tests/badge.svg?branch=master&event=push)
-[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-image-updater.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller-dev/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/master/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
+
 
 ## Introduction
 

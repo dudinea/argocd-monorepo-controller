@@ -17,9 +17,10 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 
 | Argument                                | Type        | Environment Variable                         | Description                                                  |
 | --------------------------------------- | ----------- | -------------------------------------------- | ------------------------------------------------------------ |
-| --address                               | string      | MONOREPO_CONTROLLER_LISTEN_ADDRESS           | Metrics server will listen on given address (default "0.0.0.0")|
-| --application-namespaces                | strings     | MONOREPO_CONTROLLER_APPLICATION_NAMESPACES   | List of additional namespaces where application resources    |
-|                                         |             |                                              | can be managed in                                            |
+| --address                               | string      | MONOREPO_CONTROLLER_LISTEN_ADDRESS           | Metrics server will listen on given address (default         |
+|                                         |             |                                              | "0.0.0.0")                                                   |
+| --application-namespaces                | strings     | MONOREPO_CONTROLLER_APPLICATION_NAMESPACES   | Comma separated list of additional namespaces where          |
+|                                         |             |                                              | application resources can be managed in                      |
 | --as                                    | string      |                                              | Username to impersonate for the operation                    |
 | --as-group                              | stringArray |                                              | Group to impersonate for the operation, this flag can be     |
 |                                         |             |                                              | repeated to specify multiple groups.                         |
@@ -28,9 +29,6 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --client-certificate                    | string      |                                              | Path to a client certificate file for TLS                    |
 | --client-key                            | string      |                                              | Path to a client key file for TLS                            |
 | --cluster                               | string      |                                              | The name of the kubeconfig cluster to use                    |
-| --content-security-policy               | value       | MONOREPO_CONTROLLER_CONTENT_SECURITY_POLICY  | Set Content-Security-Policy header in HTTP responses to      |
-|                                         |             |                                              | value. To disable, set to "". (default "frame-ancestors      |
-|                                         |             |                                              | 'self';")                                                    |
 | --context                               | string      |                                              | The name of the kubeconfig context to use                    |
 | --disable-compression                   |             |                                              | If true, opt-out of response compression for all requests to |
 |                                         |             |                                              | the server                                                   |
@@ -53,7 +51,7 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --monorepo-repo-server-timeout-seconds  | int         | MONOREPO_REPO_SERVER_TIMEOUT_SECONDS         | Repo server RPC call timeout seconds. (default 60)           |
 | --namespace -n,                         | string      |                                              | If present, the namespace scope for this CLI request         |
 | --password                              | string      |                                              | Password for basic authentication to the API server          |
-| --port                                  | int         | MONOREPO_CONTROLLER_LISTEN_PORT              | Listen on given port (default 8090)                          |
+| --port                                  | int         | MONOREPO_CONTROLLER_LISTEN_PORT              | Metrics server will listen on given port (default 8090)      |
 | --proxy-url                             | string      |                                              | If provided, this URL will be used to connect via proxy      |
 | --request-timeout                       | string      |                                              | The length of time to wait before giving up on a single      |
 |                                         |             |                                              | server request. Non-zero values should contain a             |
