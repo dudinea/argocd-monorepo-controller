@@ -12,6 +12,9 @@ packages:
       AppProjectInterface: {}
       ArgoprojV1alpha1Interface: {}
       ApplicationInterface: {}
+  github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1:
+    interfaces:
+      ApplicationLister: {}
   github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned:
     interfaces:
       Interface: {}

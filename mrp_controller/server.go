@@ -10,60 +10,59 @@ import (
 	"github.com/redis/go-redis/v9"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v3/util/db"
+	"github.com/argoproj/argo-cd/v3/util/errors"
 
 	mrp_controller "github.com/argoproj/argo-cd/v3/mrp_controller/controller"
+	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 
+	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	appinformer "github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions"
+	applister "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
+	"github.com/argoproj/argo-cd/v3/util/glob"
 
 	// applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
-	servercache "github.com/argoproj/argo-cd/v3/server/cache"
-	"github.com/argoproj/argo-cd/v3/util/healthz"
+
 	settings_util "github.com/argoproj/argo-cd/v3/util/settings"
 )
-
-var backoff = wait.Backoff{
-	Steps:    5,
-	Duration: 500 * time.Millisecond,
-	Factor:   1.0,
-	Jitter:   0.1,
-}
 
 type MRPServer struct {
 	MRPServerOpts
 
-	// settings *settings_util.ArgoCDSettings
+	settings *settings_util.ArgoCDSettings
 	// log                  *log.Entry
-	appInformer cache.SharedIndexInformer
-	// appLister            applisters.ApplicationLister
+	appInformer          cache.SharedIndexInformer
+	appLister            applister.ApplicationLister
 	applicationClientset appclientset.Interface
 	db                   db.ArgoDB
 	repoClientset        repoapiclient.Clientset
 	// stopCh is the channel which when closed, will shutdown the Event Reporter server
-	stopCh chan struct{}
+	stopCh        chan struct{}
+	metricsServer *metrics.MetricsServer
+
 	// serviceSet *MRPServerSet
 }
 
 type MRPServerSet struct{}
 
 type MRPServerOpts struct {
-	ListenPort            int
-	ListenHost            string
-	Namespace             string
-	KubeClientset         kubernetes.Interface
-	AppClientset          appclientset.Interface
-	Cache                 *servercache.Cache
-	RedisClient           *redis.Client
-	ApplicationNamespaces []string
-	BaseHRef              string
-	RootPath              string
-	RepoClientset         repoapiclient.Clientset
+	ListenPort    int
+	ListenHost    string
+	Namespace     string
+	KubeClientset kubernetes.Interface
+	AppClientset  appclientset.Interface
+	//Cache                 *servercache.Cache
+	RedisClient            *redis.Client
+	ApplicationNamespaces  []string
+	BaseHRef               string
+	RootPath               string
+	RepoClientset          repoapiclient.Clientset
+	MetricsCacheExpiration time.Duration
 }
 
 type handlerSwitcher struct {
@@ -86,16 +85,6 @@ func (l *Listeners) Close() error {
 	return nil
 }
 
-func (s *handlerSwitcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if urlHandler, ok := s.urlToHandler[r.URL.Path]; ok {
-		urlHandler.ServeHTTP(w, r)
-	} else if contentHandler, ok := s.contentTypeToHandler[r.Header.Get("content-type")]; ok {
-		contentHandler.ServeHTTP(w, r)
-	} else {
-		s.handler.ServeHTTP(w, r)
-	}
-}
-
 func (a *MRPServer) healthCheck(_ *http.Request) error {
 	return nil
 }
@@ -108,24 +97,8 @@ func (a *MRPServer) Init(ctx context.Context) {
 }
 
 func (a *MRPServer) RunController(ctx context.Context) {
-	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset)
+	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset, a.metricsServer)
 	go controller.Run(ctx)
-}
-
-// newHTTPServer returns the HTTP server to serve HTTP/HTTPS requests. This is implemented
-// using grpc-gateway as a proxy to the gRPC server.
-func (a *MRPServer) newHTTPServer(_ context.Context, port int) *http.Server { //nolint:golint,unparam
-	endpoint := fmt.Sprintf("localhost:%d", port)
-	mux := http.NewServeMux()
-	httpS := http.Server{
-		Addr: endpoint,
-		Handler: &handlerSwitcher{
-			handler: mux,
-		},
-	}
-
-	healthz.ServeHealthCheck(mux, a.healthCheck)
-	return &httpS
 }
 
 func (a *MRPServer) checkServeErr(name string, err error) {
@@ -140,38 +113,67 @@ func (a *MRPServer) checkServeErr(name string, err error) {
 	}
 }
 
-func startListener(host string, port int) (net.Listener, error) {
-	var conn net.Listener
-	var realErr error
-	_ = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		conn, realErr = net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-		if realErr != nil {
-			return false, nil
-		}
-		return true, nil
-	})
-	return conn, realErr
+// isAppNamespaceAllowed returns whether the application is allowed in the
+// namespace it's residing in.
+func (a *MRPServer) isAppNamespaceAllowed(app *appv1.Application) bool {
+	return app.Namespace == a.Namespace ||
+		glob.MatchStringInList(a.ApplicationNamespaces, app.Namespace, glob.REGEXP)
 }
 
-func (a *MRPServer) Listen() (*Listeners, error) {
-	mainLn, err := startListener(a.ListenHost, a.ListenPort)
-	if err != nil {
-		return nil, err
+func (a *MRPServer) canProcessApp(obj any) bool {
+	return true
+	app, ok := obj.(*appv1.Application)
+	if !ok {
+		return false
 	}
-	return &Listeners{Main: mainLn}, nil
+
+	if !a.isAppNamespaceAllowed(app) {
+		return false
+	}
+
+	annotations := app.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	val, ok := annotations[appv1.AnnotationKeyManifestGeneratePaths]
+	if !ok || val == "" {
+		return false
+	}
+	return true
 }
 
 // Run runs the API Server
 // We use k8s.io/code-generator/cmd/go-to-protobuf to generate the .proto files from the API types.
 // k8s.io/ go-to-protobuf uses protoc-gen-gogo, which comes from gogo/protobuf (a fork of
 // golang/protobuf).
-func (a *MRPServer) Run(ctx context.Context, lns *Listeners) {
-	httpS := a.newHTTPServer(ctx, a.ListenPort)
+func (a *MRPServer) Run(ctx context.Context /* lns *Listeners*/) {
+	// httpS := a.newHTTPServer(ctx, a.ListenPort)
 	// tlsConfig := tls.Config{}
 	// tlsConfig.GetCertificate = func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	// 	return a.settings.Certificate, nil
 	// }
-	go func() { a.checkServeErr("httpS", httpS.Serve(lns.Main)) }()
+	var appConditions []string
+	var appLabels []string
+	healthcheck := func(_ *http.Request) error { return nil }
+
+	metricsAddr := fmt.Sprintf("%s:%d", a.ListenHost, a.ListenPort)
+	metricsServer, err := metrics.NewMetricsServer(metricsAddr,
+		a.appLister,     /*AppLister*/
+		a.canProcessApp, /*AppFilter*/
+		healthcheck,     /*healthCheck */
+		appLabels,       /* appLabels */
+		appConditions,   /* appCondition */
+		a.db,
+	)
+	if err != nil {
+		log.Fatal("Failed to configure metrics server: %w", err)
+	}
+	if a.MetricsCacheExpiration.Seconds() > 0 {
+		metricsServer.SetExpiration(a.MetricsCacheExpiration)
+	}
+	a.metricsServer = metricsServer
+
+	go func() { errors.CheckError(a.metricsServer.ListenAndServe()) }()
 	go a.RunController(ctx)
 
 	if !cache.WaitForCacheSync(ctx.Done(), a.appInformer.HasSynced) {
@@ -182,8 +184,8 @@ func (a *MRPServer) Run(ctx context.Context, lns *Listeners) {
 	<-a.stopCh
 }
 
-// NewServer returns a new instance of the Event Reporter server
-func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
+// Returns a new instance of the Monorepo Controller Server
+func NewMRPServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 	appInformerNs := opts.Namespace
 	if len(opts.ApplicationNamespaces) > 0 {
 		appInformerNs = ""
@@ -191,27 +193,21 @@ func NewApplicationChangeRevisionServer(ctx context.Context, opts MRPServerOpts)
 	appFactory := appinformer.NewSharedInformerFactoryWithOptions(opts.AppClientset, 0, appinformer.WithNamespace(appInformerNs), appinformer.WithTweakListOptions(func(_ *metav1.ListOptions) {}))
 
 	appInformer := appFactory.Argoproj().V1alpha1().Applications().Informer()
-	// appLister := appFactory.Argoproj().V1alpha1().Applications().Lister()
+	appLister := appFactory.Argoproj().V1alpha1().Applications().Lister()
 
 	settingsMgr := settings_util.NewSettingsManager(ctx, opts.KubeClientset, opts.Namespace)
 	dbInstance := db.NewDB(opts.Namespace, settingsMgr, opts.KubeClientset)
-	// repoclientset := repoapiclient.NewRepoServerClientset(repoServerAddress,
-	// 	repoServerTimeoutSeconds,
-	// 	tlsConfig)
 
 	server := &MRPServer{
 		MRPServerOpts: opts,
 		// log:                  log.NewEntry(log.StandardLogger()),
-		appInformer: appInformer,
-		// appLister:            appLister,
+		appInformer:          appInformer,
+		appLister:            appLister,
 		applicationClientset: opts.AppClientset,
 		db:                   dbInstance,
 		repoClientset:        opts.RepoClientset,
+		//metricsServer:        metricsServer,
 	}
 
 	return server
 }
-
-// func newApplicationChangeRevisionServiceSet() *MRPServerSet {
-// 	return &MRPServerSet{}
-// }
