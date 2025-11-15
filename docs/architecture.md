@@ -4,8 +4,8 @@
 
 Currently, in Monorepo configurations, ArgoCD cannot accurately track
 Change Revisions: application state and history contains commits for
-the entire Git repository, not specifically the Change Revisions that
-are relevant for the specific Application.
+the entire Git repository, not specifically the [Change Revisions](terminology.md#change-revision)
+that are relevant for the specific Application.
 
 This has a lot of undesirable consequences from the users point of view:
 
@@ -22,40 +22,43 @@ Application users.
 ## The Monorepo Controller 
 
 The Monorepo Controller is an add-on component for ArgoCD that
-accurately tracks last commits that actually changed the application
+accurately tracks the commits that actually changed the application
 (Change Revision).
 
-It is a Kubernetes controller which continuously monitors running
-applications and handles changes  in their Sync state: which Git commit
-it is synchronized to.
+It is a Kubernetes controller which continuously monitors ArgoCD
+applications and handles changes in their Sync state [Git Revision](terminology.md#git-revision), 
+calculates the commit that actually changed the application and 
+records it in the Application Manifest [Change Revision](terminology.md#change-revision).
 
-Putting it in a separate controller gives a quick solution to for
-tracking Change Revisions to monorepo users users without affecting
+Putting it in a separate project gives a quick solution to for
+tracking [Change Revisions](terminology.md#change-revision) to monorepo users without affecting
 negatively ArgoCD performance or development.
 
 This will as well allow us to use this controller as sort of
-playground for finding optimal ways for accurate tracking of
+playground for finding the optimal ways for accurate tracking of
 application changes, so in the future will be able more easily
 incorporate this functionality into Argo-CD itself.
 
 ## Controller functionality
 
-The controller will listen to Application events (creation and change
-in the application manifests) and it will update the following
-annotations to to indicate actual Change Revisions of the
-applications.
+The controller watches the Application events (creation and change
+in the application manifests) and updates the following
+annotations to to indicate actual [Change Revision](terminology.md#change-revision) of the
+applications:
 
-* `mrp-controller.argoproj.io/change-revision` - Contains Application Change Revision.
-* `mrp-controller.argoproj.io/change-revisions` - Contains a JSON List of Change
-  Revisions for each application source according to the order of Applicaton sources.
-* `mrp-controller.argoproj.io/git-revision` - Contains Application Git Revision.
+* `mrp-controller.argoproj.io/change-revision` - Contains Application [Change Revision](terminology.md#change-revision).
+* `mrp-controller.argoproj.io/change-revisions` - Contains a JSON List of [Change Revisions](terminology.md#change-revision) for each application source according to the order of Applicaton sources.
+* `mrp-controller.argoproj.io/git-revision` - Contains Application [Git Revision](terminology.md#git-revision).
 * `mrp-controller.argoproj.io/git-revisions` - Contains a JSON list of
-  Git Revision for each application source according to the order of
-  Applicaton sources.
+  [Git Revisions](terminology.md#git-revision) for each application source according to the
+  order of Applicaton sources.
+
+For Helm Repository based application sources the entries will contain the
+application version that is specified in the Helm `chart.yaml` file.
 
 The controller saves in the
 `mrp-controller.argoproj.io/git-revision(s)` annotations current Git
-revision of the application source, that allows it to avoid expensive
+revision of the application sources, that allows it to avoid expensive
 recalculation of the change revision when there is no actual change in
 Git repository.
 
@@ -63,11 +66,7 @@ For multisource applications the `mrp-controller.argoproj.io/change-revision`
 and `mrp-controller.argoproj.io/git-revision` annotations contain the values
 for the first application source only.
 
-For single source applications the `mrp-controller.argoproj.io/change-revisions`
-and `mrp-controller.argoproj.io/git-revisions`  contain lists of one element 
-with the data of the only application source.
-
-## The Manifest Paths Annotation
+## The Manifest Generate Paths Annotation
 
 This [`argocd.argoproj.io/manifest-generate-paths`](https://argo-cd.readthedocs.io/en/latest/operator-manual/high_availability/#manifest-paths-annotation)
 Application annotation specifies which paths whithin the Git 
@@ -86,7 +85,7 @@ Controller won't handle the application that do not have
 this annotation set. 
 
 Therefore, setting this annotation correctly is critical
-for accurate tracking of Application Change Revisions
+for accurate tracking of [Application Change Revisions](terminology.md#change-revision)
 by ArgoCD Monorepo Controller.
 
 ## The Initial Implementation and its Limitations
@@ -110,36 +109,28 @@ The former one is architecturally parallel to the ArgoCD application controller:
 it listens to application events and updates application annotations.
 
 The latter one is parallel to ArgoCD Repo Server: the former component
-calls it to perform the actual calculation of Change Revision, which
+calls it to perform the actual calculation of [Change Revision](terminology.md#change-revision), which
 includes actual checkout of Git repositories and running the `git
 diff` operation.
 
-Both components are supposed to run in the ArgoCD namespace and
-reuse relevant ArgoCD configuration (such as configuration of Git repository connections,
-list of namespaces to handle applications, etc.).
+Both components are supposed to run in the ArgoCD namespace and reuse
+the relevant ArgoCD configuration (such as configuration of Git
+repository connections, list of namespaces to handle applications,
+etc.).
 
 
 ## Future plans
 
-* Make an Argo-CD UI extension to display accurate Change
-  Revision in the UI
+* Extend Argo-CD UI to display accurate [Change Revisions](terminology.md#change-revision).
 * We'll try to introduce a more presize method for calculating the
   affected version that will run CM tools/plugins to determine if
   there was a change in manifests.
-* Look into possible performance optimizations of the operations.
+* We'll look into possible performance optimizations of the operations.
 
 As the long-term goal, when the things will stabilize and performance
-will look good we'll start working on integrating required changes
-into the upstream repository server as well as on extending properly
-the Application CR and integrating new functionality into the upstream
-Application server.
-
-
-
-
-
-
-
-
+will look good, we'll start working on integrating the changes into
+the upstream repository server as well as on extending properly the
+Application CR and integrating the new functionality into the ArgoCD
+source code.
 
 
