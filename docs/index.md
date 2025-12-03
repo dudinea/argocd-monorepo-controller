@@ -1,7 +1,7 @@
 # Argo CD Monorepo Controller
 
-[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller-dev/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/master/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
+[[Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
+[[codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/main/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
 
 
 ## Introduction
@@ -12,7 +12,7 @@ when several Applications are looking at different paths at the same
 repository/branch (monorepos).
 
 !!!warning "A Note on the Current Status"
-    Argo CD Image Updater is under active development.
+    Argo CD Monorepo Controller is under active development.
     You are welcome to test it out on non-critical environments, and of
     course to contribute.
 
