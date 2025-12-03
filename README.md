@@ -1,6 +1,6 @@
 # Argo Monorepo Controller
 
-[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller-dev/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
 
 ## What is Argo Monorepo Controller?
 
@@ -11,7 +11,7 @@ the same repository/branch (monorepos) .
 
 ## Documentation
 
-To learn about the monorepo controller please go to the [Project documentation](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/).
+To learn about the monorepo controller please go to the [Project documentation](https://argocd-monorepo-controller.readthedocs.io/en/latest/).
 
 Please see also the original [Proposal](https://github.com/argoproj/argo-cd/issues/23366) for project motivation,
 overall architecture and description the program functionality.
