@@ -48,26 +48,6 @@ rules:
   - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app.kubernetes.io/component: monorepo-controller
-    app.kubernetes.io/name: argocd-monorepo-controller
-    app.kubernetes.io/part-of: argocd
-  name: argocd-monorepo-controller
-rules:
-- apiGroups:
-  - argoproj.io
-  resources:
-  - applications
-  verbs:
-  - get
-  - list
-  - watch
-  - update
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
@@ -82,23 +62,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: argocd-monorepo-controller
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app.kubernetes.io/component: monorepo-controller
-    app.kubernetes.io/name: argocd-monorepo-controller
-    app.kubernetes.io/part-of: argocd
-  name: argocd-monorepo-controller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: argocd-monorepo-controller
-subjects:
-- kind: ServiceAccount
-  name: argocd-monorepo-controller
-  namespace: argocd
 ---
 apiVersion: v1
 kind: ConfigMap
