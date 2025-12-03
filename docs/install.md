@@ -24,7 +24,7 @@ We provide two installation manifests:
 Apply the manifest in the ArgoCD namespace:
 
 ```
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/main/manifests/install.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
 ```
 
 !!! warning The installation manifests include `ClusterRoleBinding`
@@ -37,17 +37,65 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argoc
 Apply the manifest in the ArgoCD namespace:
 
 ```
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/main/manifests/install-namespaced.yaml
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install-namespaced.yaml
 ```
+
+## Method 2: Installing using kustomize
+
+The Monorepo Controller manifests can also be installed using
+Kustomize.  You may include the above manifests as a remote resource and
+apply additional customizations using Kustomize patches.
+
+
+For example
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argocd
+resources:
+- https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
+```
+
 
 ### Tune Configuration Parameters
 
 Most configuration parameters are are configured using the
-`monorepo-cmd-params-cm` configmap. The following parameters
-reuse ArgoCD configuration from the `argocd-cmd-params-cm`:
+`monorepo-cmd-params-cm` configmap. 
 
-* application.namespaces - list of namespaces to watch ApplicationResources
-* 
+The following parameters reuse ArgoCD configuration from ConfigMaps:
+
+From `argocd-cm`:
+
+* timeout.reconciliation
+
+From `argocd-cmd-params-cm`:
+
+* application.namespaces 
+* otlp.address
+* otlp.insecure
+* otlp.headers
+* otlp.attrs
+* redis.server
+* redis.compression
+* redis.db
+* reposerver.disable.tls 
+* reposerver.tls.minversion 
+* reposerver.tls.maxversion
+* reposerver.tls.ciphers
+* reposerver.repo.cache.expiration
+* reposerver.default.cache.expiration
+* reposerver.max.combined.directory.manifests.size
+* reposerver.revision.cache.lock.timeout
+* reposerver.enable.git.submodule
+* reposerver.git.request.timeout
+* reposerver.grpc.max.size
+* reposerver.include.hidden.directories
+
+From `argocd-redis`:
+
+* auth
 
 #### Configure the desired log level of Monorepo Controller components.
 
@@ -62,59 +110,17 @@ ConfigMap `monorepo-cmd-params-cm`.
 #### Configure namespaces for Application Manifests
 
 In its default configuration Monorepo Controller will look for
-Application Manifests in the same namespaces, as ArgoCD is configured
-to look. If you want to use a different list of namespaces (for
-example to limit load on the Monorepo Controller, or for
-troubleshooting purposes) you need to change the value of the
-`ARGOCD_APPLICATION_NAMESPACES` environment variable of the Monoripo
-Controller.
-
-#### Configure Other Parameters
-
-
-
-### Set up Prometheus Metrics Collection
-
-If you have Prometheus installed on your cluster you may install 
-ServiceMonitor manifests for the Monorepo Controller manifests:
-
-```
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/main/manifests/install-metrics-collection.yaml
-```
-
-
-
-### Disable 
-
-
-Or use `kustomize` to install kustomization from
-https://github.com/argoproj-labs/argocd-monorepo-controller/tree/main/manifests
+Application Manifests in the same namespaces that ArgoCD does. If you
+want to use a different list of namespaces (for example to limit load
+on the Monorepo Controller, or for troubleshooting purposes) you need
+to change the value of the `ARGOCD_APPLICATION_NAMESPACES` environment
+variable of the Monoripo Controller.
 
 ## Configuring notifications
 
 See sample triggers and templates in samples/notifications.
 
 
-## Development 
-
-The project is based on essencially the same Makefile and other 
-Argocd infrastructure, so Argocd Developer Documentation 
-can be currently used.
-
-One quick way to build and run it locally is:
-
-```
-kubectl config set-context --current --namespace=argocd   # set current context to the argocd namespace
-make cli-local                                            # build the program binary
-make run                                                  # uses goreman to both monorepo controller and its repo-server
-```
 
 
-## Community
-
- You can reach the developers via the following channels:
-
-* Q & A : [Github Discussions](https://github.com/argoproj-labs/argocd-monorepo-controller/discussions)  [TBD]
-* Chat : [The monorepo-controller Slack channel](https://argoproj.github.io/community/join-slack)  [TBD]
-* [Github Issues](https://github.com/argoproj-labs/argocd-monorepo-controller/issues)
 
