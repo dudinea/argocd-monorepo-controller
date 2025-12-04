@@ -1,7 +1,6 @@
 # Argo CD Monorepo Controller
 
-[[Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
-[[codecov](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller/branch/main/graph/badge.svg)](https://codecov.io/gh/argoproj-labs/argocd-monorepo-controller)
+[![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
 
 
 ## Introduction
