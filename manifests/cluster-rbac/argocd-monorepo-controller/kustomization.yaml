@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- argocd-monorepo-controller-clusterrole.yaml
+- argocd-monorepo-controller-clusterrolebinding.yaml
