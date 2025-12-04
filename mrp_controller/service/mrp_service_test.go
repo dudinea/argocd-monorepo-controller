@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -28,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const fakeApp = `
+/*const fakeApp = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -45,7 +44,7 @@ spec:
     namespace: guestbook
     server: https://cluster-api.example.com
 `
-
+*/
 // const fakeAppWithOperation = `
 // apiVersion: argoproj.io/v1alpha1
 // kind: Application
@@ -1223,34 +1222,33 @@ func Test_getArrayFromAnnotation(t *testing.T) {
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 	arr := mrpService.getArrayFromAnnotation(anapp, logCtx, "valid")
 	assert.NotNil(t, arr)
-	assert.Equal(t, 3, len(arr))
-	assert.Equal(t, arr[0], "a")
-	assert.Equal(t, arr[1], "b")
-	assert.Equal(t, arr[2], "")
+	assert.Len(t, arr, 3)
+	assert.Equal(t, "a", arr[0])
+	assert.Equal(t, "b", arr[1])
+	assert.Empty(t, arr[2])
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "empty-array")
 	assert.NotNil(t, arr)
-	assert.Equal(t, 0, len(arr))
+	assert.Empty(t, arr)
 
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "empty")
 	assert.Nil(t, arr)
-	assert.Equal(t, 0, len(arr))
+	assert.Empty(t, arr)
 
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-json")
 	assert.Nil(t, arr)
-	assert.Equal(t, 0, len(arr))
+	assert.Empty(t, arr)
 
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-map")
 	assert.Nil(t, arr)
-	assert.Equal(t, 0, len(arr))
+	assert.Empty(t, arr)
 
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "invalid-string")
 	assert.Nil(t, arr)
-	assert.Equal(t, 0, len(arr))
+	assert.Empty(t, arr)
 
 	arr = mrpService.getArrayFromAnnotation(anapp, logCtx, "unknown-annotation")
 	assert.Nil(t, arr)
-	assert.Equal(t, 0, len(arr))
-
+	assert.Empty(t, arr)
 }
 
 func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
@@ -1258,13 +1256,13 @@ func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
-	//changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp, -1)
+	// changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp, -1)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 1)
 	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", sourcesRevisions[0].currentRevision)
-	assert.Equal(t, "", sourcesRevisions[0].previousRevision)
-	assert.Equal(t, "", sourcesRevisions[0].gitRevision)
-	assert.Equal(t, "", sourcesRevisions[0].changeRevision)
+	assert.Empty(t, sourcesRevisions[0].previousRevision)
+	assert.Empty(t, sourcesRevisions[0].gitRevision)
+	assert.Empty(t, sourcesRevisions[0].changeRevision)
 }
 
 func Test_GetSourceRevisionsSSWithHistory1Running(t *testing.T) {
@@ -1273,7 +1271,7 @@ func Test_GetSourceRevisionsSSWithHistory1Running(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 1)
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
 	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
@@ -1286,11 +1284,11 @@ func Test_GetSourceRevisionsSSWithHistory1Synced(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 1)
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
 	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
-	assert.Equal(t, "", sourcesRevisions[0].previousRevision)
+	assert.Empty(t, sourcesRevisions[0].previousRevision)
 }
 
 func Test_GetSourceRevisionsSSWithHistory2Synced(t *testing.T) {
@@ -1299,7 +1297,7 @@ func Test_GetSourceRevisionsSSWithHistory2Synced(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 1, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 1)
 	assert.Equal(t, "00d423763fbf56d2ea452de7b26a0ab20590f521", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "792822850fd2f6db63597533e16dfa27e6757dc5", sourcesRevisions[0].changeRevision)
 	assert.Equal(t, "c732f4d2ef24c7eeb900e9211ff98f90bb646506", sourcesRevisions[0].currentRevision)
@@ -1312,7 +1310,7 @@ func Test_GetSourceRevisionsMSWithHistory(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 4, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 4)
 
 	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "HISTORY-2_REPO02_00000000000000000000000", sourcesRevisions[0].changeRevision)
@@ -1341,7 +1339,7 @@ func Test_GetSourceRevisionsMSWithHistorySwapped(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 4, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 4)
 
 	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "HISTORY-2_REPO02_00000000000000000000000", sourcesRevisions[0].changeRevision)
@@ -1370,7 +1368,7 @@ func Test_GetSourceRevisionsMSWithHistoryAdded(t *testing.T) {
 	logCtx := createLogCtx(anapp)
 	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
 	assert.NotNil(t, sourcesRevisions)
-	assert.Equal(t, 4, len(sourcesRevisions))
+	assert.Len(t, sourcesRevisions, 4)
 
 	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[0].gitRevision)
 	assert.Equal(t, "HISTORY-2_REPO02_00000000000000000000000", sourcesRevisions[0].changeRevision)
@@ -1398,7 +1396,7 @@ func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 	logCtx := createLogCtx(anapp)
 	sourceRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
-	assert.Equal(t, 1, len(sourceRevisions))
+	assert.Len(t, sourceRevisions, 1)
 	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", sourceRevisions[0].currentRevision)
 	assert.Empty(t, sourceRevisions[0].previousRevision)
 	assert.Empty(t, sourceRevisions[0].changeRevision)
@@ -1452,22 +1450,23 @@ func Test_addPatchIfNeeded(t *testing.T) {
 	currentAnnotations := map[string]string{key: val}
 
 	addPatchIfNeeded(annotations, currentAnnotations, key, val)
-	assert.Equal(t, 0, len(annotations))
+	assert.Empty(t, annotations)
 
 	addPatchIfNeeded(annotations, currentAnnotations, key, val2)
-	assert.Equal(t, 1, len(annotations))
+	assert.Len(t, annotations, 1)
 	patchVal, ok := annotations[key]
 	assert.True(t, ok)
 	assert.Equal(t, val2, patchVal)
 
 	addPatchIfNeeded(annotations, currentAnnotations, key2, val)
-	assert.Equal(t, 2, len(annotations))
+	assert.Len(t, annotations, 2)
 	patchVal, ok = annotations[key2]
 	assert.True(t, ok)
 	assert.Equal(t, val, patchVal)
 }
 
 func getPatchAnnotations(t *testing.T, patch map[string]any) map[string]string {
+	t.Helper()
 	assert.NotNil(t, patch)
 	meta := patch["metadata"].(map[string]any)
 	assert.NotNil(t, meta)
@@ -1481,15 +1480,15 @@ func Test_makeAnnotationPatchNoChange(t *testing.T) {
 
 	var changeRevisions []string
 	err := json.Unmarshal([]byte(a.Annotations[CHANGE_REVISIONS_ANN]), &changeRevisions)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	var gitRevisions []string
 	err = json.Unmarshal([]byte(a.Annotations[GIT_REVISIONS_ANN]), &gitRevisions)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	patch, err := mrpService.makeAnnotationPatch(a, a.Annotations[CHANGE_REVISION_ANN], changeRevisions,
 		a.Annotations[GIT_REVISION_ANN], gitRevisions)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, patch)
 }
 
@@ -1502,20 +1501,19 @@ func Test_makeAnnotationPatch(t *testing.T) {
 	a := createTestApp(t, syncedAppWithSingleHistory1Annotated)
 	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
 	patch, err := mrpService.makeAnnotationPatch(a, changeRevision, changeRevisions, gitRevision, gitRevisions)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	annotations := getPatchAnnotations(t, patch)
-	assert.Equal(t, 4, len(annotations))
+	assert.Len(t, annotations, 4)
 	assert.Equal(t, changeRevision, annotations[CHANGE_REVISION_ANN])
 	assert.Equal(t, gitRevision, annotations[GIT_REVISION_ANN])
 
 	changeRevisionsBytes, err := json.Marshal(changeRevisions)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, string(changeRevisionsBytes), annotations[CHANGE_REVISIONS_ANN])
 
 	gitRevisionsBytes, err := json.Marshal(gitRevisions)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, string(gitRevisionsBytes), annotations[GIT_REVISIONS_ANN])
-
 }
 
 func Test_ChangeRevision(t *testing.T) {
@@ -1560,7 +1558,7 @@ func Test_makeChangeRevisionPatch(t *testing.T) {
 	mrpService := newTestMRPService(t, clientsetmock, appClientMock, db)
 	logCtx := logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
 	patch, err := mrpService.makeChangeRevisionPatch(t.Context(), logCtx, app)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, patch)
 	annotations := getPatchAnnotations(t, patch)
 	assert.Equal(t, expectedRevision, annotations[CHANGE_REVISION_ANN])
@@ -1568,10 +1566,11 @@ func Test_makeChangeRevisionPatch(t *testing.T) {
 }
 
 func newTestMetricsServer(t *testing.T, dbMock *dbmocks.ArgoDB) *metrics.MetricsServer {
+	t.Helper()
 	healthcheck := func(_ *http.Request) error { return nil }
 	var appConditions []string
 	var appLabels []string
-	canProcessApp := func(obj any) bool { return false }
+	canProcessApp := func(_ any) bool { return false }
 	appLister := &applistermocks.ApplicationLister{}
 	result, err := metrics.NewMetricsServer("0.0.0.0:8091",
 		appLister,     /*AppLister*/
@@ -1589,6 +1588,7 @@ func newTestMRPService(t *testing.T, repoClientMock *repomocks.Clientset,
 	applicationClientsetMock *mocks.Interface,
 	dbMock *dbmocks.ArgoDB,
 ) *mrpService {
+	t.Helper()
 	return &mrpService{
 		applicationClientset: applicationClientsetMock,
 		repoClientset:        repoClientMock,
@@ -1598,7 +1598,7 @@ func newTestMRPService(t *testing.T, repoClientMock *repomocks.Clientset,
 	}
 }
 
-func createLogCtx(app *appsv1.Application) *log.Entry {
+func createLogCtx(app *appsv1.Application) *logrus.Entry {
 	return logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
 }
 
