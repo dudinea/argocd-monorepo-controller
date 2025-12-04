@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - ./argocd-monorepo-controller
 - ./argocd-monorepo-repo-server
+- ./config
 images:
 - name: quay.io/argoprojlabs/argocd-monorepo-controller
   newName: quay.io/argoprojlabs/argocd-monorepo-controller

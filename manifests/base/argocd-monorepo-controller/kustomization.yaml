@@ -6,3 +6,7 @@ resources:
 - argocd-monorepo-controller-deployment.yaml
 - argocd-monorepo-controller-metrics.yaml
 - argocd-monorepo-controller-network-policy.yaml
+- argocd-monorepo-controller-sa.yaml
+- argocd-monorepo-controller-role.yaml
+- argocd-monorepo-controller-rolebinding.yaml
+
