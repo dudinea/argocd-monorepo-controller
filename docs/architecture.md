@@ -7,6 +7,8 @@ Change Revisions: application state and history contains commits for
 the entire Git repository, not specifically the [Change Revisions](terminology.md#change-revision)
 that are relevant for the specific Application.
 
+![image_alt](assets/argocd-change-revisions-diagram.png)
+
 This has a lot of undesirable consequences from the users point of view:
 
 * Bogus notifications on changes that are not relevant for the user's
@@ -98,6 +100,8 @@ git revision. Then it will use git `diff-tree` operation to each
 revision in the list to determine if there are changed files and
 will filter that list against the paths from the
 `manifest-generate-paths` annotation.
+
+## The Controller Components
 
 Currently the ArgoCD Monorepo Controller consists of two components that 
 are running in separate pods:
