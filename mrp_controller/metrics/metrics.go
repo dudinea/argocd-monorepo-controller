@@ -22,14 +22,14 @@ import (
 	argoappv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	applister "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 
-	//"github.com/argoproj/argo-cd/v3/util/argo"
+	// "github.com/argoproj/argo-cd/v3/util/argo"
 	"github.com/argoproj/argo-cd/v3/util/db"
 	"github.com/argoproj/argo-cd/v3/util/git"
 	"github.com/argoproj/argo-cd/v3/util/healthz"
 	metricsutil "github.com/argoproj/argo-cd/v3/util/metrics"
 	"github.com/argoproj/argo-cd/v3/util/metrics/kubectl"
-	//"github.com/argoproj/argo-cd/v3/util/metrics/kubectl"
-	//"github.com/argoproj/argo-cd/v3/util/profile"
+	// "github.com/argoproj/argo-cd/v3/util/metrics/kubectl"
+	// "github.com/argoproj/argo-cd/v3/util/profile"
 )
 
 type MetricsServer struct {
@@ -40,7 +40,7 @@ type MetricsServer struct {
 	repoServerRequestCounter   *prometheus.CounterVec
 	reconcileHistogram         *prometheus.HistogramVec
 	repoServerRequestHistogram *prometheus.HistogramVec
-	registry                   *prometheus.Registry
+	registry                   *prometheus.Registry //nolint:all
 	hostname                   string
 	cron                       *cron.Cron
 }
@@ -184,7 +184,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		// contains workqueue metrics, process and golang metrics
 		ctrlmetrics.Registry,
 	}, promhttp.HandlerOpts{}))
-	//profile.RegisterProfiler(mux)
+	// profile.RegisterProfiler(mux)
 	healthz.ServeHealthCheck(mux, healthCheck)
 
 	registry.MustRegister(syncCounter)
@@ -194,7 +194,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(kubectlExecPendingGauge)
 	registry.MustRegister(orphanedResourcesGauge)
 	registry.MustRegister(reconcileHistogram)
-	//registry.MustRegister(clusterEventsCounter)
+	// registry.MustRegister(clusterEventsCounter)
 	registry.MustRegister(repoServerRequestCounter)
 	registry.MustRegister(repoServerRequestHistogram)
 	registry.MustRegister(resourceEventsProcessingHistogram)
@@ -212,9 +212,9 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		syncCounter:       syncCounter,
 		syncDuration:      syncDuration,
 		k8sRequestCounter: k8sRequestCounter,
-		//kubectlExecCounter:                kubectlExecCounter,
-		//kubectlExecPendingGauge:           kubectlExecPendingGauge,
-		//orphanedResourcesGauge:            orphanedResourcesGauge,
+		// kubectlExecCounter:                kubectlExecCounter,
+		// kubectlExecPendingGauge:           kubectlExecPendingGauge,
+		// orphanedResourcesGauge:            orphanedResourcesGauge,
 		reconcileHistogram:         reconcileHistogram,
 		repoServerRequestCounter:   repoServerRequestCounter,
 		repoServerRequestHistogram: repoServerRequestHistogram,
@@ -289,9 +289,9 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		log.Infof("Reset Prometheus metrics based on existing expiration '%v'", cacheExpiration)
 		m.syncCounter.Reset()
 		m.syncDuration.Reset()
-		//m.kubectlExecCounter.Reset()
+		// m.kubectlExecCounter.Reset()
 		//		m.kubectlExecPendingGauge.Reset()
-		//m.orphanedResourcesGauge.Reset()
+		// m.orphanedResourcesGauge.Reset()
 		m.k8sRequestCounter.Reset()
 		m.repoServerRequestCounter.Reset()
 		m.reconcileHistogram.Reset()
@@ -311,7 +311,7 @@ type appCollector struct {
 	appFilter     func(obj any) bool
 	appLabels     []string
 	appConditions []string
-	db            db.ArgoDB
+	db            db.ArgoDB //nolint:all
 }
 
 // NewAppCollector returns a prometheus collector for application metrics
@@ -366,12 +366,12 @@ func (c *appCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func boolFloat64(b bool) float64 {
-	if b {
-		return 1
-	}
-	return 0
-}
+// func boolFloat64(b bool) float64 {
+// 	if b {
+// 		return 1
+// 	}
+// 	return 0
+// }
 
 func (c *appCollector) collectApps(ch chan<- prometheus.Metric, app *argoappv1.Application) {
 	addConstMetric := func(desc *prometheus.Desc, t prometheus.ValueType, v float64, lv ...string) {
