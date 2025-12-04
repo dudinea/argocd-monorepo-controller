@@ -5,10 +5,10 @@ project_name: argocd
 before:
   hooks:
     - go mod download
-    - make build-ui
+    #- make build-ui
 
-builds:
-  - id: argocd-cli
+builds: 
+  - id: argocd-monorepo-controller
     main: ./cmd
     binary: argocd-{{ .Os}}-{{ .Arch}}
     env:
@@ -46,7 +46,7 @@ builds:
 archives:
   - id: argocd-archive
     ids:
-      - argocd-cli
+      - argocd-monorepo-controller
     name_template: |-
       {{ .ProjectName }}-{{ .Os }}-{{ .Arch }}
     formats: [ binary ]
