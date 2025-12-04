@@ -20,11 +20,9 @@ import (
 	mrp_controller "github.com/argoproj/argo-cd/v3/mrp_controller/controller"
 	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 
-	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	appinformer "github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions"
 	applister "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
-	"github.com/argoproj/argo-cd/v3/util/glob"
 
 	// applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 
@@ -34,12 +32,12 @@ import (
 type MRPServer struct {
 	MRPServerOpts
 
-	settings *settings_util.ArgoCDSettings
+	// settings *settings_util.ArgoCDSettings
 	// log                  *log.Entry
 	appInformer          cache.SharedIndexInformer
 	appLister            applister.ApplicationLister
 	applicationClientset appclientset.Interface
-	db                   db.ArgoDB
+	db                   db.ArgoDB //nolint:all
 	repoClientset        repoapiclient.Clientset
 	// stopCh is the channel which when closed, will shutdown the Event Reporter server
 	stopCh        chan struct{}
@@ -56,7 +54,7 @@ type MRPServerOpts struct {
 	Namespace     string
 	KubeClientset kubernetes.Interface
 	AppClientset  appclientset.Interface
-	//Cache                 *servercache.Cache
+	// Cache                 *servercache.Cache
 	RedisClient            *redis.Client
 	ApplicationNamespaces  []string
 	BaseHRef               string
@@ -65,11 +63,11 @@ type MRPServerOpts struct {
 	MetricsCacheExpiration time.Duration
 }
 
-type handlerSwitcher struct {
+/*type handlerSwitcher struct {
 	handler              http.Handler
 	urlToHandler         map[string]http.Handler
 	contentTypeToHandler map[string]http.Handler
-}
+        }*/
 
 type Listeners struct {
 	Main net.Listener
@@ -85,9 +83,9 @@ func (l *Listeners) Close() error {
 	return nil
 }
 
-func (a *MRPServer) healthCheck(_ *http.Request) error {
+/*func (a *MRPServer) healthCheck(_ *http.Request) error {
 	return nil
-}
+        }*/
 
 // Init starts informers used by the API server
 func (a *MRPServer) Init(ctx context.Context) {
@@ -101,33 +99,27 @@ func (a *MRPServer) RunController(ctx context.Context) {
 	go controller.Run(ctx)
 }
 
-func (a *MRPServer) checkServeErr(name string, err error) {
-	if err != nil {
-		if a.stopCh != nil {
-			log.Fatalf("%s: %v", name, err)
-		}
-		// a nil stopCh indicates a graceful shutdown
-		log.Infof("graceful shutdown %s: %v", name, err)
-	} else {
-		log.Infof("graceful shutdown %s", name)
-	}
-}
+// func (a *MRPServer) checkServeErr(name string, err error) {
+// 	if err != nil {
+// 		if a.stopCh != nil {
+// 			log.Fatalf("%s: %v", name, err)
+// 		}
+// 		// a nil stopCh indicates a graceful shutdown
+// 		log.Infof("graceful shutdown %s: %v", name, err)
+// 	} else {
+// 		log.Infof("graceful shutdown %s", name)
+// 	}
+// }
 
 // isAppNamespaceAllowed returns whether the application is allowed in the
 // namespace it's residing in.
-func (a *MRPServer) isAppNamespaceAllowed(app *appv1.Application) bool {
+/*func (a *MRPServer) isAppNamespaceAllowed(app *appv1.Application) bool {
 	return app.Namespace == a.Namespace ||
 		glob.MatchStringInList(a.ApplicationNamespaces, app.Namespace, glob.REGEXP)
-}
+                }*/
 
-func (a *MRPServer) canProcessApp(obj any) bool {
-	return true
-	app, ok := obj.(*appv1.Application)
-	if !ok {
-		return false
-	}
-
-	if !a.isAppNamespaceAllowed(app) {
+func (a *MRPServer) canProcessApp(_ any) bool {
+	/*if !a.isAppNamespaceAllowed(app) {
 		return false
 	}
 
@@ -138,7 +130,7 @@ func (a *MRPServer) canProcessApp(obj any) bool {
 	val, ok := annotations[appv1.AnnotationKeyManifestGeneratePaths]
 	if !ok || val == "" {
 		return false
-	}
+	}*/
 	return true
 }
 
@@ -169,7 +161,10 @@ func (a *MRPServer) Run(ctx context.Context /* lns *Listeners*/) {
 		log.Fatal("Failed to configure metrics server: %w", err)
 	}
 	if a.MetricsCacheExpiration.Seconds() > 0 {
-		metricsServer.SetExpiration(a.MetricsCacheExpiration)
+		err = metricsServer.SetExpiration(a.MetricsCacheExpiration)
+		if err != nil {
+			log.Fatal("Failed to configure metrics cache expiration: %w", err)
+		}
 	}
 	a.metricsServer = metricsServer
 
@@ -206,7 +201,7 @@ func NewMRPServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 		applicationClientset: opts.AppClientset,
 		db:                   dbInstance,
 		repoClientset:        opts.RepoClientset,
-		//metricsServer:        metricsServer,
+		// metricsServer:        metricsServer,
 	}
 
 	return server

@@ -44,24 +44,23 @@ func NewCommand() *cobra.Command {
 		listenPort   int
 		glogLevel    int
 		clientConfig clientcmd.ClientConfig
-		//applicationServerAddress string
+		// applicationServerAddress string
 		repoServerAddress        string
 		repoServerTimeoutSeconds int
 		repoServerPlaintext      bool
 		repoServerStrictTLS      bool
-		//cacheSrc                 func() (*servercache.Cache, error)
+		// cacheSrc                 func() (*servercache.Cache, error)
 		applicationNamespaces  []string
 		metricsCacheExpiration time.Duration
-		//argocdToken              string
-		//rootpath                 string
+		// argocdToken              string
+		// rootpath                 string
 	)
 	command := &cobra.Command{
 		Use:               cliName,
 		Short:             "Run the ArgoCD Monorepo Controller",
 		Long:              "The ArgoCD Monorepo Controller is a service that listens for application events and updates the application's revision in the application CRD",
 		DisableAutoGenTag: true,
-		Run: func(c *cobra.Command, args []string) {
-
+		Run: func(c *cobra.Command, _ []string) {
 			ctx := c.Context()
 
 			vers := common.GetVersion()
@@ -84,8 +83,8 @@ func NewCommand() *cobra.Command {
 			errors.CheckError(err)
 			errors.CheckError(v1alpha1.SetK8SConfigDefaults(config))
 
-			//cache, err := cacheSrc()
-			//errors.CheckError(err)
+			// cache, err := cacheSrc()
+			// errors.CheckError(err)
 
 			kubeclientset := kubernetes.NewForConfigOrDie(config)
 
@@ -113,7 +112,7 @@ func NewCommand() *cobra.Command {
 				Namespace:     namespace,
 				KubeClientset: kubeclientset,
 				AppClientset:  appClientSet,
-				//Cache:                 cache,
+				// Cache:                 cache,
 				RedisClient:            redisClient,
 				ApplicationNamespaces:  applicationNamespaces,
 				RepoClientset:          repoClientSet,

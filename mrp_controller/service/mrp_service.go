@@ -78,14 +78,14 @@ func (c *mrpService) getSourcesRevisions(app *application.Application, logCtx *l
 		result = make([]sourceRevisions, numSources)
 		changeRevisions := c.getArrayFromAnnotation(app, logCtx, CHANGE_REVISIONS_ANN)
 		gitRevisions := c.getArrayFromAnnotation(app, logCtx, GIT_REVISIONS_ANN)
-		for idx, _ := range sources {
+		for idx := range sources {
 			currentRevision, previousRevision := getRevisionsMultiSource(app, idx)
 			result[idx] = sourceRevisions{
 				changeRevision:   sliceGetString(&changeRevisions, idx),
 				gitRevision:      sliceGetString(&gitRevisions, idx),
 				currentRevision:  currentRevision,
 				previousRevision: previousRevision,
-				repoUrl:          app.Spec.Sources[idx].RepoURL,
+				repoURL:          app.Spec.Sources[idx].RepoURL,
 				isHelmRepo:       isHelmRepoMultiSource(app, idx),
 			}
 		}
@@ -100,7 +100,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application, logCtx *l
 			gitRevision:      gitRevision,
 			currentRevision:  currentRevision,
 			previousRevision: previousRevision,
-			repoUrl:          app.Spec.Source.RepoURL,
+			repoURL:          app.Spec.Source.RepoURL,
 			isHelmRepo:       isHelmRepoSingleSource(app),
 		}
 	}
@@ -112,7 +112,7 @@ type sourceRevisions struct {
 	gitRevision      string
 	currentRevision  string
 	previousRevision string
-	repoUrl          string
+	repoURL          string
 	isHelmRepo       bool
 }
 
@@ -127,15 +127,15 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 	if !ok || manifestGenerationPaths == "" {
 		logCtx.Infof("manifest generation paths not set for the application")
 		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
-	} else {
-		logCtx.Infof("manifest generation paths is %s", manifestGenerationPaths)
 	}
+	logCtx.Infof("manifest generation paths is %s", manifestGenerationPaths)
+
 	// FIXED: race condition: sync may already be completed!
 	// if app.Operation == nil || app.Operation.Sync == nil {
 	// 	c.logger.Infof("skipping because non-relevant operation: %v", app.Operation)
 	// 	return nil
 	// }
-	//from, to := getSourceIndices(a)
+	// from, to := getSourceIndices(a)
 	sourcesRevisions := c.getSourcesRevisions(a, logCtx)
 	numSources := len(sourcesRevisions)
 	patchChangeRevisions := make([]string, numSources)
@@ -164,17 +164,18 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			continue
 		}
 
-		// current argo revision not changed since the last time we red the revions info
+		// current argo revision not changed since the last time we read the revions info
 		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
 			sourceLogCtx.Infof("Change revision already calculated")
 			continue
 		}
-		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoUrl)
+		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoURL)
 		if err != nil {
 			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
 			continue
 		}
 		sourceLogCtx.Infof("calculated change revision is '%s'", *newChangeRevision)
+		//nolint:all
 		if newChangeRevision == nil || *newChangeRevision == "" {
 			if r.changeRevision == "" {
 				sourceLogCtx.Infof("no change revision found, defaulting to current revision")
@@ -210,25 +211,26 @@ func (c *mrpService) makeAnnotationPatch(a *application.Application,
 	changeRevision string,
 	changeRevisions []string,
 	gitRevision string,
-	gitRevisions []string) (map[string]any, error) {
+	gitRevisions []string,
+) (map[string]any, error) {
 	c.logger.Debugf("makeAnnotationPatch for app %s, changeRevision=%s, changeRevisions=%v, gitRevision=%s, gitRevisions=%v",
 		a.Name, changeRevision, changeRevisions, gitRevision, gitRevisions)
 	annotations := map[string]string{}
 	currentAnnotations := a.Annotations
 
-	changeRevisionsJson, err := json.Marshal(changeRevisions)
+	changeRevisionJSON, err := json.Marshal(changeRevisions)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshall changeRevisions %v: %v", changeRevisions, err)
+		return nil, fmt.Errorf("failed to marshall changeRevisions %v: %w", changeRevisions, err)
 	}
-	gitRevisionsJson, err := json.Marshal(gitRevisions)
+	gitRevisionJSON, err := json.Marshal(gitRevisions)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshall changeRevisions %v: %v", changeRevisions, err)
+		return nil, fmt.Errorf("failed to marshall changeRevisions %v: %w", changeRevisions, err)
 	}
 
 	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISION_ANN, changeRevision)
-	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISIONS_ANN, string(changeRevisionsJson))
+	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISIONS_ANN, string(changeRevisionJSON))
 	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISION_ANN, gitRevision)
-	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISIONS_ANN, string(gitRevisionsJson))
+	addPatchIfNeeded(annotations, currentAnnotations, GIT_REVISIONS_ANN, string(gitRevisionJSON))
 
 	if len(annotations) == 0 {
 		return nil, nil
@@ -243,7 +245,7 @@ func (c *mrpService) makeAnnotationPatch(a *application.Application,
 
 func (c *mrpService) annotateApplication(ctx context.Context, logCtx *log.Entry, a *application.Application, patch map[string]any) error {
 	patchBytes, err := json.Marshal(patch)
-	if nil != err {
+	if err != nil {
 		logCtx.Errorf("failed to marshal patch into json: %v", err)
 		return err
 	}
@@ -270,7 +272,7 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	if err != nil {
 		logCtx.Errorf("Failed to make change revision patch: %v", err)
 	} else {
-		if nil == patch {
+		if patch == nil {
 			logCtx.Infof("no need to patch the application")
 			return nil
 		}
@@ -286,7 +288,8 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 
 func (c *mrpService) calculateChangeRevision(ctx context.Context, logCtx *log.Entry,
 	a *application.Application,
-	currentRevision string, previousRevision string, repoURL string) (*string, error) {
+	currentRevision string, previousRevision string, repoURL string,
+) (*string, error) {
 	logCtx.Debugf("Calculate revision: current revision '%s', previous revision '%s'",
 		currentRevision, previousRevision)
 
@@ -350,15 +353,14 @@ func getCurrentRevisionForFirstSync(a *application.Application) string {
 func sliceGetString(sl *[]string, idx int) string {
 	if idx >= 0 && idx < len(*sl) {
 		return (*sl)[idx]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourceIdx int) string {
 	history := &a.Status.History[historyIdx]
 	historicalSourceIdx := sourceIdx
-	var historySrc *application.ApplicationSource = nil
+	var historySrc *application.ApplicationSource
 	// History entry has enough sources
 	if historicalSourceIdx < len(history.Sources) {
 		// assume that in most cases historical source
@@ -376,13 +378,11 @@ func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourc
 				break
 			}
 		}
-
 	}
 	if historicalSourceIdx >= 0 {
 		return sliceGetString(&history.Revisions, historicalSourceIdx)
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func isHelmRepoMultiSource(a *application.Application, idx int) bool {
