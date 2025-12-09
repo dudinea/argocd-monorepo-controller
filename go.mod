@@ -17,7 +17,7 @@ require (
 	github.com/casbin/casbin/v2 v2.134.0
 	github.com/casbin/govaluate v1.10.0
 	github.com/coreos/go-oidc/v3 v3.14.1
-	github.com/cyphar/filepath-securejoin v0.4.1
+	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-git/v5 v5.16.2
