@@ -15,7 +15,7 @@ require (
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
 	github.com/casbin/casbin/v2 v2.134.0
-	github.com/casbin/govaluate v1.7.0
+	github.com/casbin/govaluate v1.10.0
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/cyphar/filepath-securejoin v0.4.1
 	github.com/dlclark/regexp2 v1.11.5
