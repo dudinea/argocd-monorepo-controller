@@ -361,7 +361,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test results to Codecov
         # if: github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository == 'dudinea/argo-cd'
-        #if: github.ref == 'refs/heads/dev' &&  github.repository == 'dudinea/argocd-monorepo-controller'
+        if: github.ref == 'refs/heads/dev' &&  github.repository == 'dudinea/argocd-monorepo-controller'
         uses: codecov/test-results-action@47f89e9acb64b76debcd5ea40642d25a4adced9f # v1.1.1
         with:
           file: test-results/junit.xml
