@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   annotations:
-  name: argocd-monorepo-repo-server-redis-network-policy.yaml
+  name: argocd-monorepo-repo-server-redis-network-policy
 spec:
   ingress:
   - from:
