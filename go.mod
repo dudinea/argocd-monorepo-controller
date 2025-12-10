@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/argoproj/gitops-engine v0.7.1-0.20250617174952-093aef0dad58
-	github.com/argoproj/notifications-engine v0.5.0
+	github.com/argoproj/notifications-engine v0.5.1-0.20251105183712-783b97d496ca
 	github.com/argoproj/pkg v0.13.6
 	github.com/argoproj/pkg/v2 v2.0.1
 	github.com/bmatcuk/doublestar/v4 v4.9.1
