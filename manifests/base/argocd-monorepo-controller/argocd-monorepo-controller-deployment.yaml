@@ -39,6 +39,12 @@ spec:
               name: monorepo-cmd-params-cm
               key: controller.log.format
               optional: true
+        - name: ARGOCD_LOG_FORMAT_TIMESTAMP
+          valueFrom:
+            configMapKeyRef:
+              name: argocd-cmd-params-cm
+              key: log.format.timestamp
+              optional: true
         # Metrics configuration
         - name: MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION
           valueFrom:

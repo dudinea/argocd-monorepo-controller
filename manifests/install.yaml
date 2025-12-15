@@ -201,6 +201,12 @@ spec:
               key: controller.log.format
               name: monorepo-cmd-params-cm
               optional: true
+        - name: ARGOCD_LOG_FORMAT_TIMESTAMP
+          valueFrom:
+            configMapKeyRef:
+              key: log.format.timestamp
+              name: argocd-cmd-params-cm
+              optional: true
         - name: MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION
           valueFrom:
             configMapKeyRef:
@@ -375,13 +381,13 @@ spec:
         - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_ADDRESS
           valueFrom:
             configMapKeyRef:
-              key: monorepo-reposerver.listen.address
+              key: reposerver.listen.address
               name: monorepo-cmd-params-cm
               optional: true
-        - name: ARGOCD_REPO_SERVER_LISTEN_METRICS_ADDRESS
+        - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS
           valueFrom:
             configMapKeyRef:
-              key: monorepo-reposerver.metrics.listen.address
+              key: reposerver.metrics.listen.address
               name: monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_REPO_SERVER_DISABLE_TLS
@@ -498,18 +504,6 @@ spec:
               key: reposerver.streamed.manifest.max.extracted.size
               name: argocd-cmd-params-cm
               optional: true
-        - name: ARGOCD_REPO_SERVER_HELM_MANIFEST_MAX_EXTRACTED_SIZE
-          valueFrom:
-            configMapKeyRef:
-              key: reposerver.helm.manifest.max.extracted.size
-              name: argocd-cmd-params-cm
-              optional: true
-        - name: ARGOCD_REPO_SERVER_DISABLE_HELM_MANIFEST_MAX_EXTRACTED_SIZE
-          valueFrom:
-            configMapKeyRef:
-              key: reposerver.disable.helm.manifest.max.extracted.size
-              name: argocd-cmd-params-cm
-              optional: true
         - name: ARGOCD_REVISION_CACHE_LOCK_TIMEOUT
           valueFrom:
             configMapKeyRef:
@@ -532,6 +526,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: reposerver.git.request.timeout
+              name: argocd-cmd-params-cm
+              optional: true
+        - name: ARGOCD_REPO_SERVER_ENABLE_BUILTIN_GIT_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.enable.builtin.git.config
               name: argocd-cmd-params-cm
               optional: true
         - name: ARGOCD_GRPC_MAX_SIZE_MB
