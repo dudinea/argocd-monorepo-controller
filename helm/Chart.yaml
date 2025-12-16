@@ -5,8 +5,7 @@ description: A Helm chart for Argocd Monorepo Controller, an ArgoCD addon that a
 name: argocd-monorepo-controller
 version: v0.0.1
 home: https://github.com/argoproj-labs/argocd-monorepo-controller
-# FIXME
-# icon: https://argocd-monorepo-controller.readthedocs.io/en/stable/assets/logo.png
+icon: https://argocd-monorepo-controller.readthedocs.io/en/latest/assets/logo.png
 sources:
   - https://github.com/argoproj-labs/argocd-monorepo-controller/tree/main/helm
 keywords:
