@@ -38,37 +38,37 @@ spec:
           - name: ARGOCD_REPO_SERVER_LOGFORMAT
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.log.format
                 optional: true
           - name: ARGOCD_REPO_SERVER_LOGLEVEL
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.log.level
                 optional: true
           - name: ARGOCD_LOG_FORMAT_TIMESTAMP
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.log.format.timestamp
                 optional: true
           - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.parallelism.limit
                 optional: true
           - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_ADDRESS
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.listen.address
                 optional: true
           - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS
             valueFrom:
               configMapKeyRef:
-                name: monorepo-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.metrics.listen.address
                 optional: true
           - name: ARGOCD_REPO_SERVER_DISABLE_TLS
