@@ -247,7 +247,7 @@ func NewCommand() *cobra.Command {
 	command.Flags().Int64Var(&parallelismLimit, "parallelismlimit", int64(env.ParseNumFromEnv("ARGOCD_REPO_SERVER_PARALLELISM_LIMIT", 0, 0, math.MaxInt32)), "Limit on number of concurrent manifests generate requests. Any value less the 1 means no limit.")
 	command.Flags().StringVar(&listenHost, "address", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER_LISTEN_ADDRESS", common.DefaultAddressMonorepoRepoServer), "Listen on given address for incoming connections")
 	command.Flags().IntVar(&listenPort, "port", common.DefaultPortMonorepoRepoServer, "Listen on given port for incoming connections")
-	command.Flags().StringVar(&metricsHost, "metrics-address", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER_METRICS_LISTEN_ADDRESS", common.DefaultAddressMonorepoRepoServerMetrics), "Listen on given address for metrics")
+	command.Flags().StringVar(&metricsHost, "metrics-address", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS", common.DefaultAddressMonorepoRepoServerMetrics), "Listen on given address for metrics")
 	command.Flags().IntVar(&metricsPort, "metrics-port", common.DefaultPortMonorepoRepoServerMetrics, "Start metrics server on given port")
 	command.Flags().StringVar(&otlpAddress, "otlp-address", env.StringFromEnv("ARGOCD_REPO_SERVER_OTLP_ADDRESS", ""), "OpenTelemetry collector address to send traces to")
 	command.Flags().BoolVar(&otlpInsecure, "otlp-insecure", env.ParseBoolFromEnv("ARGOCD_REPO_SERVER_OTLP_INSECURE", true), "OpenTelemetry collector insecure mode")
