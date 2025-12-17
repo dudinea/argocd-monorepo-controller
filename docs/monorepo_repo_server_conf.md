@@ -36,7 +36,7 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 |                                         |             |                                              | (default "info")                                             |
 | --max-combined-directory-manifests-size | strin       | ARGOCD_REPO_SERVER_MAX_COMBINED_DIRECTORY_MANIFESTS_SIZE | g   Max combined size of manifest files in a directory-type  |
 |                                         |             |                                              | Application (default "10M")                                  |
-| --metrics-address                       | string      | ARGOCD_MONOREPO_REPO_SERVER_METRICS_LISTEN_ADDRESS | Listen on given address for metrics (default "0.0.0.0")      |
+| --metrics-address                       | string      | ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS | Listen on given address for metrics (default "0.0.0.0")      |
 | --metrics-port                          | int         |                                              | Start metrics server on given port (default 8094)            |
 | --monorepo-repo-server-use-cache        |             | ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE        | Use Redis cache (default true)                               |
 | --oci-layer-media-types                 | strings     | ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES     | Comma separated list of allowed media types for OCI media    |
