@@ -58,6 +58,25 @@ resources:
 - https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
 ```
 
+## Method 3: Installing using Helm
+
+The Monorepo Controller manifests can also be installed using Helm. 
+
+The helm chart is maintained in the same Git repository as the Monorepo Controller itself
+and released together with the Monorepo Controller.
+
+In simple cases it can be installed with the command:
+
+```shell
+helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-controller:<VERSION>"
+```
+
+* <RELEASE-NAME> - user selected release name
+* <VERSION> - chart version, which is same as version of the application release
+
+In more complex cases one would need to customize the `values.yaml` file. 
+See Helm Chart [Documentation](helm.md) for available options.
+
 
 ### Tune Configuration Parameters
 

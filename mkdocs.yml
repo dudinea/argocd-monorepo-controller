@@ -1,5 +1,6 @@
 extra_css:
 - assets/versions.css
+- assets/extra.css
 extra_javascript:
 - assets/versions.js
 markdown_extensions:
@@ -14,7 +15,8 @@ nav:
 - Overview: index.md
 - Terminology: terminology.md
 - Architecture: architecture.md
-- Installation: install.md  
+- Installation: install.md
+- Helm Chart: helm.md
 - Configuration Reference:
     - "Monorepo Controller Configuration": monorepo_controller_conf.md
     - "Monorepo Repo Server Configuration": monorepo_repo_server_conf.md
