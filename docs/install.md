@@ -27,7 +27,8 @@ Apply the manifest in the ArgoCD namespace:
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
 ```
 
-!!! warning The installation manifests include `ClusterRoleBinding`
+!!! warning 
+    The installation manifests include `ClusterRoleBinding`
     resources that reference `argocd` namespace. If you are installing
     Argo CD into a different namespace then make sure to update the
     namespace reference in the `install.yaml` file.
@@ -74,8 +75,9 @@ helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-
 
 
 ```
+
 * `<RELEASE-NAME>` - user selected release name
-* `<VERSION>` - chart version, which is same as version of the application release
+* `<VERSION>` - chart version, which is same as the version of the application release
 
 In more complex cases one would need to customize the `values.yaml` file. 
 See Helm Chart [Documentation](helm.md) for available options.

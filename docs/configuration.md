@@ -19,7 +19,8 @@ components, are configured using the `argocd-monorepo-cmd-params-cm` configmap.
 | reposerver.log.format                  | "text"                            | Monorepo Repo Server log format (text or json)                     |
 | reposerver.parallelism.limit           | "0" - no limit                    | Limit on number of concurrent manifests generate requests.         |
 | reposerver.listen.address              | "0.0.0.0"                         | Repo Server will listen on given address for incoming connections  |
-|                                        |                                   |                                                                    |
+|----------------------------------------|-----------------------------------|--------------------------------------------------------------------|
+
 
 
 The following parameters reuse ArgoCD configuration from ConfigMaps:
@@ -84,10 +85,11 @@ your ArgoCD installation does not use network policies,
 you must disable them in the manifest or in the kustomize 
 `kustomization.yaml` files.
 
-The Helm Chart, however, has the Network Policies disabled by default 
-(in line with the ArgoCD Helm Chart default). If your ArgoCD installation 
-uses Network Policies, you should enable Network Policies installation
-using the `` key in your values.yaml.
+The Helm Chart, however, has the Network Policies disabled by default
+(in line with the ArgoCD Helm Chart default). If your ArgoCD
+installation uses Network Policies, you should enable Network Policies
+installation using the `global.networkPolicy.create: true` parameter
+in your values.yaml.
 
 
 ## Configuring notifications
