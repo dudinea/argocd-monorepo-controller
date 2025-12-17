@@ -1,5 +1,6 @@
 extra_css:
 - assets/versions.css
+- assets/extra.css
 extra_javascript:
 - assets/versions.js
 markdown_extensions:
@@ -14,11 +15,14 @@ nav:
 - Overview: index.md
 - Terminology: terminology.md
 - Architecture: architecture.md
-- Installation: install.md  
-- Configuration Reference:
+- Installation:
+    - "Installation Methods": install.md
+    - "Helm Chart": helm.md
+- Configuration:
+    - "Configuration Guide": configuration.md
     - "Monorepo Controller Configuration": monorepo_controller_conf.md
     - "Monorepo Repo Server Configuration": monorepo_repo_server_conf.md
-- Notifications: notifications.md
+    - Notifications: notifications.md
 - Acknowledgements: acknowledgements.md
   
 - Releases ⧉: https://github.com/argoproj-labs/argocd-monorepo-controller/releases

@@ -58,7 +58,6 @@ make run                                                  # uses goreman to both
 
  You can reach the developers via the following channels:
 
-* Q & A : [Github Discussions](https://github.com/argoproj-labs/argocd-monorepo-controller/discussions)  [TBD]
-* Chat : [The monorepo-controller Slack channel](https://argoproj.github.io/community/join-slack)  [TBD]
+* [The monorepo-controller Slack channel](https://cloud-native.slack.com/archives/C0A19KCEURY) 
 * [Github Issues](https://github.com/argoproj-labs/argocd-monorepo-controller/issues)
 
