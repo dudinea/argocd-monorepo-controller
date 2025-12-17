@@ -60,9 +60,10 @@ resources:
 
 ## Method 3: Installing using Helm
 
+
 The Monorepo Controller manifests can also be installed using Helm. 
 
-The helm chart is maintained in the same Git repository as the Monorepo Controller itself
+The Helm chart is maintained in the same Git repository as the Monorepo Controller itself
 and released together with the Monorepo Controller.
 
 In simple cases it can be installed with the command:
@@ -71,6 +72,8 @@ In simple cases it can be installed with the command:
 helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-controller:<VERSION>"
 ```
 
+
+```
 * `<RELEASE-NAME>` - user selected release name
 * `<VERSION>` - chart version, which is same as version of the application release
 
