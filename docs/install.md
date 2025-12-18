@@ -27,7 +27,8 @@ Apply the manifest in the ArgoCD namespace:
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
 ```
 
-!!! warning The installation manifests include `ClusterRoleBinding`
+!!! warning 
+    The installation manifests include `ClusterRoleBinding`
     resources that reference `argocd` namespace. If you are installing
     Argo CD into a different namespace then make sure to update the
     namespace reference in the `install.yaml` file.
@@ -58,69 +59,24 @@ resources:
 - https://raw.githubusercontent.com/argoproj-labs/argocd-monorepo-controller/refs/heads/stable/manifests/install.yaml
 ```
 
-
-### Tune Configuration Parameters
-
-Most configuration parameters are are configured using the
-`monorepo-cmd-params-cm` configmap. 
-
-The following parameters reuse ArgoCD configuration from ConfigMaps:
-
-From `argocd-cm`:
-
-* timeout.reconciliation
-
-From `argocd-cmd-params-cm`:
-
-* application.namespaces 
-* otlp.address
-* otlp.insecure
-* otlp.headers
-* otlp.attrs
-* redis.server
-* redis.compression
-* redis.db
-* reposerver.disable.tls 
-* reposerver.tls.minversion 
-* reposerver.tls.maxversion
-* reposerver.tls.ciphers
-* reposerver.repo.cache.expiration
-* reposerver.default.cache.expiration
-* reposerver.max.combined.directory.manifests.size
-* reposerver.revision.cache.lock.timeout
-* reposerver.enable.git.submodule
-* reposerver.git.request.timeout
-* reposerver.grpc.max.size
-* reposerver.include.hidden.directories
-
-From `argocd-redis`:
-
-* auth
-
-#### Configure the desired log level of Monorepo Controller components.
-
-While this step is optional, we recommend to set the log level
-explicitly.  During your first steps with the Argo CD Monorepo
-Controller, a more verbose logging may help greatly in troubleshooting
-things.
-
-Edit the value of the `controller.log.level` parameter in the
-ConfigMap `monorepo-cmd-params-cm`. 
-
-#### Configure namespaces for Application Manifests
-
-In its default configuration Monorepo Controller will look for
-Application Manifests in the same namespaces that ArgoCD does. If you
-want to use a different list of namespaces (for example to limit load
-on the Monorepo Controller, or for troubleshooting purposes) you need
-to change the value of the `ARGOCD_APPLICATION_NAMESPACES` environment
-variable of the Monoripo Controller.
-
-## Configuring notifications
-
-See sample triggers and templates in samples/notifications.
+## Method 3: Installing using Helm
 
 
+The Monorepo Controller manifests can also be installed using Helm. 
 
+The Helm chart is maintained in the same Git repository as the Monorepo Controller itself
+and released together with the Monorepo Controller.
+
+In simple cases it can be installed with the command:
+
+```shell
+helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-controller:<VERSION>"
+```
+
+* `<RELEASE-NAME>` - user selected release name
+* `<VERSION>` - chart version, which is same as the version of the application release
+
+In more complex cases one would need to customize the `values.yaml` file. 
+See Helm Chart [Documentation](helm.md) for available options.
 
 

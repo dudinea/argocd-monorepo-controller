@@ -106,7 +106,7 @@ metadata:
   labels:
     app.kubernetes.io/name: monorepo-cmd-params-cm
     app.kubernetes.io/part-of: argocd
-  name: monorepo-cmd-params-cm
+  name: argocd-monorepo-cmd-params-cm
 ---
 apiVersion: v1
 kind: Service
@@ -193,55 +193,61 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: controller.log.level
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_CONTROLLER_LOGFORMAT
           valueFrom:
             configMapKeyRef:
               key: controller.log.format
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_LOG_FORMAT_TIMESTAMP
+          valueFrom:
+            configMapKeyRef:
+              key: log.format.timestamp
+              name: argocd-cmd-params-cm
               optional: true
         - name: MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION
           valueFrom:
             configMapKeyRef:
               key: controller.metrics.cache.expiration
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_CONTROLLER_LISTEN_ADDRESS
           valueFrom:
             configMapKeyRef:
               key: controller.metrics.address
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_CONTROLLER_LISTEN_PORT
           valueFrom:
             configMapKeyRef:
               key: controller.metrics.port
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_REPO_SERVER
           valueFrom:
             configMapKeyRef:
               key: controller.repo.server
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_REPO_SERVER_PLAINTEXT
           valueFrom:
             configMapKeyRef:
               key: controller.repo.server.plaintext
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_REPO_SERVER_STRICT_TLS
           valueFrom:
             configMapKeyRef:
               key: controller.repo.server.strict.tls
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_REPO_SERVER_TIMEOUT_SECONDS
           valueFrom:
             configMapKeyRef:
               key: controller.repo.server.timeout.seconds
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         image: quay.io/argoprojlabs/argocd-monorepo-controller:latest
         imagePullPolicy: Always
@@ -352,37 +358,37 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: reposerver.log.format
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_REPO_SERVER_LOGLEVEL
           valueFrom:
             configMapKeyRef:
               key: reposerver.log.level
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_LOG_FORMAT_TIMESTAMP
           valueFrom:
             configMapKeyRef:
               key: reposerver.log.format.timestamp
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
           valueFrom:
             configMapKeyRef:
               key: reposerver.parallelism.limit
-              name: monorepo-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_ADDRESS
           valueFrom:
             configMapKeyRef:
-              key: monorepo-reposerver.listen.address
-              name: monorepo-cmd-params-cm
+              key: reposerver.listen.address
+              name: argocd-monorepo-cmd-params-cm
               optional: true
-        - name: ARGOCD_REPO_SERVER_LISTEN_METRICS_ADDRESS
+        - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS
           valueFrom:
             configMapKeyRef:
-              key: monorepo-reposerver.metrics.listen.address
-              name: monorepo-cmd-params-cm
+              key: reposerver.metrics.listen.address
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_REPO_SERVER_DISABLE_TLS
           valueFrom:
@@ -498,18 +504,6 @@ spec:
               key: reposerver.streamed.manifest.max.extracted.size
               name: argocd-cmd-params-cm
               optional: true
-        - name: ARGOCD_REPO_SERVER_HELM_MANIFEST_MAX_EXTRACTED_SIZE
-          valueFrom:
-            configMapKeyRef:
-              key: reposerver.helm.manifest.max.extracted.size
-              name: argocd-cmd-params-cm
-              optional: true
-        - name: ARGOCD_REPO_SERVER_DISABLE_HELM_MANIFEST_MAX_EXTRACTED_SIZE
-          valueFrom:
-            configMapKeyRef:
-              key: reposerver.disable.helm.manifest.max.extracted.size
-              name: argocd-cmd-params-cm
-              optional: true
         - name: ARGOCD_REVISION_CACHE_LOCK_TIMEOUT
           valueFrom:
             configMapKeyRef:
@@ -532,6 +526,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: reposerver.git.request.timeout
+              name: argocd-cmd-params-cm
+              optional: true
+        - name: ARGOCD_REPO_SERVER_ENABLE_BUILTIN_GIT_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.enable.builtin.git.config
               name: argocd-cmd-params-cm
               optional: true
         - name: ARGOCD_GRPC_MAX_SIZE_MB
