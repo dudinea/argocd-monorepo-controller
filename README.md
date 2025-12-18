@@ -1,6 +1,7 @@
 # Argo Monorepo Controller
 
 [![Documentation Status](https://readthedocs.org/projects/argocd-monorepo-controller/badge/?version=latest)](https://argocd-monorepo-controller-dev.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/dudinea/argocd-monorepo-controller/branch/dev/graph/badge.svg)](https://codecov.io/gh/dudinea/argocd-monorepo-controller)
 
 ## What is Argo Monorepo Controller?
 
