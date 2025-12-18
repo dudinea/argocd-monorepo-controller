@@ -73,9 +73,6 @@ In simple cases it can be installed with the command:
 helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-controller:<VERSION>"
 ```
 
-
-```
-
 * `<RELEASE-NAME>` - user selected release name
 * `<VERSION>` - chart version, which is same as the version of the application release
 
