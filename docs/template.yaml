@@ -1,0 +1,63 @@
+email:
+  subject: Application {{.app.metadata.name}} Changed at {{.app.status.operationState.finishedAt}}
+message: |
+  <html lang="en">
+    <head>
+      <title>Application {{.app.metadata.name}} Changed at {{.app.status.operationState.finishedAt}}</title>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        td {
+          border: 1px solid;
+          padding: 4px 4px;
+        }
+        table {
+          border: 1px solid;
+          border-collapse: collapse;
+        }
+      </style>
+    </head>
+    <body>
+      {{$revs:=index .app.metadata.annotations "mrp-controller.argoproj.io/change-revisions" | fromJson}}
+      <p>
+      <strong>
+      Application <a href="{{.context.argocdUrl}}/applications/{{.app.metadata.name}}">{{.app.metadata.name}}</a> Changed at {{.app.status.operationState.finishedAt}}
+      </strong>
+      </p>
+
+      <p>Change revisions for sources are:
+      <table>
+      {{$sources := .app.spec.sources}}
+      {{$source := .app.spec.source}}
+      {{range $idx, $val := $revs }}
+        <tr>
+          {{ $src:="" }}
+          {{if not $sources  }}
+            {{$src = $source}}
+          {{else}}
+            {{$src = index $sources $idx}}
+          {{end}}
+          {{$repoUrl := index $src  "repoURL" | trimSuffix ".git"}}
+          {{$srcName := default $repoUrl (index $src "name")}}
+          <td>{{$idx}}</td>
+          {{if not $src.chart}}
+          {{$srcURL := print $repoUrl "/tree/" (index $src  "targetRevision")  "/" (index $src  "path")}}
+          <td>Git</td>
+          <td><a href='{{$srcURL}}'>{{$srcName}}</a></td>
+          <td><a href='{{$repoUrl}}/commit/{{$val}}'>{{$val}}</a></td>
+          {{else}}
+          <td>Helm</td>
+          {{$srcURL := print $repoUrl "/" (index $src  "chart") }}
+          <td><a href='{{$srcURL}}'>{{$srcName}}</a></td>
+          <td><a href='{{$repoUrl}}/{{$src.chart}}:{{$val}}'>{{$src.chart}}:{{$val}}</a></td>
+          {{end}}
+        </tr>
+      {{end}}
+      </table>
+      </p>
+      <p>
+      Sync operation details are available at <a href='{{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true'>ArgoCD UI</a>.
+      </p>
+    </body>
+  </html>
+
