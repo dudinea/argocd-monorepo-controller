@@ -1,0 +1,6 @@
+- description: Application changed
+  oncePer: app.metadata.annotations["mrp-controller.argoproj.io/change-revisions"]
+  send:
+  - app-application-changed
+  when:  app.status?.operationState?.phase in ['Succeeded']
+

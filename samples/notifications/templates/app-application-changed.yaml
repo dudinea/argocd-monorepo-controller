@@ -1,6 +1,0 @@
-email:
-  subject: Application {{.app.metadata.name}} has been changed
-message: |
-  Application {{.app.metadata.name}} has been changed at {{.app.status.operationState.finishedAt}}.
-  Git revision is {{index .app.metadata.annotations "mrp-controller.argoproj.io/change-revision"}}.
-  Sync operation details are available at: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true .

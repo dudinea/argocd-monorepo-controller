@@ -227,14 +227,11 @@ openapigen:
 	export GO111MODULE=off
 	./hack/update-openapi.sh
 
-.PHONY: notification-catalog
-notification-catalog:
-	go run ./hack/gen-catalog catalog
+
 
 .PHONY: notification-docs
 notification-docs:
-	go run ./hack/gen-docs
-	go run ./hack/gen-catalog docs
+	./hack/generate-notification-docs.sh
 
 
 .PHONY: clientgen
