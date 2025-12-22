@@ -136,6 +136,72 @@ status:
     status: Synced
 `
 
+const syncedMSAppWithoutHistory = `
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /demo-applications/trioapp-dev
+  name: demo-trioapp-dev
+  namespace: argocd
+spec:
+  destination:
+    name: in-cluster
+    namespace: demo-dev
+  project: default
+  sources:
+  - path: demo-applications/try-ms02a
+    repoURL: https://github.com/somehere/cfrepo02.git
+    targetRevision: dev
+  - path: demo-applications/try-ms02b
+    repoURL: https://github.com/somehere/cfrepo02.git
+    targetRevision: dev
+  syncPolicy:
+    automated:
+      allowEmpty: false
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - PrunePropagationPolicy=foreground
+    - Replace=false
+    - PruneLast=false
+    - Validate=true
+    - CreateNamespace=true
+    - ApplyOutOfSyncOnly=false
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=false
+status:
+  controllerNamespace: argocd
+  health:
+    lastTransitionTime: "2025-07-05T16:24:49Z"
+    status: Healthy
+  reconciledAt: "2025-07-06T15:57:23Z"
+  resourceHealthSource: appTree
+  resources:
+  - kind: ConfigMap
+    name: config-cm
+    namespace: demo-dev
+    status: Synced
+    version: v1
+  sourceType: Helm
+  sync:
+    comparedTo:
+      destination:
+        name: in-cluster
+        namespace: demo-dev
+    sources:
+    - path: demo-applications/try-ms02a
+      repoURL: https://github.com/somehere/cfrepo02.git
+      targetRevision: dev
+    - path: demo-applications/try-ms02b
+      repoURL: https://github.com/somehere/cfrepo02.git
+      targetRevision: dev
+    revisions:
+    - 2b571ad9ceaab7ed1e6225ca674e367f2d07e41d
+    - e4d97f011da70c10a6ec176c37fe267bbb271975
+    status: Synced
+`
+
 const runningAppWithSingleHistory1Annotated = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -1260,6 +1326,21 @@ func Test_GetSourceRevisionsSSWithoutHistory(t *testing.T) {
 	assert.NotNil(t, sourcesRevisions)
 	assert.Len(t, sourcesRevisions, 1)
 	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", sourcesRevisions[0].currentRevision)
+	assert.Empty(t, sourcesRevisions[0].previousRevision)
+	assert.Empty(t, sourcesRevisions[0].gitRevision)
+	assert.Empty(t, sourcesRevisions[0].changeRevision)
+}
+
+func Test_GetSourceRevisionsMSWithoutHistory(t *testing.T) {
+	anapp := createTestApp(t, syncedMSAppWithoutHistory)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
+	// changeRevision, gitRevision, currentRevision, previousRevision := getApplicationRevisions(anapp, -1)
+	assert.NotNil(t, sourcesRevisions)
+	assert.Len(t, sourcesRevisions, 2)
+	assert.Equal(t, "2b571ad9ceaab7ed1e6225ca674e367f2d07e41d", sourcesRevisions[0].currentRevision)
+	assert.Equal(t, "e4d97f011da70c10a6ec176c37fe267bbb271975", sourcesRevisions[1].currentRevision)
 	assert.Empty(t, sourcesRevisions[0].previousRevision)
 	assert.Empty(t, sourcesRevisions[0].gitRevision)
 	assert.Empty(t, sourcesRevisions[0].changeRevision)
