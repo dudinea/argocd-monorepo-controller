@@ -334,7 +334,7 @@ func getCurrentRevisionForFirstSyncMultiSource(a *application.Application, idx i
 	if a.Operation != nil && a.Operation.Sync != nil {
 		return sliceGetString(&a.Operation.Sync.Revisions, idx)
 	}
-	if a.Status.Sync.Status == "Synced" && a.Status.Sync.Revision != "" {
+	if a.Status.Sync.Status == "Synced" && a.Status.Sync.Revisions != nil {
 		return sliceGetString(&a.Status.Sync.Revisions, idx)
 	}
 	return ""

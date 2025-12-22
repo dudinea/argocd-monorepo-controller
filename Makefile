@@ -155,6 +155,7 @@ PATH:=$(PATH):$(PWD)/hack
 # docker image publishing options
 DOCKER_PUSH?=false
 IMAGE_NAMESPACE?=
+IMAGE_NAME?=argocd-monorepo-controller
 # perform static compilation
 DEFAULT_STATIC_BUILD:=true
 ifeq ($(IS_DARWIN),true)
@@ -325,12 +326,12 @@ image:
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-monorepo-controller
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-monorepo-repo-server
 	cp Dockerfile.dev dist
-	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) -t $(IMAGE_PREFIX)argocd-monorepo-controller:$(IMAGE_TAG) -f dist/Dockerfile.dev dist
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) -t $(IMAGE_PREFIX)$(IMAGE_NAME):$(IMAGE_TAG) -f dist/Dockerfile.dev dist
 else
 image:
-	DOCKER_BUILDKIT=1 $(DOCKER) build -t $(IMAGE_PREFIX)argocd-monorepo-controller:$(IMAGE_TAG) --platform=$(TARGET_ARCH) .
+	DOCKER_BUILDKIT=1 $(DOCKER) build -t $(IMAGE_PREFIX)$(IMAGE_NAME):$(IMAGE_TAG) --platform=$(TARGET_ARCH) .
 endif
-	@if [ "$(DOCKER_PUSH)" = "true" ] ; then $(DOCKER) push $(IMAGE_PREFIX)argocd-monorepo-controller:$(IMAGE_TAG) ; fi
+	@if [ "$(DOCKER_PUSH)" = "true" ] ; then $(DOCKER) push $(IMAGE_PREFIX)$(IMAGE_NAME):$(IMAGE_TAG) ; fi
 
 .PHONY: armimage
 armimage:
