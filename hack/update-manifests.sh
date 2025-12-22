@@ -12,6 +12,7 @@ KUSTOMIZE=kustomize
 [ -f "$SRCROOT/dist/kustomize" ] && KUSTOMIZE="$SRCROOT/dist/kustomize"
 
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-quay.io/argoprojlabs}"
+IMAGE_NAME="${IMAGE_NAME:-argocd-monorepo-controller}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 
 # if the tag has not been declared, and we are on a release branch, use the VERSION file.
@@ -30,7 +31,7 @@ fi
 $KUSTOMIZE version
 which $KUSTOMIZE
 
-cd ${SRCROOT}/manifests/base && $KUSTOMIZE edit set image quay.io/argoprojlabs/argocd-monorepo-controller=${IMAGE_NAMESPACE}/argocd-monorepo-controller:${IMAGE_TAG}
+cd ${SRCROOT}/manifests/base && $KUSTOMIZE edit set image quay.io/argoprojlabs/argocd-monorepo-controller=${IMAGE_NAMESPACE}/${IMAGE_NAME}:${IMAGE_TAG}
 
 echo "${AUTOGENMSG}" > "${SRCROOT}/manifests/install.yaml"
 $KUSTOMIZE build "${SRCROOT}/manifests/cluster-install" >> "${SRCROOT}/manifests/install.yaml"
