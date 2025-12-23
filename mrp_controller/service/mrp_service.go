@@ -152,11 +152,17 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			"currentRevision":  r.currentRevision,
 			"previousRevision": r.previousRevision,
 		}).Debugf("processing source")
-		patchGitRevisions[idx] = r.currentRevision
 
 		// new change revision to be set in the annotation
 		// keep current change revision if there is no new value calculated
 		patchChangeRevisions[idx] = r.changeRevision
+
+		if r.currentRevision == "" {
+			sourceLogCtx.Infof("Current revision is unknown, keeping revisions as is")
+			patchGitRevisions[idx] = r.gitRevision
+			continue
+		}
+		patchGitRevisions[idx] = r.currentRevision
 
 		if r.isHelmRepo {
 			// FIXME: not really git revision, helm repositories are
@@ -167,8 +173,8 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			continue
 		}
 
-		// current argo revision not changed since the last time we read the revions info
-		if r.gitRevision != "" && r.gitRevision == r.currentRevision {
+		// current argo revision not changed since the last time we read the revisions info
+		if r.gitRevision != "" && r.gitRevision == r.currentRevision && r.changeRevision != "" {
 			sourceLogCtx.Infof("Change revision already calculated")
 			continue
 		}
