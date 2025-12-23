@@ -1,4 +1,4 @@
-## Installation
+# Installation Methods
 
 The controller should be installed in the same Kubernetes namespace
 cluster that Argo CD is running in (the `argocd` namespace in most
@@ -10,6 +10,9 @@ Potentially it is possible to run the controller from another
 namespace, but it will require extra configuration and currently this
 is not supported.
 
+!!! note
+    If you use ApplicationSet controller it is important to 
+	[configure it to ignore Monorepo Controller Annotations](applicationsets.md)
 
 ## Method 1: Installing using provided plain manifests
 
