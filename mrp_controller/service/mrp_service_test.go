@@ -1501,12 +1501,13 @@ func Test_CalculateRevision(t *testing.T) {
 	repo := appsv1.Repository{Repo: "myrepo"}
 	app := createTestApp(t, syncedAppWithSingleHistory1Annotated)
 	db := createTestArgoDbForAppAndRepo(t, app, &repo)
+	sourcePath := app.Spec.Source.Path
 	changeRevisionRequest := repoapiclient.ChangeRevisionRequest{
 		AppName:          app.GetName(),
 		Namespace:        app.GetNamespace(),
 		CurrentRevision:  "c732f4d2ef24c7eeb900e9211ff98f90bb646506",
 		PreviousRevision: "",
-		Paths:            path.GetAppRefreshPaths(app),
+		Paths:            GetSourceRefreshPaths(app, sourcePath),
 		Repo:             &repo,
 	}
 	changeRevisionResponce := repoapiclient.ChangeRevisionResponse{}
@@ -1515,7 +1516,7 @@ func Test_CalculateRevision(t *testing.T) {
 	mrpService := newTestMRPService(t, clientsetmock, &mocks.Interface{}, db)
 	currentRevision, previousRevision := getRevisionsSingleSource(app)
 	logCtx := logrus.WithFields(logrus.Fields{"application": app.Name, "appNamespace": app.Namespace})
-	revision, err := mrpService.calculateChangeRevision(t.Context(), logCtx, app, currentRevision, previousRevision, app.Spec.Source.RepoURL)
+	revision, err := mrpService.calculateChangeRevision(t.Context(), logCtx, app, currentRevision, previousRevision, app.Spec.Source.RepoURL, sourcePath)
 	require.NoError(t, err)
 	assert.NotNil(t, revision)
 	assert.Equal(t, expectedRevision, *revision)

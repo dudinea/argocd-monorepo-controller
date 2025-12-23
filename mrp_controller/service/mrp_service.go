@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +24,6 @@ import (
 	application "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	repoapiclient "github.com/argoproj/argo-cd/v3/reposerver/apiclient"
-	"github.com/argoproj/argo-cd/v3/util/app/path"
 	utilio "github.com/argoproj/argo-cd/v3/util/io"
 )
 
@@ -87,6 +87,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application, logCtx *l
 				previousRevision: previousRevision,
 				repoURL:          app.Spec.Sources[idx].RepoURL,
 				isHelmRepo:       isHelmRepoMultiSource(app, idx),
+				path:             app.Spec.Sources[idx].Path,
 			}
 		}
 	} else {
@@ -102,6 +103,7 @@ func (c *mrpService) getSourcesRevisions(app *application.Application, logCtx *l
 			previousRevision: previousRevision,
 			repoURL:          app.Spec.Source.RepoURL,
 			isHelmRepo:       isHelmRepoSingleSource(app),
+			path:             app.Spec.Source.Path,
 		}
 	}
 	return result
@@ -114,6 +116,7 @@ type sourceRevisions struct {
 	previousRevision string
 	repoURL          string
 	isHelmRepo       bool
+	path             string
 }
 
 func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.Entry, a *application.Application) (map[string]any, error) {
@@ -169,7 +172,7 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 			sourceLogCtx.Infof("Change revision already calculated")
 			continue
 		}
-		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoURL)
+		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoURL, r.path)
 		if err != nil {
 			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
 			continue
@@ -286,9 +289,29 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	return err
 }
 
+// GetSourceRefreshPaths returns the list of paths that affect an app. source
+func GetSourceRefreshPaths(app *application.Application, sourcePath string) []string {
+	var paths []string
+	if val, ok := app.Annotations[application.AnnotationKeyManifestGeneratePaths]; ok && val != "" {
+		for _, item := range strings.Split(val, ";") {
+			if item == "" {
+				continue
+			}
+			if filepath.IsAbs(item) {
+				paths = append(paths, item[1:])
+			} else {
+				// for _, source := range app.Spec.GetSources() {) {
+				paths = append(paths, filepath.Clean(filepath.Join(sourcePath, item)))
+				//}
+			}
+		}
+	}
+	return paths
+}
+
 func (c *mrpService) calculateChangeRevision(ctx context.Context, logCtx *log.Entry,
 	a *application.Application,
-	currentRevision string, previousRevision string, repoURL string,
+	currentRevision string, previousRevision string, repoURL string, sourcePath string,
 ) (*string, error) {
 	logCtx.Debugf("Calculate revision: current revision '%s', previous revision '%s'",
 		currentRevision, previousRevision)
@@ -317,7 +340,7 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context, logCtx *log.En
 		Namespace:        a.GetNamespace(),
 		CurrentRevision:  currentRevision,
 		PreviousRevision: previousRevision,
-		Paths:            path.GetAppRefreshPaths(a),
+		Paths:            GetSourceRefreshPaths(a, sourcePath),
 		Repo:             repo,
 	})
 	if err != nil {
