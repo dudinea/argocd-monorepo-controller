@@ -26,6 +26,12 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	previousRevision := request.GetPreviousRevision()
 	refreshPaths := request.GetPaths()
 
+	logCtx.WithFields(log.Fields{
+		"repo":             repo,
+		"currentRevision":  currentRevision,
+		"previousRevision": previousRevision,
+		"refreshPaths":     refreshPaths,
+	}).Info("GetChangeRevision called")
 	if repo == nil {
 		return nil, status.Error(codes.InvalidArgument, "must pass a valid repo")
 	}
