@@ -1,10 +1,11 @@
 # Installation Methods
 
 The controller should be installed in the same Kubernetes namespace
-cluster that Argo CD is running in (the `argocd` namespace in most
-cases).  The provided installation files plug the Monorepo Controller
+that Argo CD is running in (the `argocd` namespace in most cases).
+The provided installation files plug the Monorepo Controller
 components in the existing Argo CD installation, reusing its
-configuration in the `argocd-cmd-params-cm` and `argocd-cm` configmaps.
+configuration in the `argocd-cmd-params-cm` and `argocd-cm`
+configmaps.
 
 Potentially it is possible to run the controller from another
 namespace, but it will require extra configuration and currently this
@@ -20,7 +21,7 @@ We provide two installation manifests:
 * `install.yaml' - with cluster-wide permissions to watch Application
   manifests in any namespece
 * `install-namespaced.yaml` - for a namespaced ArgoCD instance that
-  will watch Application only in the ArgoVD namespace.
+  will watch Application only in the ArgoCD namespace.
 
 ### Cluster-wide Installation
 
