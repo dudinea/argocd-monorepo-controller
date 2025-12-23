@@ -18,6 +18,7 @@ nav:
 - Installation:
     - "Installation Methods": install.md
     - "Helm Chart": helm.md
+    - "ApplicationSet controller configuration": applicationsets.md
 - Configuration:
     - "Configuration Guide": configuration.md
     - "Monorepo Controller Configuration": monorepo_controller_conf.md
