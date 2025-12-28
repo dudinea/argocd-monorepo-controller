@@ -234,6 +234,11 @@ openapigen:
 notification-docs:
 	./hack/generate-notification-docs.sh
 
+.PHONY: metrics-docs
+metrics-docs:
+	cp samples/metrics/argocd-monorepo-controller-sm.yaml ./docs/
+	cp samples/metrics/argocd-monorepo-repo-server-sm.yaml 	./docs/
+
 
 .PHONY: clientgen
 clientgen:
