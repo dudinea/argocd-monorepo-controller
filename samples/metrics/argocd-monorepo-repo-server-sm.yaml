@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-monorepo-repo-server
+  labels:
+    app.kubernetes.io/name: argocd-monorepo-repo-server
+    app.kubernetes.io/component: monorepo-repo-server
+    app.kubernetes.io/part-of: argocd
+    release: prometheus-operator
+spec:
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      honorLabels: false
+  namespaceSelector:
+    matchNames:
+      - argocd
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-monorepo-repo-server
+
