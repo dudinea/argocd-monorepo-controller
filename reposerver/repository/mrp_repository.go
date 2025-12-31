@@ -69,7 +69,7 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	logCtx.Debugf("running list revisions '%s' .. '%s'", previousRevision, revision)
 	revisions, err := gitClient.ListRevisions(previousRevision, revision)
 	if err != nil {
-		logCtx.Warnf("no path between revisions '%s' and '%s', using current revision as change revision", previousRevision, revision)
+		logCtx.Errorf("failed to get revisions %s..%s", previousRevision, revision)
 		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s", previousRevision, revision)
 	}
 	logCtx.Debugf("got list of %d revisions: %v", len(revisions), revisions)
