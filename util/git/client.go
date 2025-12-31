@@ -140,6 +140,8 @@ type EventHandlers struct {
 	OnLsRemote func(repo string) func()
 	OnFetch    func(repo string) func()
 	OnPush     func(repo string) func()
+	OnDiffTree func(repo string) func()
+	OnRevList  func(repo string) func()
 }
 
 // nativeGitClient implements Client interface using git CLI

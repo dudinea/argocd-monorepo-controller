@@ -11,6 +11,7 @@ import (
 
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
@@ -187,6 +188,8 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	// profile.RegisterProfiler(mux)
 	healthz.ServeHealthCheck(mux, healthCheck)
 
+	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	registry.MustRegister(collectors.NewGoCollector())
 	registry.MustRegister(syncCounter)
 	registry.MustRegister(syncDuration)
 	registry.MustRegister(k8sRequestCounter)
