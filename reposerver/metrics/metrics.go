@@ -127,7 +127,7 @@ func NewMetricsServer() *MetricsServer {
 	redisRequestCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "monorepo_redis_request_total",
-			Help: "Number of redis requests executed during application reconciliation.",
+			Help: "Number of redis requests executed.",
 		},
 		[]string{"initiator", "failed"},
 	)
