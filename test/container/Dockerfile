@@ -10,7 +10,7 @@ RUN ln -s /usr/lib/$(uname -m)-linux-gnu /usr/lib/linux-gnu
 
 FROM docker.io/library/golang:1.24.4@sha256:db5d0afbfb4ab648af2393b92e87eaae9ad5e01132803d80caef91b5752d289c AS golang
 
-FROM docker.io/library/registry:3.0@sha256:cd92709b4191c5779cd7215ccd695db6c54652e7a62843197e367427efb84d0e AS registry
+FROM docker.io/library/registry:3.0@sha256:650406796a6a7c0c45d098cdcc4d6c5f5ae47c62e9fec489d287e2bfde38fe63 AS registry
 
 FROM docker.io/bitnami/kubectl:1.32@sha256:493d1b871556d48d6b25d471f192c2427571cd6f78523eebcaf4d263353c7487 AS kubectl
 
