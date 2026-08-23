@@ -119,7 +119,7 @@ func (h *helm) Dispose() {
 }
 
 func Version() (string, error) {
-	cmd := exec.Command("helm", "version", "--client", "--short")
+	cmd := exec.Command("helm", "version", "--short")
 	// example version output:
 	// short: "v3.3.1+g249e521"
 	version, err := executil.RunWithRedactor(cmd, redactor)
