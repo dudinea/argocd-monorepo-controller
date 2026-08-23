@@ -63,7 +63,7 @@ type ArgoprojV1alpha1Interface_AppProjects_Call struct {
 
 // AppProjects is a helper method to define mock.On call
 //   - namespace string
-func (_e *ArgoprojV1alpha1Interface_Expecter) AppProjects(namespace interface{}) *ArgoprojV1alpha1Interface_AppProjects_Call {
+func (_e *ArgoprojV1alpha1Interface_Expecter) AppProjects(namespace any) *ArgoprojV1alpha1Interface_AppProjects_Call {
 	return &ArgoprojV1alpha1Interface_AppProjects_Call{Call: _e.mock.On("AppProjects", namespace)}
 }
 
@@ -116,7 +116,7 @@ type ArgoprojV1alpha1Interface_ApplicationSets_Call struct {
 
 // ApplicationSets is a helper method to define mock.On call
 //   - namespace string
-func (_e *ArgoprojV1alpha1Interface_Expecter) ApplicationSets(namespace interface{}) *ArgoprojV1alpha1Interface_ApplicationSets_Call {
+func (_e *ArgoprojV1alpha1Interface_Expecter) ApplicationSets(namespace any) *ArgoprojV1alpha1Interface_ApplicationSets_Call {
 	return &ArgoprojV1alpha1Interface_ApplicationSets_Call{Call: _e.mock.On("ApplicationSets", namespace)}
 }
 
@@ -169,7 +169,7 @@ type ArgoprojV1alpha1Interface_Applications_Call struct {
 
 // Applications is a helper method to define mock.On call
 //   - namespace string
-func (_e *ArgoprojV1alpha1Interface_Expecter) Applications(namespace interface{}) *ArgoprojV1alpha1Interface_Applications_Call {
+func (_e *ArgoprojV1alpha1Interface_Expecter) Applications(namespace any) *ArgoprojV1alpha1Interface_Applications_Call {
 	return &ArgoprojV1alpha1Interface_Applications_Call{Call: _e.mock.On("Applications", namespace)}
 }
 
