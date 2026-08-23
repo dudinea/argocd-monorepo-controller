@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read
     if: github.repository == 'argoproj-labs/argocd-monorepo-controller'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       image-tag: ${{ steps.image.outputs.tag}}
       platforms: ${{ steps.platforms.outputs.platforms }}
