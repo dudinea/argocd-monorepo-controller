@@ -4,14 +4,14 @@ import (
 	"context"
 
 	//	"github.com/golang/protobuf/ptypes/empty"
-	"sigs.k8s.io/yaml"
+	//	"sigs.k8s.io/yaml"
 
 	//	utilio "github.com/argoproj/argo-cd/v3/util/io"
 
-	sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
+	//	sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
 
-	settingspkg "github.com/argoproj/argo-cd/v3/pkg/apiclient/settings"
-	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	//settingspkg "github.com/argoproj/argo-cd/v3/pkg/apiclient/settings"
+	//"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/v3/util/settings"
 )
 
@@ -34,119 +34,119 @@ func NewServer(mgr *settings.SettingsManager, authenticator Authenticator, disab
 }
 
 // Get returns Argo CD settings
-func (s *Server) Get(ctx context.Context, _ *settingspkg.SettingsQuery) (*settingspkg.Settings, error) {
-	resourceOverrides, err := s.mgr.GetResourceOverrides()
-	if err != nil {
-		return nil, err
-	}
-	overrides := make(map[string]*v1alpha1.ResourceOverride)
-	for k := range resourceOverrides {
-		val := resourceOverrides[k]
-		overrides[k] = &val
-	}
-	appInstanceLabelKey, err := s.mgr.GetAppInstanceLabelKey()
-	if err != nil {
-		return nil, err
-	}
-	argoCDSettings, err := s.mgr.GetSettings()
-	if err != nil {
-		return nil, err
-	}
-	gaSettings, err := s.mgr.GetGoogleAnalytics()
-	if err != nil {
-		return nil, err
-	}
-	help, err := s.mgr.GetHelp()
-	if err != nil {
-		return nil, err
-	}
-	userLoginsDisabled := true
-	accounts, err := s.mgr.GetAccounts()
-	if err != nil {
-		return nil, err
-	}
-	for _, account := range accounts {
-		if account.Enabled && account.HasCapability(settings.AccountCapabilityLogin) {
-			userLoginsDisabled = false
-			break
-		}
-	}
+// func (s *Server) Get(ctx context.Context, _ *settingspkg.SettingsQuery) (*settingspkg.Settings, error) {
+// 	resourceOverrides, err := s.mgr.GetResourceOverrides()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	overrides := make(map[string]*v1alpha1.ResourceOverride)
+// 	for k := range resourceOverrides {
+// 		val := resourceOverrides[k]
+// 		overrides[k] = &val
+// 	}
+// 	appInstanceLabelKey, err := s.mgr.GetAppInstanceLabelKey()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	argoCDSettings, err := s.mgr.GetSettings()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	gaSettings, err := s.mgr.GetGoogleAnalytics()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	help, err := s.mgr.GetHelp()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	userLoginsDisabled := true
+// 	accounts, err := s.mgr.GetAccounts()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, account := range accounts {
+// 		if account.Enabled && account.HasCapability(settings.AccountCapabilityLogin) {
+// 			userLoginsDisabled = false
+// 			break
+// 		}
+// 	}
 
-	kustomizeSettings, err := s.mgr.GetKustomizeSettings()
-	if err != nil {
-		return nil, err
-	}
-	var kustomizeVersions []string
-	for i := range kustomizeSettings.Versions {
-		kustomizeVersions = append(kustomizeVersions, kustomizeSettings.Versions[i].Name)
-	}
+// 	kustomizeSettings, err := s.mgr.GetKustomizeSettings()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var kustomizeVersions []string
+// 	for i := range kustomizeSettings.Versions {
+// 		kustomizeVersions = append(kustomizeVersions, kustomizeSettings.Versions[i].Name)
+// 	}
 
-	trackingMethod, err := s.mgr.GetTrackingMethod()
-	if err != nil {
-		return nil, err
-	}
+// 	trackingMethod, err := s.mgr.GetTrackingMethod()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	set := settingspkg.Settings{
-		URL:                argoCDSettings.URL,
-		AdditionalURLs:     argoCDSettings.AdditionalURLs,
-		AppLabelKey:        appInstanceLabelKey,
-		ResourceOverrides:  overrides,
-		StatusBadgeEnabled: argoCDSettings.StatusBadgeEnabled,
-		StatusBadgeRootUrl: argoCDSettings.StatusBadgeRootUrl,
-		KustomizeOptions: &v1alpha1.KustomizeOptions{
-			BuildOptions: argoCDSettings.KustomizeBuildOptions,
-		},
-		GoogleAnalytics: &settingspkg.GoogleAnalyticsConfig{
-			TrackingID:     gaSettings.TrackingID,
-			AnonymizeUsers: gaSettings.AnonymizeUsers,
-		},
-		Help: &settingspkg.Help{
-			ChatUrl:    help.ChatURL,
-			ChatText:   help.ChatText,
-			BinaryUrls: help.BinaryURLs,
-		},
-		UserLoginsDisabled:        userLoginsDisabled,
-		KustomizeVersions:         kustomizeVersions,
-		UiCssURL:                  argoCDSettings.UiCssURL,
-		TrackingMethod:            trackingMethod,
-		ExecEnabled:               argoCDSettings.ExecEnabled,
-		AppsInAnyNamespaceEnabled: s.appsInAnyNamespaceEnabled,
-		ImpersonationEnabled:      argoCDSettings.ImpersonationEnabled,
-		HydratorEnabled:           s.hydratorEnabled,
-	}
+// 	set := settingspkg.Settings{
+// 		URL:                argoCDSettings.URL,
+// 		AdditionalURLs:     argoCDSettings.AdditionalURLs,
+// 		AppLabelKey:        appInstanceLabelKey,
+// 		ResourceOverrides:  overrides,
+// 		StatusBadgeEnabled: argoCDSettings.StatusBadgeEnabled,
+// 		StatusBadgeRootUrl: argoCDSettings.StatusBadgeRootUrl,
+// 		KustomizeOptions: &v1alpha1.KustomizeOptions{
+// 			BuildOptions: argoCDSettings.KustomizeBuildOptions,
+// 		},
+// 		GoogleAnalytics: &settingspkg.GoogleAnalyticsConfig{
+// 			TrackingID:     gaSettings.TrackingID,
+// 			AnonymizeUsers: gaSettings.AnonymizeUsers,
+// 		},
+// 		Help: &settingspkg.Help{
+// 			ChatUrl:    help.ChatURL,
+// 			ChatText:   help.ChatText,
+// 			BinaryUrls: help.BinaryURLs,
+// 		},
+// 		UserLoginsDisabled:        userLoginsDisabled,
+// 		KustomizeVersions:         kustomizeVersions,
+// 		UiCssURL:                  argoCDSettings.UiCssURL,
+// 		TrackingMethod:            trackingMethod,
+// 		ExecEnabled:               argoCDSettings.ExecEnabled,
+// 		AppsInAnyNamespaceEnabled: s.appsInAnyNamespaceEnabled,
+// 		ImpersonationEnabled:      argoCDSettings.ImpersonationEnabled,
+// 		HydratorEnabled:           s.hydratorEnabled,
+// 	}
 
-	if sessionmgr.LoggedIn(ctx) || s.disableAuth {
-		set.UiBannerContent = argoCDSettings.UiBannerContent
-		set.UiBannerURL = argoCDSettings.UiBannerURL
-		set.UiBannerPermanent = argoCDSettings.UiBannerPermanent
-		set.UiBannerPosition = argoCDSettings.UiBannerPosition
-		set.ControllerNamespace = s.mgr.GetNamespace()
-	}
-	if sessionmgr.LoggedIn(ctx) {
-		set.PasswordPattern = argoCDSettings.PasswordPattern
-	}
-	if argoCDSettings.DexConfig != "" {
-		var cfg settingspkg.DexConfig
-		err = yaml.Unmarshal([]byte(argoCDSettings.DexConfig), &cfg)
-		if err == nil {
-			set.DexConfig = &cfg
-		}
-	}
-	if oidcConfig := argoCDSettings.OIDCConfig(); oidcConfig != nil {
-		set.OIDCConfig = &settingspkg.OIDCConfig{
-			Name:                     oidcConfig.Name,
-			Issuer:                   oidcConfig.Issuer,
-			ClientID:                 oidcConfig.ClientID,
-			CLIClientID:              oidcConfig.CLIClientID,
-			Scopes:                   oidcConfig.RequestedScopes,
-			EnablePKCEAuthentication: oidcConfig.EnablePKCEAuthentication,
-		}
-		if len(argoCDSettings.OIDCConfig().RequestedIDTokenClaims) > 0 {
-			set.OIDCConfig.IDTokenClaims = argoCDSettings.OIDCConfig().RequestedIDTokenClaims
-		}
-	}
-	return &set, nil
-}
+// 	if sessionmgr.LoggedIn(ctx) || s.disableAuth {
+// 		set.UiBannerContent = argoCDSettings.UiBannerContent
+// 		set.UiBannerURL = argoCDSettings.UiBannerURL
+// 		set.UiBannerPermanent = argoCDSettings.UiBannerPermanent
+// 		set.UiBannerPosition = argoCDSettings.UiBannerPosition
+// 		set.ControllerNamespace = s.mgr.GetNamespace()
+// 	}
+// 	if sessionmgr.LoggedIn(ctx) {
+// 		set.PasswordPattern = argoCDSettings.PasswordPattern
+// 	}
+// 	if argoCDSettings.DexConfig != "" {
+// 		var cfg settingspkg.DexConfig
+// 		err = yaml.Unmarshal([]byte(argoCDSettings.DexConfig), &cfg)
+// 		if err == nil {
+// 			set.DexConfig = &cfg
+// 		}
+// 	}
+// 	if oidcConfig := argoCDSettings.OIDCConfig(); oidcConfig != nil {
+// 		set.OIDCConfig = &settingspkg.OIDCConfig{
+// 			Name:                     oidcConfig.Name,
+// 			Issuer:                   oidcConfig.Issuer,
+// 			ClientID:                 oidcConfig.ClientID,
+// 			CLIClientID:              oidcConfig.CLIClientID,
+// 			Scopes:                   oidcConfig.RequestedScopes,
+// 			EnablePKCEAuthentication: oidcConfig.EnablePKCEAuthentication,
+// 		}
+// 		if len(argoCDSettings.OIDCConfig().RequestedIDTokenClaims) > 0 {
+// 			set.OIDCConfig.IDTokenClaims = argoCDSettings.OIDCConfig().RequestedIDTokenClaims
+// 		}
+// 	}
+// 	return &set, nil
+// }
 
 // // GetPlugins returns a list of plugins
 // func (s *Server) GetPlugins(ctx context.Context, _ *settingspkg.SettingsQuery) (*settingspkg.SettingsPluginsResponse, error) {

@@ -11,7 +11,7 @@ import (
 	"github.com/argoproj/argo-cd/v3/server/settings"
 	"github.com/argoproj/argo-cd/v3/util/helm"
 	"github.com/argoproj/argo-cd/v3/util/kustomize"
-	sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
+	//sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
 )
 
 type Server struct {
@@ -29,14 +29,14 @@ func NewServer(authenticator settings.Authenticator, disableAuth func() (bool, e
 // Version returns the version of the API server
 func (s *Server) Version(ctx context.Context, _ *empty.Empty) (*version.VersionMessage, error) {
 	vers := common.GetVersion()
-	disableAuth, err := s.disableAuth()
-	if err != nil {
-		return nil, err
-	}
+	//disableAuth, err := s.disableAuth()
+	//if err != nil {
+	//		return nil, err
+	//}
 
-	if !sessionmgr.LoggedIn(ctx) && !disableAuth {
+	//if !sessionmgr.LoggedIn(ctx) && !disableAuth {
 		return &version.VersionMessage{Version: vers.Version}, nil
-	}
+	//}
 
 	if s.kustomizeVersion == "" {
 		kustomizeVersion, err := kustomize.Version()
