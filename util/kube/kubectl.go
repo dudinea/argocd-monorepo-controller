@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
-	//	"k8s.io/client-go/rest"
-	//"k8s.io/kubectl/pkg/util/openapi"
+	// "k8s.io/client-go/rest"
+	// "k8s.io/kubectl/pkg/util/openapi"
 
 	"github.com/argoproj/argo-cd/v3/util/log"
 
-	//"github.com/argoproj/argo-cd/gitops-engine/v3/pkg/diff"
+	// "github.com/argoproj/argo-cd/gitops-engine/v3/pkg/diff"
 	"github.com/argoproj/argo-cd/gitops-engine/v3/pkg/utils/kube"
 	"github.com/argoproj/argo-cd/gitops-engine/v3/pkg/utils/tracing"
 )

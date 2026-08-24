@@ -10,18 +10,18 @@ import (
 
 	//	sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
 
-	//settingspkg "github.com/argoproj/argo-cd/v3/pkg/apiclient/settings"
-	//"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+	//      settingspkg "github.com/argoproj/argo-cd/v3/pkg/apiclient/settings"
+	//      "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"github.com/argoproj/argo-cd/v3/util/settings"
 )
 
 // Server provides a Settings service
 type Server struct {
-	mgr                       *settings.SettingsManager
+	mgr                       *settings.SettingsManager //nolint:unused
 	authenticator             Authenticator
-	disableAuth               bool
-	appsInAnyNamespaceEnabled bool
-	hydratorEnabled           bool
+	disableAuth               bool //nolint:unused
+	appsInAnyNamespaceEnabled bool //nolint:unused
+	hydratorEnabled           bool //nolint:unused
 }
 
 type Authenticator interface {
