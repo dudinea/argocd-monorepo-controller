@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -413,30 +414,38 @@ func sliceGetString(sl *[]string, idx int) string {
 }
 
 func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourceIdx int) string {
+	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
 	history := &a.Status.History[historyIdx]
 	historicalSourceIdx := sourceIdx
 	var historySrc *application.ApplicationSource
+	logCtx.Debugf("getRevisionsFromHistoryMS: historyIdx=%d sourcIdx=%d", historyIdx, sourceIdx)
 	// History entry has enough sources
 	if historicalSourceIdx < len(history.Sources) {
+		logCtx.Debugf("getRevisionsFromHistoryMS: historicalSourceIdx < len(history.Sources); len=%d", len(history.Sources))
 		// assume that in most cases historical source
 		// has same index
 		historySrc = &history.Sources[historicalSourceIdx]
 	}
 	src := &a.Spec.Sources[sourceIdx]
-	if historySrc == nil || *historySrc != *src {
+	if historySrc == nil || !reflect.DeepEqual(*historySrc, *src) {
+		logCtx.Debugf("getRevisionsFromHistoryMS: reordered?  historySrc=%x src=%x", historySrc, src)
 		// probably sources were reordered, try to
 		// find source index
 		historicalSourceIdx = -1
 		for i := 0; i < len(history.Sources); i++ {
-			if history.Sources[i] == *src {
+			logCtx.Debugf("getRevisionsFromHistoryMS: checking history.Sources[%d]", i)
+			if reflect.DeepEqual(history.Sources[i], *src) {
 				historicalSourceIdx = i
+				logCtx.Debugf("getRevisionsFromHistoryMS: history.Sources[%d] matched!", i)
 				break
 			}
 		}
 	}
 	if historicalSourceIdx >= 0 {
+		logCtx.Debugf("getRevisionsFromHistoryMS: historicalSourceIdx = %d >= 0", historicalSourceIdx)
 		return sliceGetString(&history.Revisions, historicalSourceIdx)
 	}
+	logCtx.Debugf("getRevisionsFromHistoryMS: historicalSourceIdx = %d < 0", historicalSourceIdx)
 	return ""
 }
 
