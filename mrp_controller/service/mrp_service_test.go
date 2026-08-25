@@ -686,6 +686,292 @@ status:
     status: Synced
 `
 
+const syncedMSAppWithSingleHistory1AnnotatedSourceChanged = `
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /demo-applications/try-ms02a;/demo-applications/try-ms02b
+    mrp-controller.argoproj.io/change-revisions: '["HISTORY-2_REPO02_00000000000000000000000","HISTORY-1_REPO02_00000000000000000000000","HISTORY-1_REPO01_00000000000000000000000","CURRENT_REPO_01_000000000000000000000000"]'
+    mrp-controller.argoproj.io/git-revisions:    '["HISTORY-1_REPO02_00000000000000000000000","HISTORY-1_REPO02_00000000000000000000000","CURRENT_REPO_01_000000000000000000000000","CURRENT_REPO_01_000000000000000000000000"]'
+  name: demo-ms-a
+  namespace: argocd
+spec:
+  destination:
+    name: in-cluster
+    namespace: demo-ms-a
+  project: default
+  sources:
+  - path: demo-applications/try-ms02a
+    repoURL: https://github.com/dudinea/cfrepo02.git
+    targetRevision: dev
+    helm:
+      valuesObject:
+        foo:
+          bar: app2
+  - path: demo-applications/try-ms02b
+    repoURL: https://github.com/dudinea/cfrepo02.git
+    targetRevision: dev
+  - path: demo-applications/try-ms01a
+    repoURL: https://github.com/dudinea/cfrepo01.git
+    targetRevision: main
+  - path: demo-applications/try-ms01b
+    repoURL: https://github.com/dudinea/cfrepo01.git
+    targetRevision: main
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - PrunePropagationPolicy=foreground
+    - Replace=false
+    - PruneLast=false
+    - Validate=true
+    - CreateNamespace=true
+    - ApplyOutOfSyncOnly=false
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=false
+status:
+  controllerNamespace: argocd
+  health:
+    lastTransitionTime: "2025-08-10T12:01:35Z"
+    status: Healthy
+  history:
+  - deployStartedAt: "2025-08-10T11:39:57Z"
+    deployedAt: "2025-08-10T11:39:57Z"
+    id: 3
+    initiatedBy:
+      username: admin
+    revisions:
+    - HISTORY-2_REPO02_00000000000000000000000
+    - HISTORY-2_REPO02_00000000000000000000000
+    - HISTORY-1_REPO01_00000000000000000000000
+    - HISTORY-1_REPO01_00000000000000000000000
+    source:
+      repoURL: ""
+    sources:
+    - path: demo-applications/try-ms02a
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+      helm:
+        valuesObject:
+          foo:
+            bar: app
+    - path: demo-applications/try-ms02b
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+    - path: demo-applications/try-ms01a
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+    - path: demo-applications/try-ms01b
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+  - deployStartedAt: "2025-08-10T11:52:03Z"
+    deployedAt: "2025-08-10T11:52:04Z"
+    id: 4
+    initiatedBy:
+      username: admin
+    revisions:
+    - HISTORY-1_REPO02_00000000000000000000000
+    - HISTORY-1_REPO02_00000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    source:
+      repoURL: ""
+    sources:
+    - path: demo-applications/try-ms02a
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+      helm:
+        valuesObject:
+          foo:
+            bar: app
+    - path: demo-applications/try-ms02b
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+    - path: demo-applications/try-ms01a
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+    - path: demo-applications/try-ms01b
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+  - deployStartedAt: "2025-08-10T12:01:33Z"
+    deployedAt: "2025-08-10T12:01:33Z"
+    id: 5
+    initiatedBy:
+      automated: true
+    revisions:
+    - HISTORY-1_REPO02_00000000000000000000000
+    - HISTORY-1_REPO02_00000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    source:
+      repoURL: ""
+    sources:
+    - path: demo-applications/try-ms02a
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+      helm:
+        valuesObject:
+          foo:
+            bar: app
+    - path: demo-applications/try-ms02b
+      repoURL: https://github.com/dudinea/cfrepo02.git
+      targetRevision: dev
+    - path: demo-applications/try-ms01a
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+    - path: demo-applications/try-ms01b
+      repoURL: https://github.com/dudinea/cfrepo01.git
+      targetRevision: main
+  operationState:
+    finishedAt: "2025-08-10T12:01:33Z"
+    message: successfully synced (all tasks run)
+    operation:
+      initiatedBy:
+        automated: true
+      retry:
+        limit: 5
+      sync:
+        prune: true
+        revisions:
+        - CURRENT_REPO_02_000000000000000000000000
+        - CURRENT_REPO_02_000000000000000000000000
+        - CURRENT_REPO_01_000000000000000000000000
+        - CURRENT_REPO_01_000000000000000000000000
+        syncOptions:
+        - PrunePropagationPolicy=foreground
+        - Replace=false
+        - PruneLast=false
+        - Validate=true
+        - CreateNamespace=true
+        - ApplyOutOfSyncOnly=false
+        - ServerSideApply=true
+        - RespectIgnoreDifferences=false
+    phase: Succeeded
+    startedAt: "2025-08-10T12:01:33Z"
+    syncResult:
+      resources:
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/config-cm-ms02a serverside-applied
+        name: config-cm-ms02a
+        namespace: demo-ms-a
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/config-cm-ms02b serverside-applied
+        name: config-cm-ms02b
+        namespace: demo-ms-a
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/config-cm-ms01b serverside-applied
+        name: config-cm-ms01b
+        namespace: demo-ms-a
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      - group: ""
+        hookPhase: Running
+        kind: ConfigMap
+        message: configmap/config-cm-ms01a serverside-applied
+        name: config-cm-ms01a
+        namespace: demo-ms-a
+        status: Synced
+        syncPhase: Sync
+        version: v1
+      revision: ""
+      revisions:
+      - CURRENT_REPO_02_000000000000000000000000
+      - CURRENT_REPO_02_000000000000000000000000
+      - CURRENT_REPO_01_000000000000000000000000
+      - CURRENT_REPO_01_000000000000000000000000
+      source:
+        repoURL: ""
+      sources:
+      - path: demo-applications/try-ms02a
+        repoURL: https://github.com/dudinea/cfrepo02.git
+        targetRevision: dev
+        helm:
+          valuesObject:
+            foo:
+              bar: app
+      - path: demo-applications/try-ms02b
+        repoURL: https://github.com/dudinea/cfrepo02.git
+        targetRevision: dev
+      - path: demo-applications/try-ms01a
+        repoURL: https://github.com/dudinea/cfrepo01.git
+        targetRevision: main
+      - path: demo-applications/try-ms01b
+        repoURL: https://github.com/dudinea/cfrepo01.git
+        targetRevision: main
+  reconciledAt: "2025-08-11T14:05:27Z"
+  resourceHealthSource: appTree
+  resources:
+  - kind: ConfigMap
+    name: config-cm-ms01a
+    namespace: demo-ms-a
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: config-cm-ms01b
+    namespace: demo-ms-a
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: config-cm-ms02a
+    namespace: demo-ms-a
+    status: Synced
+    version: v1
+  - kind: ConfigMap
+    name: config-cm-ms02b
+    namespace: demo-ms-a
+    status: Synced
+    version: v1
+  sourceHydrator: {}
+  sourceTypes:
+  - Directory
+  - Directory
+  - Directory
+  - Directory
+  summary: {}
+  sync:
+    comparedTo:
+      destination:
+        name: in-cluster
+        namespace: demo-ms-a
+      source:
+        repoURL: ""
+      sources:
+      - path: demo-applications/try-ms02a
+        repoURL: https://github.com/dudinea/cfrepo02.git
+        targetRevision: dev
+      - path: demo-applications/try-ms02b
+        repoURL: https://github.com/dudinea/cfrepo02.git
+        targetRevision: dev
+      - path: demo-applications/try-ms01a
+        repoURL: https://github.com/dudinea/cfrepo01.git
+        targetRevision: main
+      - path: demo-applications/try-ms01b
+        repoURL: https://github.com/dudinea/cfrepo01.git
+        targetRevision: main
+    revisions:
+    - CURRENT_REPO_02_000000000000000000000000
+    - CURRENT_REPO_02_000000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    - CURRENT_REPO_01_000000000000000000000000
+    status: Synced
+`
+
+
 const syncedMSAppWithSingleHistory2Annotated = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -1471,6 +1757,36 @@ func Test_GetSourceRevisionsMSWithHistoryAdded(t *testing.T) {
 	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].currentRevision)
 	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].previousRevision)
 }
+
+func Test_GetSourceRevisionsMSWithHistorySourceChanged(t *testing.T) {
+	anapp := createTestApp(t, syncedMSAppWithSingleHistory1AnnotatedSourceChanged)
+	mrpService := newTestMRPService(t, nil, &mocks.Interface{}, nil)
+	logCtx := createLogCtx(anapp)
+	sourcesRevisions := mrpService.getSourcesRevisions(anapp, logCtx)
+	assert.NotNil(t, sourcesRevisions)
+	assert.Len(t, sourcesRevisions, 4)
+
+	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[0].gitRevision)
+	assert.Equal(t, "HISTORY-2_REPO02_00000000000000000000000", sourcesRevisions[0].changeRevision)
+	assert.Equal(t, "CURRENT_REPO_02_000000000000000000000000", sourcesRevisions[0].currentRevision)
+	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[0].previousRevision)
+
+	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[1].gitRevision)
+	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[1].changeRevision)
+	assert.Equal(t, "CURRENT_REPO_02_000000000000000000000000", sourcesRevisions[1].currentRevision)
+	assert.Equal(t, "HISTORY-1_REPO02_00000000000000000000000", sourcesRevisions[1].previousRevision)
+
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[2].gitRevision)
+	assert.Equal(t, "HISTORY-1_REPO01_00000000000000000000000", sourcesRevisions[2].changeRevision)
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[2].currentRevision)
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[2].previousRevision)
+
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].gitRevision)
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].changeRevision)
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].currentRevision)
+	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].previousRevision)
+}
+
 
 func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithoutHistory)
