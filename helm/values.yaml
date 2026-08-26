@@ -154,6 +154,7 @@ configs:
 
     # You can customize parameters by adding parameters here.
     # (e.g.)
+    controller.event.handling.timeout.seconds: "120"
     # otlp.address: ''
 
 

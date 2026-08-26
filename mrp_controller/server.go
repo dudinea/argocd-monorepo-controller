@@ -49,11 +49,11 @@ type MRPServer struct {
 type MRPServerSet struct{}
 
 type MRPServerOpts struct {
-	ListenPort    int
-	ListenHost    string
-	Namespace     string
-	KubeClientset kubernetes.Interface
-	AppClientset  appclientset.Interface
+	ListenPort              int
+	ListenHost              string
+	Namespace               string
+	KubeClientset           kubernetes.Interface
+	AppClientset            appclientset.Interface
 	// Cache                 *servercache.Cache
 	RedisClient            *redis.Client
 	ApplicationNamespaces  []string
@@ -61,6 +61,7 @@ type MRPServerOpts struct {
 	RootPath               string
 	RepoClientset          repoapiclient.Clientset
 	MetricsCacheExpiration time.Duration
+	EventHandlingTimeout   int
 }
 
 /*type handlerSwitcher struct {
@@ -95,7 +96,7 @@ func (a *MRPServer) Init(ctx context.Context) {
 }
 
 func (a *MRPServer) RunController(ctx context.Context) {
-	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset, a.metricsServer)
+	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset, a.metricsServer, time.Second * time.Duration(a.EventHandlingTimeout))
 	go controller.Run(ctx)
 }
 

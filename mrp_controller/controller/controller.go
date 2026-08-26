@@ -27,11 +27,12 @@ type monorepoController struct {
 	appBroadcaster Broadcaster
 	// cache                *servercache.Cache
 	// appLister            applisters.ApplicationLister
-	acrService service.MRPService
+	acrService   service.MRPService
+	eventTimeout time.Duration
 	// applicationClientset appclientset.Interface
 }
 
-func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer) MRPController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer, eventTimeout time.Duration) MRPController {
 	appBroadcaster := NewBroadcaster()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
@@ -42,7 +43,8 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 		// cache:                cache,
 		// appLister:            appLister,
 		// applicationClientset: applicationClientset,
-		acrService: service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
+		acrService:   service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
+		eventTimeout: eventTimeout,
 	}
 }
 
@@ -70,7 +72,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 		case event := <-eventsChannel:
 			logCtx.Debugf("got event: channel size is %d", len(eventsChannel))
 			// c.acrService.
-			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+			ctx, cancel := context.WithTimeout(ctx, c.eventTimeout)
 			err := calculateIfPermitted(ctx, event.Application, event.Type)
 			if err != nil {
 				logCtx.WithError(err).Error("failed to calculate change revision")

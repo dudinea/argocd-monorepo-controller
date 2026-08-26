@@ -4,22 +4,23 @@ The configuration parameters, which are specific to the Monorepo Controler
 as well as those, that have to be configured separately from the rest of ArgoCD
 components, are configured using the `argocd-monorepo-cmd-params-cm` configmap. 
 
-| Key                                    | Default                           | Description                                                        |
-|----------------------------------------|-----------------------------------|--------------------------------------------------------------------|
-| controller.log.level                   | "info"                            | Monorepo Controller log level                                      |
-| controller.log.format                  | "text"                            | Monorepo Controller log format (text or json)                      |
-| controller.metrics.cache.expiration    | disabled by default               | Prometheus metrics cache expiration                                |
-| controller.metrics.address             | "0.0.0.0"                         | Controller's Metrics server will listen on given address           |
-| controller.metrics.port                | "8090"                            | Controller's Metrics server will listen on given port              |
-| controller.repo.server                 | argocd-monorepo-repo-server:8091" | Monorepo Repo server address                                       |
-| controller.repo.server.plaintext       | "false"                           | Use a non-TLS client to connect to repository  server              |
-| controller.repo.server.strict.tls      | "false"                           | Perform strict validation of monorepo repo server TLS certificates |
-| controller.repo.server.timeout.seconds | "60"                              | Repo server RPC call timeout seconds.                              |
-| reposerver.log.level                   | "info"                            | Monorepo Controller log level                                      |
-| reposerver.log.format                  | "text"                            | Monorepo Repo Server log format (text or json)                     |
-| reposerver.parallelism.limit           | "0" - no limit                    | Limit on number of concurrent manifests generate requests.         |
-| reposerver.listen.address              | "0.0.0.0"                         | Repo Server will listen on given address for incoming connections  |
-|----------------------------------------|-----------------------------------|--------------------------------------------------------------------|
+| Key                                       | Default                           | Description                                                        |
+|-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
+| controller.log.level                      | "info"                            | Monorepo Controller log level                                      |
+| controller.log.format                     | "text"                            | Monorepo Controller log format (text or json)                      |
+| controller.metrics.cache.expiration       | disabled by default               | Prometheus metrics cache expiration                                |
+| controller.metrics.address                | "0.0.0.0"                         | Controller's Metrics server will listen on given address           |
+| controller.metrics.port                   | "8090"                            | Controller's Metrics server will listen on given port              |
+| controller.repo.server                    | argocd-monorepo-repo-server:8091" | Monorepo Repo server address                                       |
+| controller.repo.server.plaintext          | "false"                           | Use a non-TLS client to connect to repository  server              |
+| controller.repo.server.strict.tls         | "false"                           | Perform strict validation of monorepo repo server TLS certificates |
+| controller.repo.server.timeout.seconds    | "120"                             | Repo server RPC call timeout seconds.                              |
+| controller.event.handling.timeout.seconds | "120"                             | Context deadline for processing a single application event         |
+| reposerver.log.level                      | "info"                            | Monorepo Controller log level                                      |
+| reposerver.log.format                     | "text"                            | Monorepo Repo Server log format (text or json)                     |
+| reposerver.parallelism.limit              | "0" - no limit                    | Limit on number of concurrent manifests generate requests.         |
+| reposerver.listen.address                 | "0.0.0.0"                         | Repo Server will listen on given address for incoming connections  |
+|-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
 
 
 
@@ -74,6 +75,29 @@ want to use a different list of namespaces (for example to limit load
 on the Monorepo Controller, or for troubleshooting purposes) you need
 to change the value of the `ARGOCD_APPLICATION_NAMESPACES` environment
 variable of the Monoripo Controller.
+
+## Configure event handling timeout
+
+The event handling timeout controls how long the controller will wait for a single
+application event to be processed before timing out. The default is 2 minutes.
+
+If your applications have complex manifest generation or large Git repositories,
+you may need to increase this timeout. Conversely, you can decrease it if you
+want faster timeout on problematic events.
+
+Edit the value of the `controller.event.handling.timeout` parameter in the
+ConfigMap `argocd-monorepo-cmd-params-cm`. The value should be a valid Go duration
+string (e.g., `5m`, `30s`, `1h`).
+
+**Example:**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-monorepo-cmd-params-cm
+data:
+  controller.event.handling.timeout: "5m"
+```
 
 ## Configuring network policies
 

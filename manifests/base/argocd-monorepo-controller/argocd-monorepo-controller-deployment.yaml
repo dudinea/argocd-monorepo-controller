@@ -89,6 +89,12 @@ spec:
               key: controller.repo.server.timeout.seconds
               name: argocd-monorepo-cmd-params-cm
               optional: true
+        - name: MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS
+          valueFrom:
+            configMapKeyRef:
+              key: controller.event.handling.timeout.seconds
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
         image: quay.io/argoprojlabs/argocd-monorepo-controller:latest
         imagePullPolicy: Always
         name: argocd-monorepo-controller
