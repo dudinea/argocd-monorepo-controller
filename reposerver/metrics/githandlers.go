@@ -27,14 +27,13 @@ func NewGitClientEventHandlers(metricsServer *MetricsServer) git.EventHandlers {
 	return git.EventHandlers{
 		OnFetch: func(repo string) func() {
 			startTime := time.Now()
-			metricsServer.IncGitRequest(repo, GitRequestTypeFetch)
 			return func() {
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeFetch, time.Since(startTime))
+				metricsServer.IncGitRequest(repo, GitRequestTypeFetch, false, true)
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeFetch, false, true,time.Since(startTime))
 			}
 		},
 		OnLsRemote: func(repo string) func() {
 			startTime := time.Now()
-			metricsServer.IncGitRequest(repo, GitRequestTypeLsRemote)
 			if lsRemoteParallelismLimitSemaphore != nil {
 				// The `Acquire` method returns either `nil` or error of the provided context. The
 				// context.Background() is never canceled, so it is safe to ignore the error.
@@ -44,23 +43,22 @@ func NewGitClientEventHandlers(metricsServer *MetricsServer) git.EventHandlers {
 				if lsRemoteParallelismLimitSemaphore != nil {
 					lsRemoteParallelismLimitSemaphore.Release(1)
 				}
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeLsRemote, time.Since(startTime))
+				metricsServer.IncGitRequest(repo, GitRequestTypeLsRemote, false, true)
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeLsRemote, false, true,time.Since(startTime))
 			}
 		},
-		OnDiffTree: func(repo string) func() {
+		OnDiffTree: func(repo string) func(cached, success bool) {
 			startTime := time.Now()
-			metricsServer.IncGitRequest(repo, GitRequestTypeDiffTree)
-
-			return func() {
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeDiffTree, time.Since(startTime))
+			return func(cached, success bool) {
+				metricsServer.IncGitRequest(repo, GitRequestTypeDiffTree, cached, success)
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeDiffTree, cached, success, time.Since(startTime))
 			}
 		},
-		OnRevList: func(repo string) func() {
+		OnRevList: func(repo string) func(cached, success bool) {
 			startTime := time.Now()
-			metricsServer.IncGitRequest(repo, GitRequestTypeRevList)
-
-			return func() {
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeRevList, time.Since(startTime))
+			return func(cached, success bool) {
+				metricsServer.IncGitRequest(repo, GitRequestTypeRevList, cached, success)
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeRevList, cached, success,  time.Since(startTime))
 			}
 		},
 	}

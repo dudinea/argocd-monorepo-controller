@@ -56,6 +56,12 @@ func (s *Service) GetChangeRevision(_ context.Context, request *apiclient.Change
 	if s.initConstants.UseCache {
 		gitClientOpts = append(gitClientOpts, git.WithCache(s.cache, true))
 	}
+	if s.initConstants.UseListRevisionsCache {
+		gitClientOpts = append(gitClientOpts, git.WithListRevisionsCache(s.cache))
+	}
+	if s.initConstants.UseDiffTreeCache {
+		gitClientOpts = append(gitClientOpts, git.WithDiffTreeCache(s.cache))
+	}
 	gitClient, revision, err := s.newClientResolveRevision(repo, currentRevision, gitClientOpts...)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "unable to resolve git revision %s: %v", revision, err)

@@ -110,6 +110,8 @@ type RepoServerInitConstants struct {
 	IncludeHiddenDirectories                     bool
 	CMPUseManifestGeneratePaths                  bool
 	UseCache                                     bool
+	UseListRevisionsCache                        bool
+	UseDiffTreeCache                             bool
 }
 
 // var manifestGenerateLock = sync.NewKeyLock()

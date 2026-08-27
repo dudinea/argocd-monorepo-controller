@@ -81,6 +81,8 @@ func NewCommand() *cobra.Command {
 		cmpUseManifestGeneratePaths        bool
 		ociMediaTypes                      []string
 		useCache                           bool
+		useListRevisionsCache              bool
+		useDiffTreeCache                   bool
 	)
 	command := cobra.Command{
 		Use:               cliName,
@@ -157,6 +159,8 @@ func NewCommand() *cobra.Command {
 				CMPUseManifestGeneratePaths:                  cmpUseManifestGeneratePaths,
 				OCIMediaTypes:                                ociMediaTypes,
 				UseCache:                                     useCache,
+				UseListRevisionsCache:                        useListRevisionsCache,
+				UseDiffTreeCache:                             useDiffTreeCache,
 			}, askPassServer)
 			errors.CheckError(err)
 
@@ -268,6 +272,8 @@ func NewCommand() *cobra.Command {
 	command.Flags().BoolVar(&cmpUseManifestGeneratePaths, "plugin-use-manifest-generate-paths", env.ParseBoolFromEnv("ARGOCD_REPO_SERVER_PLUGIN_USE_MANIFEST_GENERATE_PATHS", false), "Pass the resources described in argocd.argoproj.io/manifest-generate-paths value to the cmpserver to generate the application manifests.")
 	command.Flags().StringSliceVar(&ociMediaTypes, "oci-layer-media-types", env.StringsFromEnv("ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES", []string{"application/vnd.oci.image.layer.v1.tar", "application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.cncf.helm.chart.content.v1.tar+gzip"}, ","), "Comma separated list of allowed media types for OCI media types. This only accounts for media types within layers.")
 	command.Flags().BoolVar(&useCache, "monorepo-repo-server-use-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE", true), "Use Redis cache")
+	command.Flags().BoolVar(&useListRevisionsCache, "monorepo-repo-server-use-list-revisions-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_LIST_REVISONS_CACHE", true), "Use Redis for list revisions cache")
+	command.Flags().BoolVar(&useDiffTreeCache, "monorepo-repo-server-use-diff-tree-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_DIFF_TREE_CACHE", true), "Use Redis for diff tree cache")
 	tlsConfigCustomizerSrc = tls.AddTLSFlagsToCmd(&command)
 	cacheSrc = reposervercache.AddCacheFlagsToCmd(&command, cacheutil.Options{
 		OnClientCreated: func(client *redis.Client) {

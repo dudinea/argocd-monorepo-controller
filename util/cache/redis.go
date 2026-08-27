@@ -235,10 +235,8 @@ func (rh *redisHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 		if shouldIgnoreRedisCmd(cmd) {
 			return err
 		}
-
 		rh.registry.IncRedisRequest(redisCmdName(cmd), err != nil && !isBenignRedisMiss(err))
 		rh.registry.ObserveRedisRequestDuration(time.Since(startTime))
-
 		return err
 	}
 }
