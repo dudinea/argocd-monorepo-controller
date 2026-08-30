@@ -67,6 +67,7 @@ for line in output.splitlines():
         arglist.append((shortOpt, longOpt, optType, descr))
 
 varmap = {}
+typesmap = {}
 for gofile in sys.argv[2:]:
     print ("processing file ", gofile, file=sys.stderr)
     with open(gofile) as fd:
@@ -86,6 +87,9 @@ for gofile in sys.argv[2:]:
                     continue
                 varName = argMatch.group(2)
                 print("VAR", varName,  file=sys.stderr)
+                varType = argMatch.group(1)
+                if varType == "ParseBool":
+                    typesmap[argName]="bool"
                 varmap[argName] = varName
                 
                 
@@ -100,7 +104,11 @@ for arg in arglist:
     argName = arg[1].removeprefix("--")
     if argName in varmap:
         envVar = varmap[argName]
-    printline(formatstr, arg[0], arg[1], arg[2], envVar, descr)
-    # print("|", arg[0], arg[1], " | ", arg[2], " | ", envVar, " | ", descr, " |")
+    typeName = arg[2]
+    if argName in typesmap:
+        typeName = typesmap[argName]
+    
+    printline(formatstr, arg[0], arg[1], typeName, envVar, descr)
+    # print("|", arg[0], arg[1], " | ", rg[2], " | ", envVar, " | ", descr, " |")
 
 
