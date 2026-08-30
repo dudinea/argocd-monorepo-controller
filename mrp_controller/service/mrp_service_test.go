@@ -971,7 +971,6 @@ status:
     status: Synced
 `
 
-
 const syncedMSAppWithSingleHistory2Annotated = `
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -1786,7 +1785,6 @@ func Test_GetSourceRevisionsMSWithHistorySourceChanged(t *testing.T) {
 	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].currentRevision)
 	assert.Equal(t, "CURRENT_REPO_01_000000000000000000000000", sourcesRevisions[3].previousRevision)
 }
-
 
 func Test_GetApplicationRevisionsWithoutHistory(t *testing.T) {
 	anapp := createTestApp(t, syncedAppWithoutHistory)

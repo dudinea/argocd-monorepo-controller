@@ -50,9 +50,9 @@ func NewCommand() *cobra.Command {
 		repoServerPlaintext      bool
 		repoServerStrictTLS      bool
 		// cacheSrc                 func() (*servercache.Cache, error)
-		applicationNamespaces    []string
-		metricsCacheExpiration   time.Duration
-		eventHandlingTimeoutSeconds     int
+		applicationNamespaces       []string
+		metricsCacheExpiration      time.Duration
+		eventHandlingTimeoutSeconds int
 		// argocdToken              string
 		// rootpath                 string
 	)
@@ -108,11 +108,11 @@ func NewCommand() *cobra.Command {
 				tlsConfig)
 
 			changeRevisionServerOpts := mrp.MRPServerOpts{
-				ListenPort:              listenPort,
-				ListenHost:              listenHost,
-				Namespace:               namespace,
-				KubeClientset:           kubeclientset,
-				AppClientset:            appClientSet,
+				ListenPort:    listenPort,
+				ListenHost:    listenHost,
+				Namespace:     namespace,
+				KubeClientset: kubeclientset,
+				AppClientset:  appClientSet,
 				// Cache:                 cache,
 				RedisClient:            redisClient,
 				ApplicationNamespaces:  applicationNamespaces,

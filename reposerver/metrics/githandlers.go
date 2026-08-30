@@ -29,7 +29,7 @@ func NewGitClientEventHandlers(metricsServer *MetricsServer) git.EventHandlers {
 			startTime := time.Now()
 			return func() {
 				metricsServer.IncGitRequest(repo, GitRequestTypeFetch, false, true)
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeFetch, false, true,time.Since(startTime))
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeFetch, false, true, time.Since(startTime))
 			}
 		},
 		OnLsRemote: func(repo string) func() {
@@ -44,7 +44,7 @@ func NewGitClientEventHandlers(metricsServer *MetricsServer) git.EventHandlers {
 					lsRemoteParallelismLimitSemaphore.Release(1)
 				}
 				metricsServer.IncGitRequest(repo, GitRequestTypeLsRemote, false, true)
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeLsRemote, false, true,time.Since(startTime))
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeLsRemote, false, true, time.Since(startTime))
 			}
 		},
 		OnDiffTree: func(repo string) func(cached, success bool) {
@@ -58,7 +58,7 @@ func NewGitClientEventHandlers(metricsServer *MetricsServer) git.EventHandlers {
 			startTime := time.Now()
 			return func(cached, success bool) {
 				metricsServer.IncGitRequest(repo, GitRequestTypeRevList, cached, success)
-				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeRevList, cached, success,  time.Since(startTime))
+				metricsServer.ObserveGitRequestDuration(repo, GitRequestTypeRevList, cached, success, time.Since(startTime))
 			}
 		},
 	}

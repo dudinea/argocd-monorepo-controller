@@ -182,7 +182,7 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 		if err != nil {
 			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
 			if isTimeout(err) {
-				// no sence to continue, return correct error
+				// no sense to continue, return correct error
 				return nil, err
 			}
 			continue
@@ -280,7 +280,6 @@ func isTimeout(err error) bool {
 	return false
 }
 
-
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
 	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
 	startTime := time.Now()
@@ -311,7 +310,7 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 			logCtx.Errorf("Failed to patch application: %v", err)
 			status = "patch-error"
 		}
-	} else 	{
+	} else {
 		logCtx.Errorf("Failed to make change revision patch: %v", err)
 		if isTimeout(err) {
 			status = "timeout"
@@ -413,8 +412,8 @@ func sliceGetString(sl *[]string, idx int) string {
 	return ""
 }
 
-func isMatchingHistoryEntry(a,b *application.ApplicationSource) bool {
-	if a.Name!="" && b.Name!="" {
+func isMatchingHistoryEntry(a, b *application.ApplicationSource) bool {
+	if a.Name != "" && b.Name != "" {
 		// if they gave non-empty names, assume that we can use them for
 		// matching the sources
 		nameA := strings.TrimSpace(a.Name)
@@ -424,7 +423,7 @@ func isMatchingHistoryEntry(a,b *application.ApplicationSource) bool {
 		}
 	}
 	// compare only essential attributes
-	if a.RepoURL==b.RepoURL && a.Path == b.Path &&  a.Chart == b.Chart && a.Ref == b.Ref &&
+	if a.RepoURL == b.RepoURL && a.Path == b.Path && a.Chart == b.Chart && a.Ref == b.Ref &&
 		(a.TargetRevision == b.TargetRevision ||
 			(a.TargetRevision == "" && b.TargetRevision == "HEAD") ||
 			(a.TargetRevision == "HEAD" && b.TargetRevision == "")) {
