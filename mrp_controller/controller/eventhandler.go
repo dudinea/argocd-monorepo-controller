@@ -1,4 +1,4 @@
-package application_change_revision_controller
+package controller
 
 import (
 	"sync"
@@ -10,7 +10,7 @@ import (
 )
 
 type subscriber struct {
-	ch      chan *appv1.ApplicationWatchEvent
+	eventHandler func(event *appv1.ApplicationWatchEvent) error
 	filters []func(*appv1.ApplicationWatchEvent) bool
 }
 
@@ -23,29 +23,24 @@ func (s *subscriber) matches(event *appv1.ApplicationWatchEvent) bool {
 	return true
 }
 
-// Broadcaster is an interface for broadcasting application informer watch events to multiple subscribers.
-type Broadcaster interface {
-	Subscribe(ch chan *appv1.ApplicationWatchEvent, filters ...func(event *appv1.ApplicationWatchEvent) bool) func()
+// AppEventHandler is an interface for broadcasting application informer watch events to multiple subscribers.
+type AppEventHandler interface {
+	Subscribe(handlerFunc func(event *appv1.ApplicationWatchEvent) error, filters ...func(event *appv1.ApplicationWatchEvent) bool) func()
 	OnAdd(any, bool)
 	OnUpdate(any, any)
 	OnDelete(any)
 }
 
-type broadcasterHandler struct {
+type appEventHandler struct {
 	lock        sync.Mutex
 	subscribers []*subscriber
 }
 
-func NewBroadcaster() Broadcaster {
-	return &broadcasterHandler{}
+func NewAppEventHandler() AppEventHandler {
+	return &appEventHandler{}
 }
 
-func (b *broadcasterHandler) notify(event *appv1.ApplicationWatchEvent) {
-	val, ok := event.Application.Annotations[appv1.AnnotationKeyManifestGeneratePaths]
-	if !ok || val == "" {
-		return
-	}
-
+func (b *appEventHandler) notify(event *appv1.ApplicationWatchEvent) {
 	// Make a local copy of b.subscribers, then send channel events outside the lock,
 	// to avoid data race on b.subscribers changes
 	subscribers := []*subscriber{}
@@ -55,24 +50,20 @@ func (b *broadcasterHandler) notify(event *appv1.ApplicationWatchEvent) {
 
 	for _, s := range subscribers {
 		if s.matches(event) {
-			select {
-			case s.ch <- event:
-				log.Debugf("adding application '%s' to channel", event.Application.Name)
-			default:
-				// drop event if cannot send right away
-				log.WithField("application", event.Application.Name).Warn("unable to send event notification")
+			err := s.eventHandler(event)
+			if err != nil {
+				log.Errorf("failing to handle event '%v' on %s/%s", event.Type,
+					event.Application.Namespace, event.Application.Name)
 			}
 		}
 	}
 }
 
-// Subscribe forward application informer watch events to the provided channel.
-// The watch events are dropped if no receives are reading events from the channel so the channel must have
-// buffer if dropping events is not acceptable.
-func (b *broadcasterHandler) Subscribe(ch chan *appv1.ApplicationWatchEvent, filters ...func(event *appv1.ApplicationWatchEvent) bool) func() {
+// Subscribe forward application informer watch events to the provided function
+func (b *appEventHandler) Subscribe(handlerFunc func(event *appv1.ApplicationWatchEvent) error, filters ...func(event *appv1.ApplicationWatchEvent) bool) func() {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	subscriber := &subscriber{ch, filters}
+	subscriber := &subscriber{handlerFunc, filters}
 	b.subscribers = append(b.subscribers, subscriber)
 	return func() {
 		b.lock.Lock()
@@ -86,19 +77,19 @@ func (b *broadcasterHandler) Subscribe(ch chan *appv1.ApplicationWatchEvent, fil
 	}
 }
 
-func (b *broadcasterHandler) OnAdd(obj any, _ bool) {
+func (b *appEventHandler) OnAdd(obj any, _ bool) {
 	if app, ok := obj.(*appv1.Application); ok {
 		b.notify(&appv1.ApplicationWatchEvent{Application: *app, Type: watch.Added})
 	}
 }
 
-func (b *broadcasterHandler) OnUpdate(_, newObj any) {
+func (b *appEventHandler) OnUpdate(_, newObj any) {
 	if app, ok := newObj.(*appv1.Application); ok {
 		b.notify(&appv1.ApplicationWatchEvent{Application: *app, Type: watch.Modified})
 	}
 }
 
-func (b *broadcasterHandler) OnDelete(obj any) {
+func (b *appEventHandler) OnDelete(obj any) {
 	if app, ok := obj.(*appv1.Application); ok {
 		b.notify(&appv1.ApplicationWatchEvent{Application: *app, Type: watch.Deleted})
 	}
