@@ -199,9 +199,30 @@ $(error IMAGE_NAMESPACE must be set to push images (e.g. IMAGE_NAMESPACE=argopro
 endif
 endif
 
+# Consruct prefix for docker image
+# Note: keeping same logic as in hacks/update_manifests.sh
+ifdef IMAGE_REGISTRY
 ifdef IMAGE_NAMESPACE
-IMAGE_PREFIX=${IMAGE_NAMESPACE}/
+IMAGE_PREFIX=${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/
+else
+$(error IMAGE_NAMESPACE must be set when IMAGE_REGISTRY is set (e.g. IMAGE_NAMESPACE=argoproj-labs))
 endif
+else
+ifdef IMAGE_NAMESPACE
+# for backwards compatibility with the old way like IMAGE_NAMESPACE='quay.io/argoproj'
+IMAGE_PREFIX=${IMAGE_NAMESPACE}/
+else
+# Neither namespace nor registry given - apply the default values
+IMAGE_REGISTRY="quay.io"
+IMAGE_NAMESPACE="argoproj-labs"
+IMAGE_PREFIX=${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/
+endif
+endif
+
+ifndef IMAGE_REPOSITORY
+IMAGE_REPOSITORY=argocd-monorepo-controller
+endif
+
 
 .PHONY: all
 all: cli image
@@ -300,7 +321,7 @@ manifests-local:
 
 .PHONY: manifests
 manifests: test-tools-image
-	$(call run-in-test-client,make manifests-local IMAGE_NAMESPACE='${IMAGE_NAMESPACE}' IMAGE_TAG='${IMAGE_TAG}')
+	$(call run-in-test-client,make manifests-local IMAGE_REGISTRY='${IMAGE_REGISTRY}' IMAGE_NAMESPACE='${IMAGE_NAMESPACE}' IMAGE_REPOSITORY='${IMAGE_REPOSITORY}' IMAGE_TAG='${IMAGE_TAG}')
 
 # consolidated binary for cli, util, server, repo-server, controller
 .PHONY: argocd-all
