@@ -139,8 +139,8 @@ type EventHandlers struct {
 	OnLsRemote func(repo string) func()
 	OnFetch    func(repo string) func()
 	OnPush     func(repo string) func()
-	OnDiffTree func(repo string) func()
-	OnRevList  func(repo string) func()
+	OnDiffTree func(repo string) func(cached, success bool)
+	OnRevList  func(repo string) func(cached, success bool)
 }
 
 // nativeGitClient implements Client interface using git CLI
@@ -161,6 +161,14 @@ type nativeGitClient struct {
 	gitRefCache gitRefCache
 	// indicates if client allowed to load refs from cache
 	loadRefFromCache bool
+	// listRevisionsCache knows how to cache list revisions results
+	listRevisionsCache listRevisionsCache
+	// indicates if client allowed to use list revisions cache
+	useListRevisionsCache bool
+	// diffTreeCache knows how to cache list revisions results
+	diffTreeCache diffTreeCache
+	// indicates if client allowed to use list revisions cache
+	useDiffTreeCache bool
 	// HTTP/HTTPS proxy used to access repository
 	proxy string
 	// list of targets that shouldn't use the proxy, applies only if the proxy is set

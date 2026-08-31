@@ -750,3 +750,153 @@ func TestGetGitFiles(t *testing.T) {
 		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
 	})
 }
+
+func TestGetListRevisions(t *testing.T) {
+	t.Run("GetListRevisions cache miss", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		revisions, err := fixtures.cache.GetListRevisions("test-repo", "prev-rev", "curr-rev")
+		require.ErrorIs(t, err, ErrCacheMiss)
+		assert.Empty(t, revisions)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1})
+	})
+
+	t.Run("GetListRevisions cache hit", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		expectedRevisions := []string{"commit1", "commit2", "commit3"}
+		err := cache.SetListRevisions("test-repo", "prev-rev", "curr-rev", expectedRevisions)
+		require.NoError(t, err)
+		revisions, err := cache.GetListRevisions("test-repo", "prev-rev", "curr-rev")
+		require.NoError(t, err)
+		assert.Equal(t, expectedRevisions, revisions)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
+	})
+
+	t.Run("GetListRevisions cache miss with different revision range", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		expectedRevisions := []string{"commit1", "commit2", "commit3"}
+		err := cache.SetListRevisions("test-repo", "prev-rev", "curr-rev", expectedRevisions)
+		require.NoError(t, err)
+		// Different previous revision should be a cache miss
+		revisions, err := cache.GetListRevisions("test-repo", "other-prev-rev", "curr-rev")
+		require.ErrorIs(t, err, ErrCacheMiss)
+		assert.Empty(t, revisions)
+		// Different current revision should be a cache miss
+		revisions, err = cache.GetListRevisions("test-repo", "prev-rev", "other-curr-rev")
+		require.ErrorIs(t, err, ErrCacheMiss)
+		assert.Empty(t, revisions)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 2, ExternalSets: 1})
+	})
+
+	t.Run("SetListRevisions with empty list", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		err := cache.SetListRevisions("test-repo", "prev-rev", "curr-rev", []string{})
+		require.NoError(t, err)
+		revisions, err := cache.GetListRevisions("test-repo", "prev-rev", "curr-rev")
+		require.NoError(t, err)
+		assert.Empty(t, revisions)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
+	})
+
+	t.Run("SetListRevisions with multiple commits", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		expectedRevisions := []string{
+			"abc1234567890",
+			"def1234567890",
+			"ghi1234567890",
+			"jkl1234567890",
+		}
+		err := cache.SetListRevisions("test-repo", "prev-rev", "curr-rev", expectedRevisions)
+		require.NoError(t, err)
+		revisions, err := cache.GetListRevisions("test-repo", "prev-rev", "curr-rev")
+		require.NoError(t, err)
+		assert.Equal(t, expectedRevisions, revisions)
+		assert.Len(t, revisions, 4)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
+	})
+
+	t.Run("ListRevisions key is different for different repos", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		revisions1 := []string{"commit1", "commit2"}
+		revisions2 := []string{"commit3", "commit4"}
+		err := cache.SetListRevisions("repo1", "prev-rev", "curr-rev", revisions1)
+		require.NoError(t, err)
+		err = cache.SetListRevisions("repo2", "prev-rev", "curr-rev", revisions2)
+		require.NoError(t, err)
+		// Verify both are cached correctly
+		cached1, err := cache.GetListRevisions("repo1", "prev-rev", "curr-rev")
+		require.NoError(t, err)
+		assert.Equal(t, revisions1, cached1)
+		cached2, err := cache.GetListRevisions("repo2", "prev-rev", "curr-rev")
+		require.NoError(t, err)
+		assert.Equal(t, revisions2, cached2)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 2, ExternalSets: 2})
+	})
+}
+
+func TestGetDiffTree(t *testing.T) {
+	t.Run("GetDiffTree cache miss", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		revisions, err := fixtures.cache.GetDiffTree("test-repo", "unknown-rev",)
+		require.ErrorIs(t, err, ErrCacheMiss)
+		assert.Empty(t, revisions)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1})
+	})
+
+	t.Run("GetDiffTree cache hit", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		expectedFiles := []string{"/f1", "/f2", "/f3"}
+		err := cache.SetDiffTree("test-repo", "some-rev",expectedFiles)
+		require.NoError(t, err)
+		files, err := cache.GetDiffTree("test-repo", "some-rev")
+		require.NoError(t, err)
+		assert.Equal(t, expectedFiles, files)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
+	})
+
+	t.Run("SetDiffTree with empty list", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		expectedFiles := []string{}
+		err := cache.SetDiffTree("test-repo", "some-rev-2",expectedFiles)
+		require.NoError(t, err)
+		files, err := cache.GetDiffTree("test-repo", "some-rev-2")
+		require.NoError(t, err)
+		assert.Equal(t, expectedFiles, files)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1, ExternalSets: 1})
+	})
+
+	t.Run("DiffTree key is different for different repos", func(t *testing.T) {
+		fixtures := newFixtures()
+		t.Cleanup(fixtures.mockCache.StopRedisCallback)
+		cache := fixtures.cache
+		files12 := []string{"file1", "file2"}
+		files34 := []string{"file3", "file4"}
+		err := cache.SetDiffTree("repo1", "rev", files12)
+		require.NoError(t, err)
+		err = cache.SetDiffTree("repo2", "rev", files34)
+		require.NoError(t, err)
+		// Verify both are cached correctly
+		cached12, err := cache.GetDiffTree("repo1", "rev")
+		require.NoError(t, err)
+		assert.Equal(t, files12, cached12)
+		cached34, err := cache.GetDiffTree("repo2", "rev")
+		require.NoError(t, err)
+		assert.Equal(t, files34, cached34)
+		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 2, ExternalSets: 2})
+	})
+}

@@ -65,7 +65,7 @@ func AddCacheFlagsToCmd(cmd *cobra.Command, opts ...cacheutil.Options) func() (*
 	var revisionCacheExpiration time.Duration
 	var revisionCacheLockTimeout time.Duration
 
-	cmd.Flags().DurationVar(&repoCacheExpiration, "repo-cache-expiration", env.ParseDurationFromEnv("ARGOCD_REPO_CACHE_EXPIRATION", 24*time.Hour, 0, math.MaxInt64), "Cache expiration for repo state, incl. app lists, app details, manifest generation, revision meta-data")
+	cmd.Flags().DurationVar(&repoCacheExpiration, "repo-cache-expiration", env.ParseDurationFromEnv("ARGOCD_MONOREPO_REPO_CACHE_EXPIRATION", 24*time.Hour, 0, math.MaxInt64), "Cache expiration for repo caches: revisions list, diff tree")
 	cmd.Flags().DurationVar(&revisionCacheExpiration, "revision-cache-expiration", env.ParseDurationFromEnv("ARGOCD_RECONCILIATION_TIMEOUT", 3*time.Minute, 0, math.MaxInt64), "Cache expiration for cached revision")
 	cmd.Flags().DurationVar(&revisionCacheLockTimeout, "revision-cache-lock-timeout", env.ParseDurationFromEnv("ARGOCD_REVISION_CACHE_LOCK_TIMEOUT", 10*time.Second, 0, math.MaxInt64), "Cache TTL for locks to prevent duplicate requests on revisions, set to 0 to disable")
 
@@ -515,6 +515,40 @@ func (c *Cache) GetGitDirectories(repoURL, revision string) ([]string, error) {
 	var item []string
 	err := c.cache.GetItem(gitDirectoriesKey(repoURL, revision), &item)
 	return item, err
+}
+
+func listRevisionsKey(repoURL, previousRevision, targetRevision string) string {
+	return fmt.Sprintf("listrevisions|%s|%s|%s", repoURL, previousRevision, targetRevision)
+}
+
+func (c *Cache) GetListRevisions(repoURL, previousRevision, targetRevision string) ([]string, error) {
+	var item []string
+	err := c.cache.GetItem(listRevisionsKey(repoURL, previousRevision, targetRevision), &item)
+	return item, err
+}
+
+func (c *Cache) SetListRevisions(repoURL, previousRevision, targetRevision string, revisions []string) error {
+	return c.cache.SetItem(
+		listRevisionsKey(repoURL, previousRevision, targetRevision),
+		revisions,
+		&cacheutil.CacheActionOpts{Expiration: c.revisionCacheExpiration})
+}
+
+func diffTreeKey(repoURL, revision string) string {
+	return fmt.Sprintf("difftree|%s|%s", repoURL, revision)
+}
+
+func (c *Cache) GetDiffTree(repoURL, revision string) ([]string, error) {
+	var item []string
+	err := c.cache.GetItem(diffTreeKey(repoURL, revision), &item)
+	return item, err
+}
+
+func (c *Cache) SetDiffTree(repoURL, revision string, revisions []string) error {
+	return c.cache.SetItem(
+		diffTreeKey(repoURL, revision),
+		revisions,
+		&cacheutil.CacheActionOpts{Expiration: c.revisionCacheExpiration})
 }
 
 func (cmr *CachedManifestResponse) shallowCopy() *CachedManifestResponse {

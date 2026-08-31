@@ -101,7 +101,7 @@ func NewMetricsServer() *MetricsServer {
 			Name: "monorepo_git_request_total",
 			Help: "Number of git requests performed by repo server",
 		},
-		[]string{"repo", "request_type"},
+		[]string{"repo", "request_type","cached","success"},
 	)
 	registry.MustRegister(gitRequestCounter)
 
@@ -109,9 +109,9 @@ func NewMetricsServer() *MetricsServer {
 		prometheus.HistogramOpts{
 			Name:    "monorepo_git_request_duration_seconds",
 			Help:    "Git requests duration seconds.",
-			Buckets: []float64{0.1, 0.25, .5, 1, 2, 4, 10, 20},
+			Buckets: []float64{0.001,0.0025,0.005,0.01,0.025,0.05,0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
-		[]string{"repo", "request_type"},
+		[]string{"repo", "request_type","cached","success"},
 	)
 	registry.MustRegister(gitRequestHistogram)
 
@@ -129,7 +129,7 @@ func NewMetricsServer() *MetricsServer {
 			Name: "monorepo_redis_request_total",
 			Help: "Number of redis requests executed.",
 		},
-		[]string{"initiator", "failed"},
+		[]string{"initiator", "command", "failed"},
 	)
 	registry.MustRegister(redisRequestCounter)
 
@@ -137,7 +137,7 @@ func NewMetricsServer() *MetricsServer {
 		prometheus.HistogramOpts{
 			Name:    "monorepo_redis_request_duration_seconds",
 			Help:    "Redis requests duration seconds.",
-			Buckets: []float64{0.1, 0.25, .5, 1, 2},
+			Buckets: []float64{0.001,0.0025,0.005,0.01,0.025,0.05,0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
 		[]string{"initiator"},
 	)
@@ -181,31 +181,28 @@ func (m *MetricsServer) IncRevListFail(repo string, app string, namespace string
 }
 
 // IncGitRequest increments the git requests counter
-func (m *MetricsServer) IncGitRequest(repo string, requestType GitRequestType) {
-	m.gitRequestCounter.WithLabelValues(repo, string(requestType)).Inc()
+func (m *MetricsServer) IncGitRequest(repo string, requestType GitRequestType, cached, success bool) {
+	m.gitRequestCounter.WithLabelValues(repo, string(requestType), strconv.FormatBool(cached), strconv.FormatBool(success)).Inc()
 }
 
 func (m *MetricsServer) IncPendingRepoRequest(repo string) {
 	m.repoPendingRequestsGauge.WithLabelValues(repo).Inc()
 }
 
-func (m *MetricsServer) ObserveGitRequestDuration(repo string, requestType GitRequestType, duration time.Duration) {
-	m.gitRequestHistogram.WithLabelValues(repo, string(requestType)).Observe(duration.Seconds())
+func (m *MetricsServer) ObserveGitRequestDuration(repo string, requestType GitRequestType, cached, success bool,duration time.Duration) {
+	m.gitRequestHistogram.WithLabelValues(repo, string(requestType), strconv.FormatBool(cached), strconv.FormatBool(success)).Observe(duration.Seconds())
 }
 
 func (m *MetricsServer) DecPendingRepoRequest(repo string) {
 	m.repoPendingRequestsGauge.WithLabelValues(repo).Dec()
 }
 
-//	func (m *MetricsServer) IncRedisRequest(failed bool) {
-//		m.redisRequestCounter.WithLabelValues("argocd-repo-server", strconv.FormatBool(failed)).Inc()
-//	}
 func (m *MetricsServer) IncRedisRequest(command string, failed bool) {
-	m.redisRequestCounter.WithLabelValues("argocd-repo-server", command, strconv.FormatBool(failed)).Inc()
+	m.redisRequestCounter.WithLabelValues("argocd-monorepo-repo-server", command, strconv.FormatBool(failed)).Inc()
 }
 
 func (m *MetricsServer) ObserveRedisRequestDuration(duration time.Duration) {
-	m.redisRequestHistogram.WithLabelValues("argocd-repo-server").Observe(duration.Seconds())
+	m.redisRequestHistogram.WithLabelValues("argocd-monorepo-repo-server").Observe(duration.Seconds())
 }
 
 func (m *MetricsServer) IncGetChangeRevisionRequest(repo string, failed bool, app string, namespace string) {
@@ -215,3 +212,5 @@ func (m *MetricsServer) IncGetChangeRevisionRequest(repo string, failed bool, ap
 func (m *MetricsServer) ObserveGetChangeRevisionRequestDuration(duration time.Duration, repo string, app string, namespace string) {
 	m.getChangeRevisionRequestHistogram.WithLabelValues(repo, app, namespace).Observe(duration.Seconds())
 }
+
+
