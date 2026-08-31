@@ -64,7 +64,7 @@ type ApplicationLister_Applications_Call struct {
 
 // Applications is a helper method to define mock.On call
 //   - namespace string
-func (_e *ApplicationLister_Expecter) Applications(namespace interface{}) *ApplicationLister_Applications_Call {
+func (_e *ApplicationLister_Expecter) Applications(namespace any) *ApplicationLister_Applications_Call {
 	return &ApplicationLister_Applications_Call{Call: _e.mock.On("Applications", namespace)}
 }
 
@@ -126,7 +126,7 @@ type ApplicationLister_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - selector labels.Selector
-func (_e *ApplicationLister_Expecter) List(selector interface{}) *ApplicationLister_List_Call {
+func (_e *ApplicationLister_Expecter) List(selector any) *ApplicationLister_List_Call {
 	return &ApplicationLister_List_Call{Call: _e.mock.On("List", selector)}
 }
 

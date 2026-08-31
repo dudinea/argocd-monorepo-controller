@@ -2,6 +2,7 @@ dir: '{{.InterfaceDir}}/mocks'
 structname: '{{.InterfaceName}}'
 filename: '{{.InterfaceName}}.go'
 pkgname: mocks
+include-auto-generated: true # Needed since mockery 3.6.1
 
 template-data:
   unroll-variadic: true

@@ -42,11 +42,11 @@ func (_m *RepoServerServiceClient) EXPECT() *RepoServerServiceClient_Expecter {
 // GetChangeRevision provides a mock function for the type RepoServerServiceClient
 func (_mock *RepoServerServiceClient) GetChangeRevision(ctx context.Context, in *apiclient.ChangeRevisionRequest, opts ...grpc.CallOption) (*apiclient.ChangeRevisionResponse, error) {
 	// grpc.CallOption
-	_va := make([]interface{}, len(opts))
+	_va := make([]any, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx, in)
 	_ca = append(_ca, _va...)
 	ret := _mock.Called(_ca...)
@@ -84,9 +84,9 @@ type RepoServerServiceClient_GetChangeRevision_Call struct {
 //   - ctx context.Context
 //   - in *apiclient.ChangeRevisionRequest
 //   - opts ...grpc.CallOption
-func (_e *RepoServerServiceClient_Expecter) GetChangeRevision(ctx interface{}, in interface{}, opts ...interface{}) *RepoServerServiceClient_GetChangeRevision_Call {
+func (_e *RepoServerServiceClient_Expecter) GetChangeRevision(ctx any, in any, opts ...any) *RepoServerServiceClient_GetChangeRevision_Call {
 	return &RepoServerServiceClient_GetChangeRevision_Call{Call: _e.mock.On("GetChangeRevision",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RepoServerServiceClient_GetChangeRevision_Call) Run(run func(ctx context.Context, in *apiclient.ChangeRevisionRequest, opts ...grpc.CallOption)) *RepoServerServiceClient_GetChangeRevision_Call {
@@ -129,11 +129,11 @@ func (_c *RepoServerServiceClient_GetChangeRevision_Call) RunAndReturn(run func(
 // TestRepository provides a mock function for the type RepoServerServiceClient
 func (_mock *RepoServerServiceClient) TestRepository(ctx context.Context, in *apiclient.TestRepositoryRequest, opts ...grpc.CallOption) (*apiclient.TestRepositoryResponse, error) {
 	// grpc.CallOption
-	_va := make([]interface{}, len(opts))
+	_va := make([]any, len(opts))
 	for _i := range opts {
 		_va[_i] = opts[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx, in)
 	_ca = append(_ca, _va...)
 	ret := _mock.Called(_ca...)
@@ -171,9 +171,9 @@ type RepoServerServiceClient_TestRepository_Call struct {
 //   - ctx context.Context
 //   - in *apiclient.TestRepositoryRequest
 //   - opts ...grpc.CallOption
-func (_e *RepoServerServiceClient_Expecter) TestRepository(ctx interface{}, in interface{}, opts ...interface{}) *RepoServerServiceClient_TestRepository_Call {
+func (_e *RepoServerServiceClient_Expecter) TestRepository(ctx any, in any, opts ...any) *RepoServerServiceClient_TestRepository_Call {
 	return &RepoServerServiceClient_TestRepository_Call{Call: _e.mock.On("TestRepository",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RepoServerServiceClient_TestRepository_Call) Run(run func(ctx context.Context, in *apiclient.TestRepositoryRequest, opts ...grpc.CallOption)) *RepoServerServiceClient_TestRepository_Call {

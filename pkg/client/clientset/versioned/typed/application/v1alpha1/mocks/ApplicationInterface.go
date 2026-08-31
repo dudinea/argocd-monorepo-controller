@@ -78,7 +78,7 @@ type ApplicationInterface_Create_Call struct {
 //   - ctx context.Context
 //   - application *v1alpha1.Application
 //   - opts v1.CreateOptions
-func (_e *ApplicationInterface_Expecter) Create(ctx interface{}, application interface{}, opts interface{}) *ApplicationInterface_Create_Call {
+func (_e *ApplicationInterface_Expecter) Create(ctx any, application any, opts any) *ApplicationInterface_Create_Call {
 	return &ApplicationInterface_Create_Call{Call: _e.mock.On("Create", ctx, application, opts)}
 }
 
@@ -141,7 +141,7 @@ type ApplicationInterface_Delete_Call struct {
 //   - ctx context.Context
 //   - name string
 //   - opts v1.DeleteOptions
-func (_e *ApplicationInterface_Expecter) Delete(ctx interface{}, name interface{}, opts interface{}) *ApplicationInterface_Delete_Call {
+func (_e *ApplicationInterface_Expecter) Delete(ctx any, name any, opts any) *ApplicationInterface_Delete_Call {
 	return &ApplicationInterface_Delete_Call{Call: _e.mock.On("Delete", ctx, name, opts)}
 }
 
@@ -204,7 +204,7 @@ type ApplicationInterface_DeleteCollection_Call struct {
 //   - ctx context.Context
 //   - opts v1.DeleteOptions
 //   - listOpts v1.ListOptions
-func (_e *ApplicationInterface_Expecter) DeleteCollection(ctx interface{}, opts interface{}, listOpts interface{}) *ApplicationInterface_DeleteCollection_Call {
+func (_e *ApplicationInterface_Expecter) DeleteCollection(ctx any, opts any, listOpts any) *ApplicationInterface_DeleteCollection_Call {
 	return &ApplicationInterface_DeleteCollection_Call{Call: _e.mock.On("DeleteCollection", ctx, opts, listOpts)}
 }
 
@@ -278,7 +278,7 @@ type ApplicationInterface_Get_Call struct {
 //   - ctx context.Context
 //   - name string
 //   - opts v1.GetOptions
-func (_e *ApplicationInterface_Expecter) Get(ctx interface{}, name interface{}, opts interface{}) *ApplicationInterface_Get_Call {
+func (_e *ApplicationInterface_Expecter) Get(ctx any, name any, opts any) *ApplicationInterface_Get_Call {
 	return &ApplicationInterface_Get_Call{Call: _e.mock.On("Get", ctx, name, opts)}
 }
 
@@ -351,7 +351,7 @@ type ApplicationInterface_List_Call struct {
 // List is a helper method to define mock.On call
 //   - ctx context.Context
 //   - opts v1.ListOptions
-func (_e *ApplicationInterface_Expecter) List(ctx interface{}, opts interface{}) *ApplicationInterface_List_Call {
+func (_e *ApplicationInterface_Expecter) List(ctx any, opts any) *ApplicationInterface_List_Call {
 	return &ApplicationInterface_List_Call{Call: _e.mock.On("List", ctx, opts)}
 }
 
@@ -386,11 +386,11 @@ func (_c *ApplicationInterface_List_Call) RunAndReturn(run func(ctx context.Cont
 // Patch provides a mock function for the type ApplicationInterface
 func (_mock *ApplicationInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (*v1alpha1.Application, error) {
 	// string
-	_va := make([]interface{}, len(subresources))
+	_va := make([]any, len(subresources))
 	for _i := range subresources {
 		_va[_i] = subresources[_i]
 	}
-	var _ca []interface{}
+	var _ca []any
 	_ca = append(_ca, ctx, name, pt, data, opts)
 	_ca = append(_ca, _va...)
 	ret := _mock.Called(_ca...)
@@ -431,9 +431,9 @@ type ApplicationInterface_Patch_Call struct {
 //   - data []byte
 //   - opts v1.PatchOptions
 //   - subresources ...string
-func (_e *ApplicationInterface_Expecter) Patch(ctx interface{}, name interface{}, pt interface{}, data interface{}, opts interface{}, subresources ...interface{}) *ApplicationInterface_Patch_Call {
+func (_e *ApplicationInterface_Expecter) Patch(ctx any, name any, pt any, data any, opts any, subresources ...any) *ApplicationInterface_Patch_Call {
 	return &ApplicationInterface_Patch_Call{Call: _e.mock.On("Patch",
-		append([]interface{}{ctx, name, pt, data, opts}, subresources...)...)}
+		append([]any{ctx, name, pt, data, opts}, subresources...)...)}
 }
 
 func (_c *ApplicationInterface_Patch_Call) Run(run func(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string)) *ApplicationInterface_Patch_Call {
@@ -525,7 +525,7 @@ type ApplicationInterface_Update_Call struct {
 //   - ctx context.Context
 //   - application *v1alpha1.Application
 //   - opts v1.UpdateOptions
-func (_e *ApplicationInterface_Expecter) Update(ctx interface{}, application interface{}, opts interface{}) *ApplicationInterface_Update_Call {
+func (_e *ApplicationInterface_Expecter) Update(ctx any, application any, opts any) *ApplicationInterface_Update_Call {
 	return &ApplicationInterface_Update_Call{Call: _e.mock.On("Update", ctx, application, opts)}
 }
 
@@ -598,7 +598,7 @@ type ApplicationInterface_Watch_Call struct {
 // Watch is a helper method to define mock.On call
 //   - ctx context.Context
 //   - opts v1.ListOptions
-func (_e *ApplicationInterface_Expecter) Watch(ctx interface{}, opts interface{}) *ApplicationInterface_Watch_Call {
+func (_e *ApplicationInterface_Expecter) Watch(ctx any, opts any) *ApplicationInterface_Watch_Call {
 	return &ApplicationInterface_Watch_Call{Call: _e.mock.On("Watch", ctx, opts)}
 }
 
