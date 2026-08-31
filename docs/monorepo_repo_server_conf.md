@@ -19,18 +19,18 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 | --------------------------------------- | ----------- | -------------------------------------------- | ------------------------------------------------------------ |
 | --address                               | string      | ARGOCD_MONOREPO_REPO_SERVER_LISTEN_ADDRESS   | Listen on given address for incoming connections (default    |
 |                                         |             |                                              | "0.0.0.0")                                                   |
-| --allow-oob-symlinks                    |             | ARGOCD_REPO_SERVER_ALLOW_OUT_OF_BOUNDS_SYMLINKS | Allow out-of-bounds symlinks in repositories (not            |
+| --allow-oob-symlinks                    | bool        | ARGOCD_REPO_SERVER_ALLOW_OUT_OF_BOUNDS_SYMLINKS | Allow out-of-bounds symlinks in repositories (not            |
 |                                         |             |                                              | recommended)                                                 |
 | --default-cache-expiration              | duration    | ARGOCD_DEFAULT_CACHE_EXPIRATION              | Cache expiration default (default 24h0m0s)                   |
-| --disable-helm-manifest-max-extracted-size |             | ARGOCD_REPO_SERVER_DISABLE_HELM_MANIFEST_MAX_EXTRACTED_SIZE | Disable maximum size of helm manifest archives when          |
+| --disable-helm-manifest-max-extracted-size | bool        | ARGOCD_REPO_SERVER_DISABLE_HELM_MANIFEST_MAX_EXTRACTED_SIZE | Disable maximum size of helm manifest archives when          |
 |                                         |             |                                              | extracted                                                    |
-| --disable-oci-manifest-max-extracted-size |             | ARGOCD_REPO_SERVER_DISABLE_OCI_MANIFEST_MAX_EXTRACTED_SIZE | Disable maximum size of oci manifest archives when extracted |
-| --disable-tls                           |             | ARGOCD_REPO_SERVER_DISABLE_TLS               | Disable TLS on the gRPC endpoint                             |
+| --disable-oci-manifest-max-extracted-size | bool        | ARGOCD_REPO_SERVER_DISABLE_OCI_MANIFEST_MAX_EXTRACTED_SIZE | Disable maximum size of oci manifest archives when extracted |
+| --disable-tls                           | bool        | ARGOCD_REPO_SERVER_DISABLE_TLS               | Disable TLS on the gRPC endpoint                             |
 | --helm-manifest-max-extracted-size      | string      | ARGOCD_REPO_SERVER_HELM_MANIFEST_MAX_EXTRACTED_SIZE | Maximum size of helm manifest archives when extracted        |
 |                                         |             |                                              | (default "1G")                                               |
 | --helm-registry-max-index-size          | string      | ARGOCD_REPO_SERVER_HELM_MANIFEST_MAX_INDEX_SIZE | Maximum size of registry index file (default "1G")           |
 | --help -h,                              |             |                                              | help for argocd-repo-server                                  |
-| --include-hidden-directories            |             | ARGOCD_REPO_SERVER_INCLUDE_HIDDEN_DIRECTORIES | Include hidden directories from Git                          |
+| --include-hidden-directories            | bool        | ARGOCD_REPO_SERVER_INCLUDE_HIDDEN_DIRECTORIES | Include hidden directories from Git                          |
 | --logformat                             | string      | ARGOCD_REPO_SERVER_LOGFORMAT                 | Set the logging format. One of: json,text (default "json")   |
 | --loglevel                              | string      | ARGOCD_REPO_SERVER_LOGLEVEL                  | Set the logging level. One of: debug,info,warn,error         |
 |                                         |             |                                              | (default "info")                                             |
@@ -38,7 +38,9 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 |                                         |             |                                              | Application (default "10M")                                  |
 | --metrics-address                       | string      | ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS | Listen on given address for metrics (default "0.0.0.0")      |
 | --metrics-port                          | int         |                                              | Start metrics server on given port (default 8094)            |
-| --monorepo-repo-server-use-cache        |             | ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE        | Use Redis cache (default true)                               |
+| --monorepo-repo-server-use-cache        | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE        | Use Redis cache (default true)                               |
+| --monorepo-repo-server-use-diff-tree-cache | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_DIFF_TREE_CACHE | Use Redis for diff tree cache (default true)                 |
+| --monorepo-repo-server-use-list-rev-cache | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_LIST_REV_CACHE | Use Redis for list revisions cache (default true)            |
 | --oci-layer-media-types                 | strings     | ARGOCD_REPO_SERVER_OCI_LAYER_MEDIA_TYPES     | Comma separated list of allowed media types for OCI media    |
 |                                         |             |                                              | types. This only accounts for media types within layers.     |
 |                                         |             |                                              | (default [application/vnd.oci.image.layer.v1.tar,application |
@@ -53,11 +55,11 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 | --otlp-headers                          | stringToString |                                              | List of OpenTelemetry collector extra headers sent with      |
 |                                         |             |                                              | traces, headers are comma-separated key-value pairs(e.g.     |
 |                                         |             |                                              | key1=value1,key2=value2) (default [])                        |
-| --otlp-insecure                         |             | ARGOCD_REPO_SERVER_OTLP_INSECURE             | OpenTelemetry collector insecure mode (default true)         |
+| --otlp-insecure                         | bool        | ARGOCD_REPO_SERVER_OTLP_INSECURE             | OpenTelemetry collector insecure mode (default true)         |
 | --parallelismlimit                      | int         | ARGOCD_REPO_SERVER_PARALLELISM_LIMIT         | Limit on number of concurrent manifests generate requests.   |
 |                                         |             |                                              | Any value less the 1 means no limit.                         |
 | --plugin-tar-exclude                    | stringArray | ARGOCD_REPO_SERVER_PLUGIN_TAR_EXCLUSIONS     | Globs to filter when sending tarballs to plugins.            |
-| --plugin-use-manifest-generate-paths    |             | ARGOCD_REPO_SERVER_PLUGIN_USE_MANIFEST_GENERATE_PATHS | Pass the resources described in argocd.argoproj.io/manifest- |
+| --plugin-use-manifest-generate-paths    | bool        | ARGOCD_REPO_SERVER_PLUGIN_USE_MANIFEST_GENERATE_PATHS | Pass the resources described in argocd.argoproj.io/manifest- |
 |                                         |             |                                              | generate-paths value to the cmpserver to generate the        |
 |                                         |             |                                              | application manifests.                                       |
 | --port                                  | int         |                                              | Listen on given port for incoming connections (default 8091) |
@@ -74,11 +76,10 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 | --redis-insecure-skip-tls-verify        |             |                                              | Skip Redis server certificate validation.                    |
 | --redis-use-tls                         |             |                                              | Use TLS when connecting to Redis.                            |
 | --redisdb                               | int         |                                              | Redis database.                                              |
-| --repo-cache-expiration                 | duration    |                                              | Cache expiration for repo state, incl. app lists, app        |
-|                                         |             |                                              | details, manifest generation, revision meta-data (default    |
-|                                         |             |                                              | 24h0m0s)                                                     |
-| --revision-cache-expiration             | duration    |                                              | Cache expiration for cached revision (default 3m0s)          |
-| --revision-cache-lock-timeout           | duration    |                                              | Cache TTL for locks to prevent duplicate requests on         |
+| --repo-cache-expiration                 | duration    | ARGOCD_MONOREPO_REPO_CACHE_EXPIRATION        | Cache expiration for repo caches: revisions list, diff tree  |
+|                                         |             |                                              | (default 24h0m0s)                                            |
+| --revision-cache-expiration             | duration    | ARGOCD_RECONCILIATION_TIMEOUT                | Cache expiration for cached revision (default 3m0s)          |
+| --revision-cache-lock-timeout           | duration    | ARGOCD_REVISION_CACHE_LOCK_TIMEOUT           | Cache TTL for locks to prevent duplicate requests on         |
 |                                         |             |                                              | revisions, set to 0 to disable (default 10s)                 |
 | --sentinel                              | stringArray |                                              | Redis sentinel hostname and port (e.g. argocd-redis-ha-      |
 |                                         |             |                                              | announce-0:6379).                                            |

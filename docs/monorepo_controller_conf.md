@@ -32,8 +32,8 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --context                               | string      |                                              | The name of the kubeconfig context to use                    |
 | --disable-compression                   |             |                                              | If true, opt-out of response compression for all requests to |
 |                                         |             |                                              | the server                                                   |
-| --event-handling-timeout-seconds        | int         | MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS   | Context deadline for processing a single application event   |
-|                                         |             |                                              | (e.g., 2m, 30s, 1h) (default "2m")                           |
+| --event-handling-timeout-seconds        | int         | MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS | Context deadline for processing a single application event   |
+|                                         |             |                                              | (default 120)                                                |
 | --gloglevel                             | int         |                                              | Set the glog logging level                                   |
 | --help -h,                              |             |                                              | help for argocd-monorepo-controller                          |
 | --insecure-skip-tls-verify              |             |                                              | If true, the server's certificate will not be checked for    |
@@ -46,11 +46,11 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 |                                         |             |                                              | e.g. 24h0m0s)                                                |
 | --monorepo-repo-server                  | string      | MONOREPO_REPO_SERVER                         | Monorepo Repo server address (default "argocd-monorepo-repo- |
 |                                         |             |                                              | server:8091")                                                |
-| --monorepo-repo-server-plaintext        |             | MONOREPO_REPO_SERVER_PLAINTEXT               | Use a plaintext client (non-TLS) to connect to repository    |
+| --monorepo-repo-server-plaintext        | bool        | MONOREPO_REPO_SERVER_PLAINTEXT               | Use a plaintext client (non-TLS) to connect to repository    |
 |                                         |             |                                              | server                                                       |
-| --monorepo-repo-server-strict-tls       |             | MONOREPO_REPO_SERVER_STRICT_TLS              | Perform strict validation of TLS certificates when           |
+| --monorepo-repo-server-strict-tls       | bool        | MONOREPO_REPO_SERVER_STRICT_TLS              | Perform strict validation of TLS certificates when           |
 |                                         |             |                                              | connecting to monorepo repo server                           |
-| --monorepo-repo-server-timeout-seconds  | int         | MONOREPO_REPO_SERVER_TIMEOUT_SECONDS         | Repo server RPC call timeout seconds. (default 60)           |
+| --monorepo-repo-server-timeout-seconds  | int         | MONOREPO_REPO_SERVER_TIMEOUT_SECONDS         | Repo server RPC call timeout seconds. (default 120)          |
 | --namespace -n,                         | string      |                                              | If present, the namespace scope for this CLI request         |
 | --password                              | string      |                                              | Password for basic authentication to the API server          |
 | --port                                  | int         | MONOREPO_CONTROLLER_LISTEN_PORT              | Metrics server will listen on given port (default 8090)      |
