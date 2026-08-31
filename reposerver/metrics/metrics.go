@@ -197,9 +197,13 @@ func (m *MetricsServer) DecPendingRepoRequest(repo string) {
 	m.repoPendingRequestsGauge.WithLabelValues(repo).Dec()
 }
 
-func (m *MetricsServer) IncRedisRequest(failed bool) {
-	m.redisRequestCounter.WithLabelValues("argocd-repo-server", strconv.FormatBool(failed)).Inc()
+// func (m *MetricsServer) IncRedisRequest(failed bool) {
+// 	m.redisRequestCounter.WithLabelValues("argocd-repo-server", strconv.FormatBool(failed)).Inc()
+// }
+func (m *MetricsServer) IncRedisRequest(command string, failed bool) {
+	m.redisRequestCounter.WithLabelValues("argocd-repo-server", command, strconv.FormatBool(failed)).Inc()
 }
+
 
 func (m *MetricsServer) ObserveRedisRequestDuration(duration time.Duration) {
 	m.redisRequestHistogram.WithLabelValues("argocd-repo-server").Observe(duration.Seconds())
