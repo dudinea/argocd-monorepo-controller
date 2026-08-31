@@ -2,13 +2,13 @@ package controller
 
 import (
 	"container/list"
-	"sync"
-	log "github.com/sirupsen/logrus"
-	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	"context"
+	"sync"
+
+	log "github.com/sirupsen/logrus"
+
+	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
-
-
 
 type AppQueueItem struct {
 	Key   string
@@ -23,7 +23,7 @@ type KeyedAppQueue struct {
 }
 
 func NewKeyedAppQueue() *KeyedAppQueue {
-	kaq:= &KeyedAppQueue{
+	kaq := &KeyedAppQueue{
 		items:  list.New(),
 		keyMap: make(map[string]*list.Element),
 	}
@@ -34,14 +34,14 @@ func NewKeyedAppQueue() *KeyedAppQueue {
 func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
-	
-	key := app.Namespace +"/" + app.Name
+
+	key := app.Namespace + "/" + app.Name
 
 	item := AppQueueItem{Key: key, Value: app}
 	var newElem *list.Element
 	if elem, exists := kq.keyMap[key]; exists {
 		// put the new variant of same app at the same place in queue
-		newElem  = kq.items.InsertAfter(item, elem)
+		newElem = kq.items.InsertAfter(item, elem)
 		kq.items.Remove(elem)
 	} else {
 		// add new app to the end of the queue
@@ -49,7 +49,7 @@ func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	}
 	kq.keyMap[key] = newElem
 	// signal workers they got job
-	kq.notEmpty.Signal() 
+	kq.notEmpty.Signal()
 }
 
 // DequeueWait blocks until an item is available
@@ -77,13 +77,12 @@ func (kq *KeyedAppQueue) DequeueWait(ctx context.Context) (*AppQueueItem, bool) 
 }
 
 type WorkerPool struct {
-	queue    *KeyedAppQueue
-	workers  int
-	jobChan  chan *AppQueueItem
-	ctx      context.Context
-	cancel   context.CancelFunc
+	queue   *KeyedAppQueue
+	workers int
+	jobChan chan *AppQueueItem
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
-
 
 func (wp *WorkerPool) dequeueLoop() {
 	for {
@@ -133,6 +132,3 @@ func NewWorkerPool(q *KeyedAppQueue, numWorkers int, f func(ctx context.Context,
 	go wp.dequeueLoop()
 	return wp
 }
-
-
-

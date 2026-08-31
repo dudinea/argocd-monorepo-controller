@@ -5,8 +5,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/argoproj/argo-cd/v3/mrp_controller/metrics"
 	"github.com/argoproj/argo-cd/v3/mrp_controller/service"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
@@ -22,10 +23,10 @@ type MRPController interface {
 
 type monorepoController struct {
 	appBroadcaster AppEventHandler
-	acrService   service.MRPService
-	eventTimeout time.Duration
-	appQueue *KeyedAppQueue
-	numWorkers int
+	acrService     service.MRPService
+	eventTimeout   time.Duration
+	appQueue       *KeyedAppQueue
+	numWorkers     int
 }
 
 func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer, eventTimeout time.Duration, numWorkers int) MRPController {
@@ -36,10 +37,10 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 	}
 	return &monorepoController{
 		appBroadcaster: appBroadcaster,
-		acrService:   service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
-		eventTimeout: eventTimeout,
-		appQueue: NewKeyedAppQueue(),
-		numWorkers: numWorkers,
+		acrService:     service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
+		eventTimeout:   eventTimeout,
+		appQueue:       NewKeyedAppQueue(),
+		numWorkers:     numWorkers,
 	}
 }
 
@@ -47,7 +48,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 	var logCtx log.FieldLogger = log.StandardLogger()
 
 	calculateIfPermitted := func(ctx context.Context, a appv1.Application) { //nolint:golint,unparam
-		logCtx.Debugf("calculateIfPermitted called for application '%s/%s'", a.Namespace,a.Name)
+		logCtx.Debugf("calculateIfPermitted called for application '%s/%s'", a.Namespace, a.Name)
 		ctx, cancel := context.WithTimeout(ctx, c.eventTimeout)
 		err := c.acrService.ChangeRevision(ctx, &a)
 		if err != nil {
@@ -56,7 +57,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 		cancel()
 	}
 
-	enqueueFunc := func (event *appv1.ApplicationWatchEvent) error {
+	enqueueFunc := func(event *appv1.ApplicationWatchEvent) error {
 		c.appQueue.Enqueue(event.Application)
 		return nil
 	}
@@ -70,20 +71,15 @@ func (c *monorepoController) Run(ctx context.Context) {
 		}
 		return true
 	}
-	
+
 	unsubscribe := c.appBroadcaster.Subscribe(enqueueFunc, filterFunc)
 
 	wp := NewWorkerPool(c.appQueue, c.numWorkers, calculateIfPermitted)
-	
-	defer func () {
+
+	defer func() {
 		unsubscribe()
 		wp.Stop()
 	}()
-	for {
-		select {
-		case <-ctx.Done():
-			logCtx.Debug("got Done event")
-			return
-		}
-	}
+	<-ctx.Done()
+	logCtx.Debug("got Done event")
 }

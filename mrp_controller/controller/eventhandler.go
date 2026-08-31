@@ -11,7 +11,7 @@ import (
 
 type subscriber struct {
 	eventHandler func(event *appv1.ApplicationWatchEvent) error
-	filters []func(*appv1.ApplicationWatchEvent) bool
+	filters      []func(*appv1.ApplicationWatchEvent) bool
 }
 
 func (s *subscriber) matches(event *appv1.ApplicationWatchEvent) bool {

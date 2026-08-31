@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
 
@@ -97,7 +98,7 @@ func TestKeyedAppQueue_EnqueueDequeueMultiple(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, len(apps), len(results))
+		assert.Len(t, results, len(apps))
 		for i, expectedApp := range apps {
 			assert.Equal(t, fmt.Sprintf("%s/%s", expectedApp.namespace, expectedApp.name), results[i].Key)
 		}
@@ -106,7 +107,7 @@ func TestKeyedAppQueue_EnqueueDequeueMultiple(t *testing.T) {
 	}
 }
 
-func TestKeyedAppQueue_DequeueEmpty(t *testing.T) {
+func TestKeyedAppQueue_DequeueEmpty(_ *testing.T) {
 	queue := NewKeyedAppQueue()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -211,7 +212,7 @@ func TestKeyedAppQueue_ReplaceExistingKey(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, 3, len(results))
+		require.Len(t, results, 3)
 		assert.Equal(t, "ns1/app-a", results[0].Key)
 		assert.Equal(t, "rev2-updated", results[0].Value.Status.Sync.Revision)
 		assert.Equal(t, "ns2/app-b", results[1].Key)
@@ -234,8 +235,8 @@ func TestKeyedAppQueue_ReplaceMiddleKey(t *testing.T) {
 	queue.Enqueue(appC)
 
 	// Update b
-	appB_updated := createTestApplicationWithRevision("ns", "b", "v2-updated")
-	queue.Enqueue(appB_updated)
+	appBUpdated := createTestApplicationWithRevision("ns", "b", "v2-updated")
+	queue.Enqueue(appBUpdated)
 
 	// Dequeue all and verify
 	results := make([]*AppQueueItem, 0, 3)
@@ -253,7 +254,7 @@ func TestKeyedAppQueue_ReplaceMiddleKey(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, 3, len(results))
+		require.Len(t, results, 3)
 		assert.Equal(t, "ns/a", results[0].Key)
 		assert.Equal(t, "v1", results[0].Value.Status.Sync.Revision)
 		assert.Equal(t, "ns/b", results[1].Key)
@@ -273,8 +274,8 @@ func TestKeyedAppQueue_ReplaceLastKey(t *testing.T) {
 	queue.Enqueue(createTestApplicationWithRevision("ns", "c", "v1"))
 
 	// Update c (last item)
-	appC_updated := createTestApplicationWithRevision("ns", "c", "v2-updated")
-	queue.Enqueue(appC_updated)
+	appCUpdated := createTestApplicationWithRevision("ns", "c", "v2-updated")
+	queue.Enqueue(appCUpdated)
 
 	// Dequeue and verify
 	results := make([]*AppQueueItem, 0, 3)
@@ -292,7 +293,7 @@ func TestKeyedAppQueue_ReplaceLastKey(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, 3, len(results))
+		require.Len(t, results, 3)
 		assert.Equal(t, "ns/a", results[0].Key)
 		assert.Equal(t, "ns/b", results[1].Key)
 		assert.Equal(t, "ns/c", results[2].Key)
@@ -334,7 +335,7 @@ func TestKeyedAppQueue_MultipleReplacementsCycle(t *testing.T) {
 
 	// Verify no stale entries in keyMap
 	queue.mu.RLock()
-	assert.Equal(t, 0, len(queue.keyMap))
+	assert.Empty(t, queue.keyMap)
 	queue.mu.RUnlock()
 }
 
@@ -483,7 +484,7 @@ func TestKeyedAppQueue_ConcurrentEnqueue(t *testing.T) {
 	queue.mu.RLock()
 	expectedCount := numGoroutines * itemsPerGoroutine
 	assert.Equal(t, expectedCount, queue.items.Len())
-	assert.Equal(t, expectedCount, len(queue.keyMap))
+	assert.Len(t, queue.keyMap, expectedCount)
 	queue.mu.RUnlock()
 
 	// Dequeue all and verify no data corruption
@@ -502,13 +503,13 @@ func TestKeyedAppQueue_ConcurrentEnqueue(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, expectedCount, len(results))
+		assert.Len(t, results, expectedCount)
 		seenKeys := make(map[string]bool)
 		for _, item := range results {
 			assert.False(t, seenKeys[item.Key], "duplicate key dequeued")
 			seenKeys[item.Key] = true
 		}
-		assert.Equal(t, expectedCount, len(seenKeys))
+		assert.Len(t, seenKeys, expectedCount)
 	case <-time.After(10 * time.Second):
 		t.Fatal("test timed out")
 	}
@@ -548,7 +549,7 @@ func TestKeyedAppQueue_ConcurrentEnqueueWithReplacements(t *testing.T) {
 	// Verify all 20 apps still present
 	queue.mu.RLock()
 	assert.Equal(t, 20, queue.items.Len())
-	assert.Equal(t, 20, len(queue.keyMap))
+	assert.Len(t, queue.keyMap, 20)
 	queue.mu.RUnlock()
 
 	// Dequeue all and verify
@@ -567,12 +568,12 @@ func TestKeyedAppQueue_ConcurrentEnqueueWithReplacements(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, 20, len(results))
+		assert.Len(t, results, 20)
 		seenKeys := make(map[string]bool)
 		for _, item := range results {
 			seenKeys[item.Key] = true
 		}
-		assert.Equal(t, 20, len(seenKeys))
+		assert.Len(t, seenKeys, 20)
 	case <-time.After(10 * time.Second):
 		t.Fatal("test timed out")
 	}
@@ -752,8 +753,8 @@ func TestKeyedAppQueue_ConcurrentEnqueueDequeue(t *testing.T) {
 	// Verify counts are reasonable
 	eq := atomic.LoadInt32(&enqueuedCount)
 	dq := atomic.LoadInt32(&dequeuedCount)
-	assert.Greater(t, eq, int32(0), "should have enqueued items")
-	assert.Greater(t, dq, int32(0), "should have dequeued items")
+	assert.Positive(t, eq, "should have enqueued items")
+	assert.Positive(t, dq, "should have dequeued items")
 	assert.LessOrEqual(t, dq, eq, "dequeued should be <= enqueued")
 }
 
@@ -766,7 +767,7 @@ func TestWorkerPool_CreateAndStop(t *testing.T) {
 	processedApps := make([]*AppQueueItem, 0)
 	var mu sync.Mutex
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) {
 		mu.Lock()
 		processedApps = append(processedApps, &AppQueueItem{
 			Key:   app.Namespace + "/" + app.Name,
@@ -797,7 +798,7 @@ func TestWorkerPool_CreateAndStop(t *testing.T) {
 
 func TestWorkerPool_MultipleWorkersInitialization(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(ctx context.Context, app appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) {}
 
 	testCases := []int{1, 2, 5, 10}
 	for _, numWorkers := range testCases {
@@ -809,7 +810,7 @@ func TestWorkerPool_MultipleWorkersInitialization(t *testing.T) {
 
 func TestWorkerPool_StopCancelsContext(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(ctx context.Context, app appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) {}
 
 	pool := NewWorkerPool(queue, 1, handler)
 	ctx := pool.ctx
@@ -834,7 +835,7 @@ func TestWorkerPool_StopCancelsContext(t *testing.T) {
 
 func TestWorkerPool_ZeroWorkersHandling(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(ctx context.Context, app appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) {}
 
 	// Create pool with 0 workers - edge case
 	pool := NewWorkerPool(queue, 0, handler)
@@ -866,7 +867,7 @@ func TestWorkerPool_SingleJobProcessing(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) {
 		mu.Lock()
 		processedApps = append(processedApps, &AppQueueItem{
 			Key:   app.Namespace + "/" + app.Name,
@@ -893,7 +894,7 @@ func TestWorkerPool_SingleJobProcessing(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, 1, len(processedApps))
+		require.Len(t, processedApps, 1)
 		assert.Equal(t, "default/test-app", processedApps[0].Key)
 	case <-time.After(5 * time.Second):
 		t.Fatal("job processing timed out")
@@ -906,7 +907,7 @@ func TestWorkerPool_MultipleJobsSequential(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) {
 		mu.Lock()
 		processedKeys = append(processedKeys, app.Namespace+"/"+app.Name)
 		mu.Unlock()
@@ -932,7 +933,7 @@ func TestWorkerPool_MultipleJobsSequential(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, 5, len(processedKeys))
+		require.Len(t, processedKeys, 5)
 		for i, name := range apps {
 			assert.Equal(t, "ns/"+name, processedKeys[i])
 		}
@@ -946,7 +947,7 @@ func TestWorkerPool_ParallelJobProcessing(t *testing.T) {
 	processedCount := int32(0)
 	var wg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		time.Sleep(50 * time.Millisecond)
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
@@ -989,7 +990,7 @@ func TestWorkerPool_JobProcessingOrder(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) {
 		mu.Lock()
 		processedKeys = append(processedKeys, app.Namespace+"/"+app.Name)
 		mu.Unlock()
@@ -1016,7 +1017,7 @@ func TestWorkerPool_JobProcessingOrder(t *testing.T) {
 
 	select {
 	case <-done:
-		require.Equal(t, len(expectedOrder), len(processedKeys))
+		require.Len(t, processedKeys, len(expectedOrder))
 		for i, expected := range expectedOrder {
 			assert.Equal(t, "ns/"+expected, processedKeys[i])
 		}
@@ -1039,7 +1040,7 @@ func TestWorkerPool_JobDistributionAcrossWorkers(t *testing.T) {
 	workerChan := make(chan int, 100)
 	jobChan := make(chan string, 100)
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) {
 		id := <-workerChan
 		mu.Lock()
 		workerIDMap[id] = append(workerIDMap[id], app.Name)
@@ -1092,7 +1093,7 @@ func TestWorkerPool_JobDistributionAcrossWorkers(t *testing.T) {
 			totalJobs += len(jobs)
 		}
 		// At least some distribution should occur
-		assert.Greater(t, len(workerIDMap), 0, "should have processed jobs")
+		assert.NotEmpty(t, workerIDMap, "should have processed jobs")
 	case <-time.After(10 * time.Second):
 		t.Fatal("job processing timed out")
 	}
@@ -1104,7 +1105,7 @@ func TestWorkerPool_LoadBalancing(t *testing.T) {
 	processedCount := int32(0)
 
 	// Handler with varying processing time
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
 	}
@@ -1140,7 +1141,7 @@ func TestWorkerPool_WorkerCompletion(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		time.Sleep(50 * time.Millisecond)
 		mu.Lock()
 		completionOrder = append(completionOrder, time.Now().Unix())
@@ -1165,10 +1166,10 @@ func TestWorkerPool_WorkerCompletion(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, 4, len(completionOrder))
+		assert.Len(t, completionOrder, 4)
 		// Verify all timestamps are reasonable
 		for _, ts := range completionOrder {
-			assert.Greater(t, ts, int64(0))
+			assert.Positive(t, ts)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("job processing timed out")
@@ -1180,7 +1181,7 @@ func TestWorkerPool_BackpressureHandling(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		time.Sleep(10 * time.Millisecond)
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
@@ -1219,7 +1220,7 @@ func TestWorkerPool_StopWhileProcessing(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
 	}
@@ -1246,7 +1247,7 @@ func TestWorkerPool_StopWhileProcessing(t *testing.T) {
 
 	// Some jobs may or may not have been processed
 	count := atomic.LoadInt32(&processedCount)
-	assert.Greater(t, count, int32(0))
+	assert.Positive(t, count)
 	assert.LessOrEqual(t, count, int32(10))
 }
 
@@ -1256,7 +1257,7 @@ func TestWorkerPool_ConcurrentJobAndStop(t *testing.T) {
 	processedCount := int32(0)
 	var stopWg sync.WaitGroup
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
 	}
@@ -1298,7 +1299,7 @@ func TestWorkerPool_ConcurrentJobAndStop(t *testing.T) {
 	}
 
 	count := atomic.LoadInt32(&processedCount)
-	assert.Greater(t, count, int32(0))
+	assert.Positive(t, count)
 }
 
 func TestWorkerPool_ContextPropagation(t *testing.T) {
@@ -1306,7 +1307,7 @@ func TestWorkerPool_ContextPropagation(t *testing.T) {
 	var wg sync.WaitGroup
 	contextReceived := make(chan context.Context, 1)
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(ctx context.Context, _ appv1.Application) {
 		contextReceived <- ctx
 		wg.Done()
 	}
@@ -1333,7 +1334,7 @@ func TestWorkerPool_LargeScaleConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(ctx context.Context, app appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
 	}
