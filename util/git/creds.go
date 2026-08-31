@@ -585,9 +585,14 @@ type GoogleCloudCreds struct {
 }
 
 func NewGoogleCloudCreds(jsonData string, store CredsStore) GoogleCloudCreds {
-	creds, err := google.CredentialsFromJSON(context.Background(), []byte(jsonData), "https://www.googleapis.com/auth/cloud-platform")
+	credType := credentialTypeFromJSON([]byte(jsonData))
+	creds, err := google.CredentialsFromJSONWithType(
+		context.Background(),
+		[]byte(jsonData),
+		credType,
+		"https://www.googleapis.com/auth/cloud-platform",
+	)
 	if err != nil {
-		// Invalid JSON
 		log.Errorf("Failed reading credentials from JSON: %+v", err)
 	}
 	return GoogleCloudCreds{creds, store}
@@ -744,4 +749,25 @@ func (creds AzureWorkloadIdentityCreds) getAccessToken(scope string) (string, er
 func (creds AzureWorkloadIdentityCreds) GetAzureDevOpsAccessToken() (string, error) {
 	accessToken, err := creds.getAccessToken(azureDevopsEntraResourceId) // wellknown resourceid of Azure DevOps
 	return accessToken, err
+}
+
+// credentialTypeFromJSON peeks at the "type" field and returns the matching google.CredentialsType.
+// Defaults to google.ServiceAccount if the type is unrecognized or missing.
+func credentialTypeFromJSON(jsonData []byte) google.CredentialsType {
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(jsonData, &f); err != nil {
+		return google.ServiceAccount
+	}
+	switch f.Type {
+	case "external_account":
+		return google.ExternalAccount
+	case "impersonated_service_account":
+		return google.ImpersonatedServiceAccount
+	case "authorized_user":
+		return google.AuthorizedUser
+	default:
+		return google.ServiceAccount
+	}
 }

@@ -10,8 +10,7 @@ import (
 	"github.com/argoproj/argo-cd/v3/pkg/apiclient/version"
 	"github.com/argoproj/argo-cd/v3/server/settings"
 	"github.com/argoproj/argo-cd/v3/util/helm"
-	"github.com/argoproj/argo-cd/v3/util/kustomize"
-	//sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
+	// sessionmgr "github.com/argoproj/argo-cd/v3/util/session"
 )
 
 type Server struct {
@@ -19,7 +18,7 @@ type Server struct {
 	helmVersion      string
 	jsonnetVersion   string
 	authenticator    settings.Authenticator
-	disableAuth      func() (bool, error)
+	disableAuth      func() (bool, error) //nolint:unused
 }
 
 func NewServer(authenticator settings.Authenticator, disableAuth func() (bool, error)) *Server {
@@ -27,25 +26,17 @@ func NewServer(authenticator settings.Authenticator, disableAuth func() (bool, e
 }
 
 // Version returns the version of the API server
-func (s *Server) Version(ctx context.Context, _ *empty.Empty) (*version.VersionMessage, error) {
+func (s *Server) Version(_ context.Context, _ *empty.Empty) (*version.VersionMessage, error) {
 	vers := common.GetVersion()
-	//disableAuth, err := s.disableAuth()
-	//if err != nil {
-	//		return nil, err
-	//}
+	// disableAuth, err := s.disableAuth()
+	// if err != nil {
+	//	return nil, err
+	// }
 
-	//if !sessionmgr.LoggedIn(ctx) && !disableAuth {
-		return &version.VersionMessage{Version: vers.Version}, nil
-	//}
+	// if !sessionmgr.LoggedIn(ctx) && !disableAuth {
+	// return &version.VersionMessage{Version: vers.Version}, nil
+	// }
 
-	if s.kustomizeVersion == "" {
-		kustomizeVersion, err := kustomize.Version()
-		if err == nil {
-			s.kustomizeVersion = kustomizeVersion
-		} else {
-			s.kustomizeVersion = err.Error()
-		}
-	}
 	if s.helmVersion == "" {
 		helmVersion, err := helm.Version()
 		if err == nil {
