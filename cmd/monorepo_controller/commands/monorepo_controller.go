@@ -53,6 +53,7 @@ func NewCommand() *cobra.Command {
 		applicationNamespaces       []string
 		metricsCacheExpiration      time.Duration
 		eventHandlingTimeoutSeconds int
+		controllerWorkers           int
 		// argocdToken              string
 		// rootpath                 string
 	)
@@ -119,6 +120,7 @@ func NewCommand() *cobra.Command {
 				RepoClientset:          repoClientSet,
 				MetricsCacheExpiration: metricsCacheExpiration,
 				EventHandlingTimeout:   eventHandlingTimeoutSeconds,
+				NumWorkers:             controllerWorkers,
 			}
 
 			log.Debug("Starting Monorepo Controller server")
@@ -152,6 +154,7 @@ func NewCommand() *cobra.Command {
 	command.Flags().BoolVar(&repoServerStrictTLS, "monorepo-repo-server-strict-tls", env.ParseBoolFromEnv("MONOREPO_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to monorepo repo server")
 	command.Flags().DurationVar(&metricsCacheExpiration, "metrics-cache-expiration", env.ParseDurationFromEnv("MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION", 0*time.Second, 0, math.MaxInt64), "Prometheus metrics cache expiration (disabled  by default. e.g. 24h0m0s)")
 	command.Flags().IntVar(&eventHandlingTimeoutSeconds, "event-handling-timeout-seconds", env.ParseNumFromEnv("MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS", 120, 0, math.MaxInt64), "Context deadline for processing a single application event")
+	command.Flags().IntVar(&controllerWorkers, "controller-workers", env.ParseNumFromEnv("MONOREPO_CONTROLLER_WORKERS", common.DefaultMonorepoControllerWorkers, 1, math.MaxInt32), "Number of worker goroutines processing application change-revision events")
 
 	// cacheSrc = servercache.AddCacheFlagsToCmd(command, cacheutil.Options{
 	// 	OnClientCreated: func(client *redis.Client) {

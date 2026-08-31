@@ -25,9 +25,10 @@ type monorepoController struct {
 	acrService   service.MRPService
 	eventTimeout time.Duration
 	appQueue *KeyedAppQueue
+	numWorkers int
 }
 
-func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer, eventTimeout time.Duration) MRPController {
+func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationClientset appclientset.Interface, db db.ArgoDB, repoClientset repoapiclient.Clientset, metricsServer *metrics.MetricsServer, eventTimeout time.Duration, numWorkers int) MRPController {
 	appBroadcaster := NewAppEventHandler()
 	_, err := appInformer.AddEventHandler(appBroadcaster)
 	if err != nil {
@@ -38,6 +39,7 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 		acrService:   service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
 		eventTimeout: eventTimeout,
 		appQueue: NewKeyedAppQueue(),
+		numWorkers: numWorkers,
 	}
 }
 
@@ -71,7 +73,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 	
 	unsubscribe := c.appBroadcaster.Subscribe(enqueueFunc, filterFunc)
 
-	wp := NewWorkerPool(c.appQueue,3, calculateIfPermitted)
+	wp := NewWorkerPool(c.appQueue, c.numWorkers, calculateIfPermitted)
 	
 	defer func () {
 		unsubscribe()

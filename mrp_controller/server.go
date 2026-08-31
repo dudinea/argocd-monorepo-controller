@@ -62,6 +62,7 @@ type MRPServerOpts struct {
 	RepoClientset          repoapiclient.Clientset
 	MetricsCacheExpiration time.Duration
 	EventHandlingTimeout   int
+	NumWorkers             int
 }
 
 /*type handlerSwitcher struct {
@@ -96,7 +97,7 @@ func (a *MRPServer) Init(ctx context.Context) {
 }
 
 func (a *MRPServer) RunController(ctx context.Context) {
-	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset, a.metricsServer, time.Second*time.Duration(a.EventHandlingTimeout))
+	controller := mrp_controller.NewMonorepoController(a.appInformer, a.applicationClientset, a.db, a.repoClientset, a.metricsServer, time.Second*time.Duration(a.EventHandlingTimeout), a.NumWorkers)
 	go controller.Run(ctx)
 }
 

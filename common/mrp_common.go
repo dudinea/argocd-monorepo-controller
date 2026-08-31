@@ -7,6 +7,11 @@ const (
 	DefaultPortMonorepoRepoServerMetrics = 8094
 )
 
+// Default worker configuration
+const (
+	DefaultMonorepoControllerWorkers = 3
+)
+
 // DefaultAddressAPIServer for ArgoCD components
 const (
 	DefaultAddressMRPControllerMetrics = "0.0.0.0"
