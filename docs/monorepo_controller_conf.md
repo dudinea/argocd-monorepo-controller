@@ -30,6 +30,8 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --client-key                            | string      |                                              | Path to a client key file for TLS                            |
 | --cluster                               | string      |                                              | The name of the kubeconfig cluster to use                    |
 | --context                               | string      |                                              | The name of the kubeconfig context to use                    |
+| --controller-workers                    | int         | MONOREPO_CONTROLLER_WORKERS                  | Number of worker goroutines processing application change-   |
+|                                         |             |                                              | revision events (default 3)                                  |
 | --disable-compression                   |             |                                              | If true, opt-out of response compression for all requests to |
 |                                         |             |                                              | the server                                                   |
 | --event-handling-timeout-seconds        | int         | MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS | Context deadline for processing a single application event   |

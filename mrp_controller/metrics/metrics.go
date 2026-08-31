@@ -148,6 +148,11 @@ var (
 		Name: "monorepo_resource_events_processed_in_batch",
 		Help: "Number of resource events processed in batch",
 	}, []string{"server"})
+
+	queueLengthGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "monorepo_app_queue_length",
+		Help: "Number of applications currently queued for change revision processing.",
+	}, []string{"hostname"})
 )
 
 // NewMetricsServer returns a new prometheus server which collects application metrics
@@ -202,6 +207,7 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(repoServerRequestHistogram)
 	registry.MustRegister(resourceEventsProcessingHistogram)
 	registry.MustRegister(resourceEventsNumberGauge)
+	registry.MustRegister(queueLengthGauge)
 
 	kubectl.RegisterWithClientGo()
 	kubectl.RegisterWithPrometheus(registry)
@@ -275,6 +281,11 @@ func (m *MetricsServer) ObserveRepoServerRequestDuration(duration time.Duration)
 // IncReconcile increments the reconcile counter for an application
 func (m *MetricsServer) IncReconcile(app *argoappv1.Application, status string, duration time.Duration) {
 	m.reconcileHistogram.WithLabelValues(app.Namespace, app.Name, status).Observe(duration.Seconds())
+}
+
+// QueueLengthGauge returns the gauge for tracking application queue length
+func (m *MetricsServer) QueueLengthGauge() prometheus.Gauge {
+	return queueLengthGauge.WithLabelValues(m.hostname)
 }
 
 // HasExpiration return true if expiration is set

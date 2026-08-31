@@ -8,6 +8,7 @@ Both Monorepo Controller and Monorepo Repo Server expose Prometheus metrics
 |--------------------------------------------------|:---------:|----------------------------------------------------------------------------|
 | `monorepo_app_info`                              | gauge     | Information about application.                                             |
 | `monorepo_app_reconcile`                         | histogram | Application reconciliation performance in seconds.                         |
+| `monorepo_app_queue_length`                      | gauge     | Length of application processing queue                                     |
 | `monorepo_repo_server_request_total`             | counter   | Number of repo server requests executed during application reconciliation. |
 | `monorepo_repo_server_request_duration`          | histogram | Repo server requests duration.                                             |
 | `monorepo_kubectl_requests_total`                | counter   | Number of kubectl request results",                                        |

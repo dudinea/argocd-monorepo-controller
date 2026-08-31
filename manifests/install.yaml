@@ -255,6 +255,12 @@ spec:
               key: controller.event.handling.timeout.seconds
               name: argocd-monorepo-cmd-params-cm
               optional: true
+        - name: MONOREPO_CONTROLLER_WORKERS
+          valueFrom:
+            configMapKeyRef:
+              key: controller.workers
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
         image: quay.io/argoprojlabs/argocd-monorepo-controller:latest
         imagePullPolicy: Always
         name: argocd-monorepo-controller
@@ -394,6 +400,18 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: reposerver.metrics.listen.address
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_USE_LIST_REV_CACHE
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.use.list.rev.cache
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_USE_DIFF_TREE_CACHE
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.use.diff.tree.cache
               name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: ARGOCD_REPO_SERVER_DISABLE_TLS
