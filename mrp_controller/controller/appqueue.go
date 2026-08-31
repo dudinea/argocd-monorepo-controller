@@ -15,11 +15,16 @@ type AppQueueItem struct {
 	Value appv1.Application
 }
 
+type gaugeSetter interface {
+	Set(float64)
+}
+
 type KeyedAppQueue struct {
-	mu       sync.RWMutex
-	items    *list.List
-	keyMap   map[string]*list.Element
-	notEmpty *sync.Cond
+	mu           sync.RWMutex
+	items        *list.List
+	keyMap       map[string]*list.Element
+	notEmpty     *sync.Cond
+	lengthGauge  gaugeSetter
 }
 
 func NewKeyedAppQueue() *KeyedAppQueue {
@@ -50,6 +55,21 @@ func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	kq.keyMap[key] = newElem
 	// signal workers they got job
 	kq.notEmpty.Signal()
+	kq.reportQueueLength()
+}
+
+// SetLengthGauge sets the gauge for tracking queue length
+func (kq *KeyedAppQueue) SetLengthGauge(g gaugeSetter) {
+	kq.mu.Lock()
+	defer kq.mu.Unlock()
+	kq.lengthGauge = g
+	kq.reportQueueLength()
+}
+
+func (kq *KeyedAppQueue) reportQueueLength() {
+	if kq.lengthGauge != nil {
+		kq.lengthGauge.Set(float64(kq.items.Len()))
+	}
 }
 
 // DequeueWait blocks until an item is available
@@ -73,6 +93,7 @@ func (kq *KeyedAppQueue) DequeueWait(ctx context.Context) (*AppQueueItem, bool) 
 	item := elem.Value.(AppQueueItem)
 	kq.items.Remove(elem)
 	delete(kq.keyMap, item.Key)
+	kq.reportQueueLength()
 	return &item, true
 }
 

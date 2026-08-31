@@ -1362,3 +1362,73 @@ func TestWorkerPool_LargeScaleConcurrency(t *testing.T) {
 		t.Fatal("large-scale test timed out")
 	}
 }
+
+// ============================================================================
+// QUEUE GAUGE METRICS TESTS
+// ============================================================================
+
+type testGauge struct {
+	lastValue float64
+}
+
+func (tg *testGauge) Set(v float64) {
+	tg.lastValue = v
+}
+
+func TestKeyedAppQueue_GaugeSetterInitial(t *testing.T) {
+	queue := NewKeyedAppQueue()
+	gauge := &testGauge{}
+
+	// Enqueue 3 items first
+	for i := 1; i <= 3; i++ {
+		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("app-%d", i)))
+	}
+
+	// Set gauge - should report current length
+	queue.SetLengthGauge(gauge)
+	assert.Equal(t, float64(3), gauge.lastValue)
+}
+
+func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
+	queue := NewKeyedAppQueue()
+	gauge := &testGauge{}
+	queue.SetLengthGauge(gauge)
+
+	// Start with empty
+	assert.Equal(t, float64(0), gauge.lastValue)
+
+	// Enqueue 2 items
+	queue.Enqueue(createTestApplication("ns", "app-1"))
+	assert.Equal(t, float64(1), gauge.lastValue)
+
+	queue.Enqueue(createTestApplication("ns", "app-2"))
+	assert.Equal(t, float64(2), gauge.lastValue)
+
+	// Dequeue 1 item
+	done := make(chan struct{})
+	go func() {
+		queue.DequeueWait(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		assert.Equal(t, float64(1), gauge.lastValue)
+	case <-time.After(2 * time.Second):
+		t.Fatal("dequeue timed out")
+	}
+
+	// Dequeue remaining
+	done = make(chan struct{})
+	go func() {
+		queue.DequeueWait(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		assert.Equal(t, float64(0), gauge.lastValue)
+	case <-time.After(2 * time.Second):
+		t.Fatal("dequeue timed out")
+	}
+}

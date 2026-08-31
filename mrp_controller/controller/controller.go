@@ -35,11 +35,13 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 	if err != nil {
 		log.Error(err)
 	}
+	appQueue := NewKeyedAppQueue()
+	appQueue.SetLengthGauge(metricsServer.QueueLengthGauge())
 	return &monorepoController{
 		appBroadcaster: appBroadcaster,
 		acrService:     service.NewMRPService(applicationClientset, db, repoClientset, metricsServer),
 		eventTimeout:   eventTimeout,
-		appQueue:       NewKeyedAppQueue(),
+		appQueue:       appQueue,
 		numWorkers:     numWorkers,
 	}
 }
