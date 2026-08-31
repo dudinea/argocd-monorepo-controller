@@ -412,10 +412,32 @@ func sliceGetString(sl *[]string, idx int) string {
 	return ""
 }
 
+func isMatchingHistoryEntry(a,b *application.ApplicationSource) bool {
+	if a.Name!="" && b.Name!="" {
+		// if they gave non-empty names, assume that we can use them for
+		// matching the sources
+		nameA := strings.TrimSpace(a.Name)
+		nameB := strings.TrimSpace(b.Name)
+		if nameA != "" && nameA == nameB {
+			return true
+		}
+	}
+	// compare only essential attributes
+	if a.RepoURL==b.RepoURL && a.Path == b.Path &&  a.Chart == b.Chart && a.Ref == b.Ref &&
+		(a.TargetRevision == b.TargetRevision ||
+			(a.TargetRevision == "" && b.TargetRevision == "HEAD") ||
+			(a.TargetRevision == "HEAD" && b.TargetRevision == "")) {
+		return true
+	}
+	return false
+}
+
 func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourceIdx int) string {
+	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
 	history := &a.Status.History[historyIdx]
 	historicalSourceIdx := sourceIdx
 	var historySrc *application.ApplicationSource
+	logCtx.Debugf("get revision from history: historyIdx=%d sourcIdx=%d", historyIdx, sourceIdx)
 	// History entry has enough sources
 	if historicalSourceIdx < len(history.Sources) {
 		// assume that in most cases historical source
@@ -423,20 +445,24 @@ func getRevisionsFromHistoryMS(a *application.Application, historyIdx int, sourc
 		historySrc = &history.Sources[historicalSourceIdx]
 	}
 	src := &a.Spec.Sources[sourceIdx]
-	if historySrc == nil || *historySrc != *src {
+	if historySrc == nil || !isMatchingHistoryEntry(historySrc, src) {
+		logCtx.Debugf("get revision from history: historyEntry not matched: reordered?  historySrc=%x src=%x", historySrc, src)
 		// probably sources were reordered, try to
 		// find source index
 		historicalSourceIdx = -1
 		for i := 0; i < len(history.Sources); i++ {
-			if history.Sources[i] == *src {
+			if isMatchingHistoryEntry(&history.Sources[i], src) {
 				historicalSourceIdx = i
+				logCtx.Debugf("get revision from history: history.Sources[%d] matched!", i)
 				break
 			}
 		}
 	}
 	if historicalSourceIdx >= 0 {
+		logCtx.Debugf("get revision from history: matched index=%d", historicalSourceIdx)
 		return sliceGetString(&history.Revisions, historicalSourceIdx)
 	}
+	logCtx.Warnf("get revision from history: have not found matching index for source idx %d", sourceIdx)
 	return ""
 }
 
