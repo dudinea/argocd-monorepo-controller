@@ -1153,6 +1153,7 @@ type ApplicationStatus struct {
 	// OperationState contains information about any ongoing operations, such as a sync
 	OperationState *OperationState `json:"operationState,omitempty" protobuf:"bytes,7,opt,name=operationState"`
 	// ObservedAt indicates when the application state was updated without querying latest git state
+	//
 	// Deprecated: controller no longer updates ObservedAt field
 	ObservedAt *metav1.Time `json:"observedAt,omitempty" protobuf:"bytes,8,opt,name=observedAt"`
 	// SourceType specifies the type of this application
@@ -2156,6 +2157,7 @@ type ResourceDiff struct {
 	// LiveState contains the JSON-serialized resource manifest of the resource currently running in the cluster.
 	LiveState string `json:"liveState,omitempty" protobuf:"bytes,6,opt,name=liveState"`
 	// Diff contains the JSON patch representing the difference between the live and target resource.
+	//
 	// Deprecated: Use NormalizedLiveState and PredictedLiveState instead to compute differences.
 	Diff string `json:"diff,omitempty" protobuf:"bytes,7,opt,name=diff"`
 	// Hook indicates whether this resource is a hook resource (e.g., pre-sync or post-sync hooks).
