@@ -128,10 +128,10 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 	// we just need to know it exists, actual use of the value will be in calculateChangeRevision
 	manifestGenerationPaths, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
 	if !ok || manifestGenerationPaths == "" {
-		logCtx.Infof("manifest generation paths not set for the application")
+		logCtx.Warnf("manifest generation paths not set for the application")
 		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
 	}
-	logCtx.Infof("manifest generation paths is %s", manifestGenerationPaths)
+	logCtx.Debugf("manifest generation paths is %s", manifestGenerationPaths)
 
 	// FIXED: race condition: sync may already be completed!
 	// if app.Operation == nil || app.Operation.Sync == nil {
@@ -181,6 +181,10 @@ func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.En
 		newChangeRevision, err := c.calculateChangeRevision(ctx, sourceLogCtx, app, r.currentRevision, r.previousRevision, r.repoURL, r.path)
 		if err != nil {
 			sourceLogCtx.Errorf("Failed to calculate revision: %v", err)
+			if isTimeout(err) {
+				// no sence to continue, return correct error
+				return nil, err
+			}
 			continue
 		}
 		sourceLogCtx.Infof("calculated change revision is '%s'", *newChangeRevision)
@@ -265,11 +269,24 @@ func (c *mrpService) annotateApplication(ctx context.Context, logCtx *log.Entry,
 	return err
 }
 
+func isTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	grpcStatus, ok := status.FromError(err)
+	if ok && grpcStatus.Code() == codes.DeadlineExceeded {
+		return true
+	}
+	return false
+}
+
+
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
 	startTime := time.Now()
+	var status string
 	defer func() {
 		reconcileDuration := time.Since(startTime)
-		c.metricsServer.IncReconcile(a, reconcileDuration)
+		c.metricsServer.IncReconcile(a, status, reconcileDuration)
 	}()
 	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
 	logCtx.Infof("ChangeRevision called")
@@ -278,20 +295,29 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	defer c.lock.Unlock()
 
 	patch, err := c.makeChangeRevisionPatch(ctx, logCtx, a)
-	if err != nil {
-		logCtx.Errorf("Failed to make change revision patch: %v", err)
-	} else {
+	if err == nil {
 		if patch == nil {
 			logCtx.Infof("no need to patch the application")
+			status = "up-to-date"
 			return nil
 		}
 		err = c.annotateApplication(ctx, logCtx, a, patch)
-		if err != nil {
-			logCtx.Errorf("Failed to patch application: %v", err)
-		} else {
+		if err == nil {
 			logCtx.Infof("Successfully patched the application")
+			status = "updated"
+		} else {
+			logCtx.Errorf("Failed to patch application: %v", err)
+			status = "patch-error"
+		}
+	} else 	{
+		logCtx.Errorf("Failed to make change revision patch: %v", err)
+		if isTimeout(err) {
+			status = "timeout"
+		} else {
+			status = "error"
 		}
 	}
+	logCtx.Debugf("reconciliation status %s", status)
 	return err
 }
 
