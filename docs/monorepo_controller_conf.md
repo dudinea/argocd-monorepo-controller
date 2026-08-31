@@ -32,6 +32,8 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --context                               | string      |                                              | The name of the kubeconfig context to use                    |
 | --disable-compression                   |             |                                              | If true, opt-out of response compression for all requests to |
 |                                         |             |                                              | the server                                                   |
+| --event-handling-timeout-seconds        | int         | MONOREPO_CONTROLLER_EVENT_HANDLING_TIMEOUT_SECONDS   | Context deadline for processing a single application event   |
+|                                         |             |                                              | (e.g., 2m, 30s, 1h) (default "2m")                           |
 | --gloglevel                             | int         |                                              | Set the glog logging level                                   |
 | --help -h,                              |             |                                              | help for argocd-monorepo-controller                          |
 | --insecure-skip-tls-verify              |             |                                              | If true, the server's certificate will not be checked for    |

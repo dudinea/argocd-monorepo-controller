@@ -282,13 +282,15 @@ func isTimeout(err error) bool {
 
 
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
+	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
 	startTime := time.Now()
 	var status string
 	defer func() {
 		reconcileDuration := time.Since(startTime)
+		logCtx.Infof("reconciliation status %q, duration was %v", status, reconcileDuration)
 		c.metricsServer.IncReconcile(a, status, reconcileDuration)
 	}()
-	logCtx := log.WithFields(log.Fields{"application": a.Name, "appNamespace": a.Namespace})
+
 	logCtx.Infof("ChangeRevision called")
 
 	c.lock.Lock()
@@ -317,7 +319,6 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 			status = "error"
 		}
 	}
-	logCtx.Debugf("reconciliation status %s", status)
 	return err
 }
 
