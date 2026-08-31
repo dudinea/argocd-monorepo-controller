@@ -1386,7 +1386,7 @@ func TestKeyedAppQueue_GaugeSetterInitial(t *testing.T) {
 
 	// Set gauge - should report current length
 	queue.SetLengthGauge(gauge)
-	assert.Equal(t, float64(3), gauge.lastValue)
+	assert.InDelta(t, float64(3), gauge.lastValue, 0)
 }
 
 func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
@@ -1395,14 +1395,14 @@ func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
 	queue.SetLengthGauge(gauge)
 
 	// Start with empty
-	assert.Equal(t, float64(0), gauge.lastValue)
+	assert.InDelta(t, float64(0), gauge.lastValue, 0)
 
 	// Enqueue 2 items
 	queue.Enqueue(createTestApplication("ns", "app-1"))
-	assert.Equal(t, float64(1), gauge.lastValue)
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
 
 	queue.Enqueue(createTestApplication("ns", "app-2"))
-	assert.Equal(t, float64(2), gauge.lastValue)
+	assert.InDelta(t, float64(2), gauge.lastValue, 0)
 
 	// Dequeue 1 item
 	done := make(chan struct{})
@@ -1413,7 +1413,7 @@ func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, float64(1), gauge.lastValue)
+		assert.InDelta(t, float64(1), gauge.lastValue, 0)
 	case <-time.After(2 * time.Second):
 		t.Fatal("dequeue timed out")
 	}
@@ -1427,7 +1427,7 @@ func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.Equal(t, float64(0), gauge.lastValue)
+		assert.InDelta(t, float64(0), gauge.lastValue, 0)
 	case <-time.After(2 * time.Second):
 		t.Fatal("dequeue timed out")
 	}

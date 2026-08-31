@@ -20,11 +20,11 @@ type gaugeSetter interface {
 }
 
 type KeyedAppQueue struct {
-	mu           sync.RWMutex
-	items        *list.List
-	keyMap       map[string]*list.Element
-	notEmpty     *sync.Cond
-	lengthGauge  gaugeSetter
+	mu          sync.RWMutex
+	items       *list.List
+	keyMap      map[string]*list.Element
+	notEmpty    *sync.Cond
+	lengthGauge gaugeSetter
 }
 
 func NewKeyedAppQueue() *KeyedAppQueue {
