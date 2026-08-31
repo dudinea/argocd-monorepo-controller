@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       backend: ${{ steps.filter.outputs.backend_any_changed }}
       frontend: ${{ steps.filter.outputs.frontend_any_changed }}
@@ -52,7 +52,7 @@ jobs:
   check-go:
     name: Ensure Go modules synchronicity
     if: ${{ needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - changes
     steps:
@@ -73,7 +73,7 @@ jobs:
   build-go:
     name: Build & cache Go code
     if: ${{ needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - changes
     steps:
@@ -100,7 +100,7 @@ jobs:
       pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
     name: Lint Go code
     if: ${{ needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - changes
     steps:
@@ -120,7 +120,7 @@ jobs:
   test-go:
     name: Run unit tests for Go packages
     if: ${{ needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build-go
       - changes
@@ -186,7 +186,7 @@ jobs:
     # Temporarily disabled until all tests are fixed
     #if: ${{ needs.changes.outputs.backend == 'true' }}
     if: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build-go
       - changes
@@ -250,7 +250,7 @@ jobs:
   codegen:
     name: Check changes to generated code
     if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.docs == 'true'}}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - changes
     steps:
@@ -312,7 +312,7 @@ jobs:
     # if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' }}
     # disable untill all the tests are fixed
     #if: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - test-go
       - changes
@@ -379,7 +379,7 @@ jobs:
     #if: ${{ needs.changes.outputs.backend == 'true' }}
     # Temporarily disable until e2e tests are fixed
     if: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -524,7 +524,7 @@ jobs:
     needs:
       - test-e2e
       - changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - run: |
           result="${{ needs.test-e2e.result }}"

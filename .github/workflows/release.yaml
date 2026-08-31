@@ -55,7 +55,7 @@ jobs:
       contents: write # used for uploading assets
     if: github.repository == 'argoproj-labs/argocd-monorepo-controller'
     #if: github.repository == 'argoproj/argo-cd'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
 
@@ -144,7 +144,7 @@ jobs:
     outputs:
       hashes: ${{ steps.sbom-hash.outputs.hashes}}
     if: github.repository == 'argoproj/argo-cd'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@8410ad0602e1e429cee44a835ae9f77f654a6694 # v4.0.0
@@ -228,7 +228,7 @@ jobs:
       contents: write # Needed to push commit to update stable tag
       pull-requests: write # Needed to create PR for VERSION update.
     if: github.repository == 'argoproj/argo-cd'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@8410ad0602e1e429cee44a835ae9f77f654a6694 # v4.0.0
