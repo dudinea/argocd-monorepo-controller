@@ -22,7 +22,6 @@ func WithDiffTreeCache(cache diffTreeCache) ClientOpts {
 	}
 }
 
-
 type listRevisionsCache interface {
 	GetListRevisions(repoURL, previousRevision, targetRevision string) ([]string, error)
 	SetListRevisions(repoURL, previousRevision, targetRevision string, revisions []string) error
@@ -33,9 +32,8 @@ type diffTreeCache interface {
 	SetDiffTree(repoURL, revision string, files []string) error
 }
 
-
 func (m *nativeGitClient) ListRevisions(revision string, targetRevision string) ([]string, error) {
-	cached  := false
+	cached := false
 	var err error
 	if revision == "" {
 		return []string{targetRevision}, nil
@@ -86,7 +84,7 @@ func (m *nativeGitClient) ListRevisions(revision string, targetRevision string) 
 }
 
 func (m *nativeGitClient) DiffTree(targetRevision string) ([]string, error) {
-	cached  := false
+	cached := false
 	var err error
 
 	if !IsCommitSHA(targetRevision) {

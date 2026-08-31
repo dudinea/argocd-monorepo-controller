@@ -101,7 +101,7 @@ func NewMetricsServer() *MetricsServer {
 			Name: "monorepo_git_request_total",
 			Help: "Number of git requests performed by repo server",
 		},
-		[]string{"repo", "request_type","cached","success"},
+		[]string{"repo", "request_type", "cached", "success"},
 	)
 	registry.MustRegister(gitRequestCounter)
 
@@ -109,9 +109,9 @@ func NewMetricsServer() *MetricsServer {
 		prometheus.HistogramOpts{
 			Name:    "monorepo_git_request_duration_seconds",
 			Help:    "Git requests duration seconds.",
-			Buckets: []float64{0.001,0.0025,0.005,0.01,0.025,0.05,0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
+			Buckets: []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
-		[]string{"repo", "request_type","cached","success"},
+		[]string{"repo", "request_type", "cached", "success"},
 	)
 	registry.MustRegister(gitRequestHistogram)
 
@@ -137,7 +137,7 @@ func NewMetricsServer() *MetricsServer {
 		prometheus.HistogramOpts{
 			Name:    "monorepo_redis_request_duration_seconds",
 			Help:    "Redis requests duration seconds.",
-			Buckets: []float64{0.001,0.0025,0.005,0.01,0.025,0.05,0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
+			Buckets: []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8, 16},
 		},
 		[]string{"initiator"},
 	)
@@ -189,7 +189,7 @@ func (m *MetricsServer) IncPendingRepoRequest(repo string) {
 	m.repoPendingRequestsGauge.WithLabelValues(repo).Inc()
 }
 
-func (m *MetricsServer) ObserveGitRequestDuration(repo string, requestType GitRequestType, cached, success bool,duration time.Duration) {
+func (m *MetricsServer) ObserveGitRequestDuration(repo string, requestType GitRequestType, cached, success bool, duration time.Duration) {
 	m.gitRequestHistogram.WithLabelValues(repo, string(requestType), strconv.FormatBool(cached), strconv.FormatBool(success)).Observe(duration.Seconds())
 }
 
@@ -212,5 +212,3 @@ func (m *MetricsServer) IncGetChangeRevisionRequest(repo string, failed bool, ap
 func (m *MetricsServer) ObserveGetChangeRevisionRequestDuration(duration time.Duration, repo string, app string, namespace string) {
 	m.getChangeRevisionRequestHistogram.WithLabelValues(repo, app, namespace).Observe(duration.Seconds())
 }
-
-

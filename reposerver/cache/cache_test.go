@@ -848,7 +848,7 @@ func TestGetDiffTree(t *testing.T) {
 	t.Run("GetDiffTree cache miss", func(t *testing.T) {
 		fixtures := newFixtures()
 		t.Cleanup(fixtures.mockCache.StopRedisCallback)
-		revisions, err := fixtures.cache.GetDiffTree("test-repo", "unknown-rev",)
+		revisions, err := fixtures.cache.GetDiffTree("test-repo", "unknown-rev")
 		require.ErrorIs(t, err, ErrCacheMiss)
 		assert.Empty(t, revisions)
 		fixtures.mockCache.AssertCacheCalledTimes(t, &mocks.CacheCallCounts{ExternalGets: 1})
@@ -859,7 +859,7 @@ func TestGetDiffTree(t *testing.T) {
 		t.Cleanup(fixtures.mockCache.StopRedisCallback)
 		cache := fixtures.cache
 		expectedFiles := []string{"/f1", "/f2", "/f3"}
-		err := cache.SetDiffTree("test-repo", "some-rev",expectedFiles)
+		err := cache.SetDiffTree("test-repo", "some-rev", expectedFiles)
 		require.NoError(t, err)
 		files, err := cache.GetDiffTree("test-repo", "some-rev")
 		require.NoError(t, err)
@@ -872,7 +872,7 @@ func TestGetDiffTree(t *testing.T) {
 		t.Cleanup(fixtures.mockCache.StopRedisCallback)
 		cache := fixtures.cache
 		expectedFiles := []string{}
-		err := cache.SetDiffTree("test-repo", "some-rev-2",expectedFiles)
+		err := cache.SetDiffTree("test-repo", "some-rev-2", expectedFiles)
 		require.NoError(t, err)
 		files, err := cache.GetDiffTree("test-repo", "some-rev-2")
 		require.NoError(t, err)
