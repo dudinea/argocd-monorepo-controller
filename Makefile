@@ -514,6 +514,11 @@ update-helm-docs-local:
 	cd helm && ../hack/helm-docs.sh && cp -v README.md ../docs/helm.md
 
 
+.PHONY: publish-helm-local
+publish-helm-local:
+	mkdir -p site && cd helm && helm package . -d ../site && helm push ../site/argocd-monorepo-controller-v$(VERSION).tgz $(HELM_CHART_REPO)
+
+
 .PHONY: build-docs-local
 build-docs-local:
 	mkdocs build
