@@ -205,7 +205,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: log.format.timestamp
-              name: argocd-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               optional: true
         - name: MONOREPO_CONTROLLER_METRICS_CACHE_EXPIRATION
           valueFrom:

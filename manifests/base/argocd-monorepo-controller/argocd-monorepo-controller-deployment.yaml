@@ -42,7 +42,7 @@ spec:
         - name: ARGOCD_LOG_FORMAT_TIMESTAMP
           valueFrom:
             configMapKeyRef:
-              name: argocd-cmd-params-cm
+              name: argocd-monorepo-cmd-params-cm
               key: log.format.timestamp
               optional: true
         # Metrics configuration

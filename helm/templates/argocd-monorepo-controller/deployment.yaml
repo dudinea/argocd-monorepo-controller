@@ -86,7 +86,7 @@ spec:
           - name: ARGOCD_LOG_FORMAT_TIMESTAMP
             valueFrom:
               configMapKeyRef:
-                name: argocd-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: log.format.timestamp
                 optional: true
           # Metrics configuration
@@ -139,6 +139,12 @@ spec:
                 key: controller.event.handling.timeout.seconds
                 name: argocd-monorepo-cmd-params-cm
                 optional: true
+          - name: MONOREPO_CONTROLLER_WORKERS
+            valueFrom:
+               configMapKeyRef:
+                 key: controller.workers
+                 name: argocd-monorepo-cmd-params-cm
+                 optional: true
         {{- with .Values.controller.envFrom }}
         envFrom:
           {{- toYaml . | nindent 10 }}

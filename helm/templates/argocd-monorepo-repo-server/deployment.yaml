@@ -101,7 +101,7 @@ spec:
           - name: ARGOCD_LOG_FORMAT_TIMESTAMP
             valueFrom:
               configMapKeyRef:
-                name: argocd-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: log.format.timestamp
                 optional: true
           - name: ARGOCD_REPO_SERVER_PARALLELISM_LIMIT
@@ -119,7 +119,7 @@ spec:
           - name: ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS
             valueFrom:
               configMapKeyRef:
-                name: argocd-cmd-params-cm
+                name: argocd-monorepo-cmd-params-cm
                 key: reposerver.metrics.listen.address
                 optional: true
           - name: ARGOCD_REPO_SERVER_DISABLE_TLS
