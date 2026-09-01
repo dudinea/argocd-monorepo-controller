@@ -895,3 +895,7 @@ redisSecretInit:
     # @default -- `""` (defaults to global.image.imagePullPolicy)
     imagePullPolicy: "" # IfNotPresent
 
+redis:
+  name:
+    # same default as in the Argo CD chart
+    redis
