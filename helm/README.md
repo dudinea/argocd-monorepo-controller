@@ -18,7 +18,6 @@ Kubernetes: `>=1.25.0-0`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| configs.params."controller.event.handling.timeout.seconds" | string | `"120"` |  |
 | configs.params.annotations | object | `{}` | Annotations to be added to the argocd-cmd-params-cm ConfigMap |
 | configs.params.create | bool | `true` | Create the argocd-cmd-params-cm configmap If false, it is expected the configmap will be created by something else. |
 | controller.affinity | object | `{}` (defaults to global.affinity preset) | Assign custom [affinity] rules to the deployment |
@@ -137,6 +136,7 @@ Kubernetes: `>=1.25.0-0`
 | global.topologySpreadConstraints | list | `[]` | Default [TopologySpreadConstraints] rules for all components |
 | nameOverride | string | `"argocd"` | Provide a name in place of `argocd` |
 | openshift.enabled | bool | `false` | enables using arbitrary uid for argocd monorepo repo server |
+| redis.name | string | `"redis"` | Redis name, should be same as in the Argo CD chart |
 | redisSecretInit.enabled | bool | `true` | Enable Redis secret initialization. If disabled, secret must be provisioned by alternative methods |
 | redisSecretInit.image.imagePullPolicy | string | `""` (defaults to global.image.imagePullPolicy) | Image pull policy for the Redis secret-init Job |
 | redisSecretInit.image.repository | string | `""` (defaults to global.image.repository) | Repository to use for the Redis secret-init Job |

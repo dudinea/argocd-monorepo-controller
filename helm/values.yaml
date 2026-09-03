@@ -154,9 +154,7 @@ configs:
 
     # You can customize parameters by adding parameters here.
     # (e.g.)
-    controller.event.handling.timeout.seconds: "120"
-    # otlp.address: ''
-
+    # controller.event.handling.timeout.seconds: "120"
 
 # cleanup fixme
 server:
@@ -896,6 +894,5 @@ redisSecretInit:
     imagePullPolicy: "" # IfNotPresent
 
 redis:
-  name:
-    # same default as in the Argo CD chart
-    redis
+  # -- Redis name, should be same as in the Argo CD chart
+  name: redis
