@@ -1,6 +1,6 @@
 # argocd-monorepo-controller
 
-![Version: v0.0.6](https://img.shields.io/badge/Version-v0.0.6-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: v0.0.7-rc1](https://img.shields.io/badge/Version-v0.0.7--rc1-informational?style=flat-square) ![AppVersion: v0.0.7-rc1](https://img.shields.io/badge/AppVersion-v0.0.7--rc1-informational?style=flat-square)
 
 A Helm chart for Argocd Monorepo Controller, an ArgoCD addon that accurately tracks last commits that actually changed the application
 
@@ -137,6 +137,7 @@ Kubernetes: `>=1.25.0-0`
 | global.topologySpreadConstraints | list | `[]` | Default [TopologySpreadConstraints] rules for all components |
 | nameOverride | string | `"argocd"` | Provide a name in place of `argocd` |
 | openshift.enabled | bool | `false` | enables using arbitrary uid for argocd monorepo repo server |
+| redis.name | string | `"redis"` |  |
 | redisSecretInit.enabled | bool | `true` | Enable Redis secret initialization. If disabled, secret must be provisioned by alternative methods |
 | redisSecretInit.image.imagePullPolicy | string | `""` (defaults to global.image.imagePullPolicy) | Image pull policy for the Redis secret-init Job |
 | redisSecretInit.image.repository | string | `""` (defaults to global.image.repository) | Repository to use for the Redis secret-init Job |

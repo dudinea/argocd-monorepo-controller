@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.0.7 (2026-09-01)
+
+### Other
+
+- Add prepare release script to update version tag in Helm Chart, Kustomize manifests and other places
+
+
 ## v0.0.6 (2026-09-01)
 
 ### Features
