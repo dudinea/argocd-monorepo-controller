@@ -6,6 +6,7 @@ components, are configured using the `argocd-monorepo-cmd-params-cm` configmap.
 
 | Key                                       | Default                           | Description                                                        |
 |-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
+| controller.event.handling.timeout.seconds | "120"                             | Context deadline for processing a single application event         |
 | controller.log.level                      | "info"                            | Monorepo Controller log level                                      |
 | controller.log.format                     | "text"                            | Monorepo Controller log format (text or json)                      |
 | controller.metrics.cache.expiration       | disabled by default               | Prometheus metrics cache expiration                                |
@@ -15,14 +16,14 @@ components, are configured using the `argocd-monorepo-cmd-params-cm` configmap.
 | controller.repo.server.plaintext          | "false"                           | Use a non-TLS client to connect to repository  server              |
 | controller.repo.server.strict.tls         | "false"                           | Perform strict validation of monorepo repo server TLS certificates |
 | controller.repo.server.timeout.seconds    | "120"                             | Repo server RPC call timeout seconds.                              |
-| controller.event.handling.timeout.seconds | "120"                             | Context deadline for processing a single application event         |
+| controller.workers                        | "3"                               | Number of workers processing application events                    |
 | reposerver.log.level                      | "info"                            | Monorepo Controller log level                                      |
 | reposerver.log.format                     | "text"                            | Monorepo Repo Server log format (text or json)                     |
 | reposerver.parallelism.limit              | "0" - no limit                    | Limit on number of concurrent manifests generate requests.         |
 | reposerver.listen.address                 | "0.0.0.0"                         | Repo Server will listen on given address for incoming connections  |
+| reposerver.use.list.rev.cache             | "true"                            | Enable List Revisions requests cache                               | 
+| reposerver.use.diff.tree.cache            | "true"                            | Enable Diff Tree requests cache                                    |
 |-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
-
-
 
 The following parameters reuse ArgoCD configuration from ConfigMaps:
 
