@@ -75,7 +75,7 @@ and released together with the Monorepo Controller.
 In simple cases it can be installed with the command:
 
 ```shell
-helm install <RELEASE-NAME> --namespace argocd "quay.io/eugened/argocd-monorepo-controller:<VERSION>"
+helm install <RELEASE-NAME> --namespace argocd "oci://quay.io/eugened/argocd-monorepo-controller:<VERSION>"
 ```
 
 * `<RELEASE-NAME>` - user selected release name
