@@ -25,6 +25,7 @@ echo "VERSION=$VERSION"
 #RELEASE_BRANCH="${NEW_TAG%\.[0-9]*}"
 #RELEASE_BRANCH="release-${RELEASE_BRANCH#*v}"
 RELEASE_BRANCH="release-${VERSION}"
+RELEASE_BRANCH=$(echo $RELEASE_BRANCH | sed -e "s/-rc[0-9]$//g")
 
 currentBranch=$(git branch --show-current)
 if test "$currentBranch" != "${RELEASE_BRANCH}"; then
