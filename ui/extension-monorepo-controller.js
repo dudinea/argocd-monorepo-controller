@@ -1,7 +1,12 @@
 // Argo CD UI extension for the Monorepo Controller.
 //
 // Adds an item to the Application status panel showing the application's
-// Change Revision.
+// Change Revision: the commit that actually changed the manifests the
+// application generates, as opposed to the latest commit in the repository.
+// Multi source applications get one row per source.
+//
+// The values are read from the annotations the controller maintains, which the
+// UI already has as part of the Application object, so this needs no backend.
 //
 // This file is served by argocd-server as part of /extensions.js: every file
 // under /tmp/extensions whose name matches ^extension(.*)\.js$ is concatenated
@@ -13,9 +18,7 @@
 //   * a failure here is only visible in the browser console as
 //     "Extension extension-monorepo-controller.js failed to load: ...".
 //
-// WIP: this is a proof of concept, it renders a fixed string. Reading the
-// actual value from the mrp-controller.argoproj.io/change-revision(s)
-// annotations comes next.
+// ui/dev/render-test.js exercises the rendering, run it with "make test-ui-local".
 
 ((window) => {
     const extensionsAPI = window.extensionsAPI;
@@ -33,6 +36,12 @@
     const TITLE = 'Change Revision';
     const ID = 'monorepo_change_revision';
 
+    const CHANGE_REVISION_ANN = 'mrp-controller.argoproj.io/change-revision';
+    const CHANGE_REVISIONS_ANN = 'mrp-controller.argoproj.io/change-revisions';
+
+    const UNKNOWN_REVISION = '—';
+    const UNKNOWN_REVISION_TITLE = 'No change revision has been calculated for this source yet';
+
     // Argo CD styles the status panel item labels inline (see sectionLabel() in
     // application-status-panel.tsx), so there is no class to reuse for them.
     // #6d7f8b is argo-ui's ARGO_GRAY6_COLOR.
@@ -45,15 +54,170 @@
         minHeight: '18px'
     };
 
-    // The status panel renders extensions without any wrapper markup, so the
-    // component has to provide the application-status-panel__item block itself.
-    const ChangeRevisionPanelItem = () =>
+    const rowsStyle = {
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        columnGap: '0.5em',
+        alignItems: 'baseline'
+    };
+
+    // The status panel is narrow, so source names are truncated rather than
+    // allowed to wrap. The full repository URL is available as a tooltip.
+    const sourceNameStyle = {
+        color: '#6d7f8b',
+        maxWidth: '10em',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+    };
+
+    const revisionStyle = {fontFamily: 'monospace'};
+
+    // The controller writes one entry per source, in spec.sources order, and
+    // falls back to spec.source for single source applications. Note that an
+    // application with a single entry under spec.sources is handled by the
+    // controller's multi source code path, so the length of spec.sources is not
+    // a reliable way to tell the two apart - only its presence is.
+    const getSources = (application) => {
+        const spec = (application && application.spec) || {};
+        if (Array.isArray(spec.sources) && spec.sources.length > 0) {
+            return spec.sources;
+        }
+        if (spec.source) {
+            return [spec.source];
+        }
+        return [];
+    };
+
+    // Returns the change revisions as an array, or null when the application
+    // carries no change revision annotation at all. Tolerant of hand edited
+    // values: anything that is not a JSON array of strings falls back to the
+    // singular annotation, and non string elements become empty.
+    const getChangeRevisions = (application) => {
+        const annotations = (application && application.metadata && application.metadata.annotations) || {};
+
+        const revisions = annotations[CHANGE_REVISIONS_ANN];
+        if (typeof revisions === 'string') {
+            let parsed;
+            try {
+                parsed = JSON.parse(revisions);
+            } catch (e) {
+                parsed = null;
+            }
+            if (Array.isArray(parsed)) {
+                return parsed.map((revision) => (typeof revision === 'string' ? revision : ''));
+            }
+        }
+
+        const revision = annotations[CHANGE_REVISION_ANN];
+        if (typeof revision === 'string') {
+            return [revision];
+        }
+
+        return null;
+    };
+
+    // The annotation value is not always a commit SHA: it can be a branch name,
+    // a tag, an unresolved short revision or, for Helm repository sources, a
+    // chart version. Only abbreviate what is certainly a full SHA.
+    const isFullSHA = (revision) => /^[0-9a-f]{40}$/.test(revision);
+
+    // Helm repository sources hold a chart version instead of a commit, and
+    // nothing in the value itself says so - only source.chart does. When the row
+    // has no name column of its own the chart name is prefixed to the version to
+    // give it context, otherwise the name column already carries it.
+    const formatRevision = (revision, source, withChartName) => {
+        if (!revision) {
+            return UNKNOWN_REVISION;
+        }
+        if (source && source.chart) {
+            return withChartName ? source.chart + ':' + revision : revision;
+        }
+        if (isFullSHA(revision)) {
+            return revision.substring(0, 7);
+        }
+        return revision;
+    };
+
+    const sourceName = (source, index) => {
+        if (source && source.name) {
+            return source.name;
+        }
+        // For a chart source the chart name identifies it far better than the
+        // Helm repository host does.
+        if (source && source.chart) {
+            return source.chart;
+        }
+        const repoURL = source && source.repoURL;
+        if (repoURL) {
+            const trimmed = repoURL.replace(/\/+$/, '').replace(/\.git$/, '');
+            let name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+            // scp style URLs such as git@host:repo.git have no slash to split on
+            if (name.indexOf(':') >= 0) {
+                name = name.substring(name.lastIndexOf(':') + 1);
+            }
+            if (name) {
+                return name;
+            }
+        }
+        return 'source ' + index;
+    };
+
+    const revisionElement = (revision, source, withChartName, key) =>
         React.createElement(
             'div',
-            {className: 'application-status-panel__item'},
-            React.createElement('label', {style: labelStyle}, 'CHANGE REVISION'),
-            React.createElement('div', {className: 'application-status-panel__item-value'}, 'monorepo controller POC')
+            {key: key, style: revisionStyle, title: revision || UNKNOWN_REVISION_TITLE},
+            formatRevision(revision, source, withChartName)
         );
+
+    const sourceNameElement = (source, index) =>
+        React.createElement(
+            'div',
+            {key: 'name-' + index, style: sourceNameStyle, title: (source && source.repoURL) || undefined},
+            sourceName(source, index)
+        );
+
+    // The status panel renders extensions without any wrapper markup, so the
+    // component has to provide the application-status-panel__item block itself.
+    const ChangeRevisionPanelItem = (props) => {
+        const application = props && props.application;
+
+        const revisions = getChangeRevisions(application);
+        // Only applications the controller tracks carry the annotations. For
+        // everything else the item is left out entirely rather than showing a
+        // placeholder, so the panel stays clean in mixed installations.
+        if (!revisions || revisions.length === 0) {
+            return null;
+        }
+
+        const sources = getSources(application);
+        // The two are index aligned. They can only disagree in length if the
+        // annotation was edited by hand; render what both cover and ignore the
+        // rest, throwing here would blank the whole status panel.
+        const rowCount = sources.length > 0 ? Math.min(revisions.length, sources.length) : revisions.length;
+        if (rowCount === 0) {
+            return null;
+        }
+
+        let value;
+        if (rowCount === 1) {
+            value = revisionElement(revisions[0], sources[0], true);
+        } else {
+            const rows = [];
+            for (let i = 0; i < rowCount; i++) {
+                rows.push(sourceNameElement(sources[i], i));
+                rows.push(revisionElement(revisions[i], sources[i], false, 'revision-' + i));
+            }
+            value = React.createElement('div', {style: rowsStyle}, rows);
+        }
+
+        return React.createElement(
+            'div',
+            {className: 'application-status-panel__item'},
+            React.createElement('label', {style: labelStyle}, rowCount > 1 ? 'CHANGE REVISIONS' : 'CHANGE REVISION'),
+            React.createElement('div', {className: 'application-status-panel__item-value'}, value)
+        );
+    };
 
     extensionsAPI.registerStatusPanelExtension(ChangeRevisionPanelItem, TITLE, ID);
 })(window);

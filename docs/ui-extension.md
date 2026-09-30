@@ -4,11 +4,36 @@ The Monorepo Controller ships an [Argo CD UI extension](https://argo-cd.readthed
 that adds a **Change Revision** item to the Application status panel, the bar at
 the top of the application view where the sync status is shown.
 
-!!! warning "Work in progress"
-    The extension is currently a proof of concept: the panel item renders a
-    fixed string. Displaying the actual [Change Revision](terminology.md#change-revision)
-    of the application, and one entry per source for multi source applications,
-    is the next step.
+It saves looking the value up with `kubectl`: the panel shows the commit that
+actually changed the application's manifests, next to the repository revision
+Argo CD displays under **Sync Status**.
+
+## What is displayed
+
+The item shows the [Change Revision](terminology.md#change-revision) from the
+`mrp-controller.argoproj.io/change-revision(s)` annotations:
+
+* **Single source applications**: the change revision, abbreviated to seven
+  characters when it is a full commit SHA. Hover over it to see the full value.
+* **Multi source applications**: one row per source, in the order the sources are
+  declared in the application, each labelled with the source `name` if it has one
+  and with the repository name otherwise.
+* **Helm repository sources**: the chart version instead of a commit, since that
+  is what the controller records for them.
+* Values that are not commit SHAs, such as a branch name or a tag, are shown
+  as they are.
+* A source whose change revision has not been calculated yet shows as
+  `—`. This is normal for an application that has not been synced yet.
+
+The item is **not shown at all** for applications the controller does not track:
+
+* Applications without the `argocd.argoproj.io/manifest-generate-paths`
+  annotation, which the controller skips entirely.
+* Applications managed by an ApplicationSet, unless the four
+  `mrp-controller.argoproj.io/*` annotations are listed in
+  `applicationsetcontroller.global.preserved.annotations`, otherwise the
+  ApplicationSet controller removes them. See
+  [ApplicationSet controller configuration](applicationsets.md).
 
 ## How it works
 
@@ -45,6 +70,14 @@ make uninstall-ui-extension-local
 
 Both targets are wrappers around `ui/dev/install-extension.sh`, run it with `-h`
 for the available options.
+
+The rendering logic has a dependency free test harness that runs the extension
+against a stub React and a set of application fixtures, including the multi
+source and Helm chart cases that are awkward to reproduce in a cluster:
+
+```bash
+make test-ui-local
+```
 
 !!! note
     This patches the `argocd-server` Deployment, which belongs to the Argo CD

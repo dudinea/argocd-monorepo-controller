@@ -96,6 +96,13 @@ install_extension() {
     kubectl -n "${NAMESPACE}" patch deployment "${DEPLOYMENT_NAME}" \
         --patch-file "${PATCH_FILE}"
 
+    # Restart unconditionally. On a reinstall the patch is a no-op, and the
+    # kubelet only refreshes an already mounted ConfigMap after its sync period,
+    # so without this argocd-server would keep serving the previous version of
+    # the extension for up to a minute.
+    echo "==> restarting ${DEPLOYMENT_NAME} to pick up the extension"
+    kubectl -n "${NAMESPACE}" rollout restart "deployment/${DEPLOYMENT_NAME}"
+
     echo "==> waiting for ${DEPLOYMENT_NAME} to roll out"
     kubectl -n "${NAMESPACE}" rollout status "deployment/${DEPLOYMENT_NAME}"
 

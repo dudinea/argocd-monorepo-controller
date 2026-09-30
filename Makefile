@@ -487,6 +487,11 @@ run:
 	bash ./hack/goreman-start.sh
 
 
+# Tests the rendering logic of the UI extension. Requires node.
+.PHONY: test-ui-local
+test-ui-local:
+	node ui/dev/render-test.js
+
 # Installs the UI extension into the Argo CD installation in the current cluster.
 # Set ARGOCD_NAMESPACE to use a namespace other than "argocd".
 .PHONY: install-ui-extension-local
