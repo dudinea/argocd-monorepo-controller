@@ -25,6 +25,7 @@ nav:
     - "Monorepo Repo Server Configuration": monorepo_repo_server_conf.md
     - Notifications: notifications.md
     - "Metrics": metrics.md
+- "UI Extension": ui-extension.md
 - Acknowledgements: acknowledgements.md
   
 - Releases ⧉: https://github.com/argoproj-labs/argocd-monorepo-controller/releases

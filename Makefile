@@ -487,6 +487,18 @@ run:
 	bash ./hack/goreman-start.sh
 
 
+# Installs the UI extension into the Argo CD installation in the current cluster.
+# Set ARGOCD_NAMESPACE to use a namespace other than "argocd".
+.PHONY: install-ui-extension-local
+install-ui-extension-local:
+	./ui/dev/install-extension.sh
+
+# Removes the UI extension from the Argo CD installation in the current cluster.
+.PHONY: uninstall-ui-extension-local
+uninstall-ui-extension-local:
+	./ui/dev/install-extension.sh -u
+
+
 # Runs pre-commit validation with the virtualized toolchain
 .PHONY: pre-commit
 pre-commit: codegen build lint test
