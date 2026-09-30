@@ -33,6 +33,14 @@
         return;
     }
 
+    // Used to render tooltips into document.body, the way argo-ui does. Older Argo
+    // CD versions may not expose it, in which case tooltips fall back to the
+    // native title attribute.
+    const ReactDOM = window.ReactDOM;
+    const canRenderPopup = !!(
+        ReactDOM && ReactDOM.createPortal && React.useState && React.useRef && window.document && window.document.body
+    );
+
     const TITLE = 'Change Revision';
     const ID = 'monorepo_change_revision';
 
@@ -79,19 +87,105 @@
 
     const revisionStyle = {fontFamily: 'monospace'};
 
+    // Argo CD renders its tooltips with tippy.js 5 using its light theme, and both
+    // stylesheets are part of the UI bundle, so they apply to any markup that uses
+    // tippy's class names. Reproducing that markup therefore gives exactly the built
+    // in font, background, colour and shadow - and keeps matching if Argo CD
+    // restyles them - without being able to import tippy itself.
+    const TOOLTIP_MAX_WIDTH = 350; // tippy's own default
+    const TOOLTIP_GAP = 8; // leaves room for the arrow, which overhangs by 7px
+
+    const tooltipPopup = (content, anchor) => {
+        // tippy flips the tooltip below the target when it does not fit above
+        const below = anchor.top < 80;
+        const placement = below ? 'bottom' : 'top';
+        return React.createElement(
+            'div',
+            {
+                className: 'tippy-popper',
+                'data-placement': placement,
+                style: {
+                    position: 'fixed',
+                    left: Math.round(anchor.left + anchor.width / 2),
+                    top: Math.round(below ? anchor.bottom + TOOLTIP_GAP : anchor.top - TOOLTIP_GAP),
+                    transform: below ? 'translateX(-50%)' : 'translate(-50%, -100%)',
+                    zIndex: 1000
+                }
+            },
+            React.createElement(
+                'div',
+                {
+                    className: 'tippy-tooltip light-theme',
+                    'data-placement': placement,
+                    'data-state': 'visible',
+                    style: {maxWidth: TOOLTIP_MAX_WIDTH + 'px', textAlign: 'left'}
+                },
+                // the stylesheet only gives the arrow its shape and colour, tippy
+                // places it with inline styles
+                React.createElement('div', {className: 'tippy-arrow', style: {left: '50%', marginLeft: '-8px'}}),
+                React.createElement('div', {className: 'tippy-content'}, content)
+            )
+        );
+    };
+
+    const PopupTooltip = (props) => {
+        const [anchor, setAnchor] = React.useState(null);
+        const trigger = React.useRef(null);
+
+        const hide = () => setAnchor(null);
+        const show = () => {
+            const node = trigger.current;
+            if (!node || !node.getBoundingClientRect) {
+                return;
+            }
+            const rect = node.getBoundingClientRect();
+            setAnchor({left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width});
+        };
+
+        // A fixed position popup would otherwise be left behind by a scroll
+        React.useEffect(() => {
+            if (!anchor) {
+                return undefined;
+            }
+            window.addEventListener('scroll', hide, true);
+            window.addEventListener('resize', hide);
+            return () => {
+                window.removeEventListener('scroll', hide, true);
+                window.removeEventListener('resize', hide);
+            };
+        }, [anchor]);
+
+        const target = React.cloneElement(props.children, {ref: trigger, onMouseEnter: show, onMouseLeave: hide});
+        if (!anchor) {
+            return target;
+        }
+        return React.createElement(
+            React.Fragment,
+            null,
+            target,
+            ReactDOM.createPortal(tooltipPopup(props.content, anchor), window.document.body)
+        );
+    };
+
+    const TitleTooltip = (props) => React.cloneElement(props.children, {title: props.text});
+
+    const Tooltip = canRenderPopup ? PopupTooltip : TitleTooltip;
+
     // Reproduces argo-ui's HelpIcon, which the built in panel items get through
-    // sectionLabel(). Its tooltip comes from argo-ui's Tooltip component, which
-    // an extension cannot import, so the native title attribute is used instead
-    // and the cursor signals that there is something to hover.
+    // sectionLabel(). The cursor signals that there is something to hover.
     const helpIcon = (text) =>
         React.createElement(
-            'span',
-            {style: {marginLeft: '5px', cursor: 'help'}, title: text},
+            Tooltip,
+            {content: text, text: text},
             React.createElement(
                 'span',
-                {style: {fontSize: 'smaller'}},
-                ' ',
-                React.createElement('i', {className: 'fa fa-question-circle help-tip'})
+                {style: {marginLeft: '5px', cursor: 'help'}},
+                React.createElement(
+                    'span',
+                    {style: {fontSize: 'smaller'}},
+                    ' ',
+                    React.createElement('i', {className: 'fa fa-question-circle help-tip'})
+                )
             )
         );
 
@@ -185,11 +279,19 @@
         return 'source ' + index;
     };
 
+    // The displayed revision is abbreviated and is not a link, so the full value is
+    // shown on hover, in the same tooltip style the built in panel items use.
     const revisionElement = (revision, source, withChartName, key) =>
         React.createElement(
-            'div',
-            {key: key, style: revisionStyle, title: revision || UNKNOWN_REVISION_TITLE},
-            formatRevision(revision, source, withChartName)
+            Tooltip,
+            {
+                key: key,
+                content: revision
+                    ? React.createElement('span', {style: revisionStyle}, revision)
+                    : UNKNOWN_REVISION_TITLE,
+                text: revision || UNKNOWN_REVISION_TITLE
+            },
+            React.createElement('div', {style: revisionStyle}, formatRevision(revision, source, withChartName))
         );
 
     const sourceNameElement = (source, index) =>
