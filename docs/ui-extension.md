@@ -35,6 +35,29 @@ The item is **not shown at all** for applications the controller does not track:
   ApplicationSet controller removes them. See
   [ApplicationSet controller configuration](applicationsets.md).
 
+## Commit details
+
+The item has an ellipsis button, like the built in ones. It opens a panel showing, for
+each application source:
+
+* the repository, path (or chart) and target revision,
+* the full change revision,
+* and that commit's author, date, tags, signature and message.
+
+The commit details are read from the Argo CD API, which enforces the same permission
+needed to view the application, so no extra RBAC configuration is required. If the
+request fails, for example because the session expired or the repository server cannot
+resolve the revision, the reason is shown in place of the commit details and the rest of
+the panel still renders.
+
+Helm repository sources show their chart version and are not looked up, since a chart
+version is not a commit.
+
+!!! note
+    The panel shows the details of the change revision itself, not the list of commits
+    between the previously known revision and it. The Argo CD API returns metadata for
+    one revision at a time and has no endpoint for a commit range.
+
 ## How it works
 
 The extension is a single JavaScript file, `ui/extension-monorepo-controller.js`.

@@ -301,6 +301,205 @@
             sourceName(source, index)
         );
 
+    // Argo CD serves its API relative to the page's base href, so it can live under
+    // a sub path. requests.ts does the same with toAbsURL('/api/v1'); hardcoding a
+    // leading slash here would break those installations.
+    const revisionMetadataURL = (application, revision, sourceIndex) => {
+        const metadata = application.metadata || {};
+        const url = new window.URL(
+            'api/v1/applications/' +
+                encodeURIComponent(metadata.name) +
+                '/revisions/' +
+                encodeURIComponent(revision) +
+                '/metadata',
+            window.document.baseURI
+        );
+        if (metadata.namespace) {
+            url.searchParams.set('appNamespace', metadata.namespace);
+        }
+        if (application.spec && application.spec.project) {
+            url.searchParams.set('project', application.spec.project);
+        }
+        // Zero based against the same source list the annotations are aligned with.
+        // The wrong index silently returns a commit from another repository.
+        url.searchParams.set('sourceIndex', String(sourceIndex));
+        // versionId is deliberately omitted so the server uses the live spec
+        return url.toString();
+    };
+
+    const errorText = (body, status) => {
+        if (body && typeof body === 'object') {
+            if (typeof body.error === 'string' && body.error) {
+                return body.error;
+            }
+            if (typeof body.message === 'string' && body.message) {
+                return body.message;
+            }
+        }
+        return 'request failed with status ' + status;
+    };
+
+    const fetchRevisionMetadata = (application, revision, sourceIndex) =>
+        window
+            .fetch(revisionMetadataURL(application, revision, sourceIndex), {
+                credentials: 'same-origin',
+                headers: {Accept: 'application/json'}
+            })
+            .then((response) =>
+                response
+                    .json()
+                    .catch(() => null)
+                    .then((body) => {
+                        if (!response.ok) {
+                            throw new Error(errorText(body, response.status));
+                        }
+                        return body || {};
+                    })
+            );
+
+    // Argo CD's own detail rows, used throughout its sliding panels
+    const detailRow = (label, value, key, valueStyle) =>
+        React.createElement(
+            'div',
+            {className: 'row white-box__details-row', key: key},
+            React.createElement('div', {className: 'columns small-3'}, label),
+            React.createElement('div', {className: 'columns small-9', style: valueStyle}, value)
+        );
+
+    const formatDate = (value) => {
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? value : date.toLocaleString();
+    };
+
+    const metadataRows = (result) => {
+        if (!result) {
+            return [];
+        }
+        if (result.state === 'loading') {
+            return [detailRow('Commit', 'Loading commit details...', 'loading')];
+        }
+        if (result.state === 'error') {
+            return [detailRow('Commit', result.error, 'error', {color: '#e96d76'})];
+        }
+
+        const metadata = result.data || {};
+        const rows = [];
+        if (metadata.author) {
+            const author = metadata.signatureInfo ? metadata.author + ' - ' + metadata.signatureInfo : metadata.author;
+            rows.push(detailRow('Author', author, 'author'));
+        }
+        if (metadata.date) {
+            rows.push(detailRow('Date', formatDate(metadata.date), 'date'));
+        }
+        if (metadata.tags && metadata.tags.length) {
+            rows.push(detailRow('Tags', metadata.tags.join(', '), 'tags'));
+        }
+        if (metadata.message) {
+            // there is room in the flyout, so the message is not truncated the way
+            // the built in RevisionMetadataPanel truncates it to 64 characters
+            rows.push(detailRow('Message', metadata.message, 'message', {whiteSpace: 'pre-wrap'}));
+        }
+        if (rows.length === 0) {
+            rows.push(detailRow('Commit', 'No commit details available', 'empty'));
+        }
+        return rows;
+    };
+
+    const sourceBox = (source, revision, result, index) => {
+        const rows = [];
+        if (source && source.repoURL) {
+            rows.push(detailRow('Repository', source.repoURL, 'repo'));
+        }
+        if (source && source.chart) {
+            rows.push(detailRow('Chart', source.chart, 'chart'));
+        } else if (source && source.path) {
+            rows.push(detailRow('Path', source.path, 'path'));
+        }
+        if (source && source.targetRevision) {
+            rows.push(detailRow('Target revision', source.targetRevision, 'target'));
+        }
+        rows.push(
+            detailRow('Change revision', revision || UNKNOWN_REVISION, 'revision', revision ? revisionStyle : undefined)
+        );
+        metadataRows(result).forEach((row) => rows.push(row));
+
+        return React.createElement(
+            'div',
+            {className: 'white-box', key: 'source-' + index, style: {marginBottom: '1em'}},
+            React.createElement('p', null, sourceName(source, index)),
+            React.createElement('div', {className: 'white-box__details'}, rows)
+        );
+    };
+
+    // Opened from the panel item's ellipsis button. Argo CD renders it inside a
+    // SlidingPanel and passes {application, tree}; tree is not needed here.
+    const ChangeRevisionFlyout = (props) => {
+        const application = props && props.application;
+        const [results, setResults] = React.useState({});
+
+        const revisions = getChangeRevisions(application) || [];
+        const sources = getSources(application);
+        const rowCount = sources.length > 0 ? Math.min(revisions.length, sources.length) : revisions.length;
+
+        React.useEffect(() => {
+            let cancelled = false;
+            const pending = {};
+            for (let i = 0; i < rowCount; i++) {
+                const source = sources[i];
+                // chart sources carry a version, not a commit, and there is nothing
+                // to look up for a revision that was never calculated
+                if (!revisions[i] || (source && source.chart)) {
+                    continue;
+                }
+                pending[i] = {state: 'loading'};
+            }
+            if (Object.keys(pending).length === 0) {
+                return undefined;
+            }
+            setResults(pending);
+
+            Object.keys(pending).forEach((key) => {
+                const index = Number(key);
+                fetchRevisionMetadata(application, revisions[index], index).then(
+                    (data) => {
+                        if (!cancelled) {
+                            setResults((current) => Object.assign({}, current, {[index]: {state: 'ok', data: data}}));
+                        }
+                    },
+                    (error) => {
+                        if (!cancelled) {
+                            setResults((current) =>
+                                Object.assign({}, current, {[index]: {state: 'error', error: String(error.message || error)}})
+                            );
+                        }
+                    }
+                );
+            });
+
+            return () => {
+                cancelled = true;
+            };
+        }, [application && application.metadata && application.metadata.name, revisions.join(',')]);
+
+        if (rowCount === 0) {
+            return React.createElement('div', null, React.createElement('h4', null, TITLE),
+                React.createElement('p', null, 'This application has no change revision.'));
+        }
+
+        const boxes = [];
+        for (let i = 0; i < rowCount; i++) {
+            boxes.push(sourceBox(sources[i], revisions[i], results[i], i));
+        }
+
+        return React.createElement(
+            'div',
+            null,
+            React.createElement('h4', null, TITLE),
+            React.createElement('p', null, 'The commit that last changed the manifests generated by this application.'),
+            boxes
+        );
+    };
+
     // The status panel renders extensions without any wrapper markup, so the
     // component has to provide the application-status-panel__item block itself.
     const ChangeRevisionPanelItem = (props) => {
@@ -338,15 +537,29 @@
         return React.createElement(
             'div',
             {className: 'application-status-panel__item'},
+            // sectionHeader() in application-status-panel.tsx lays the built in
+            // items out this way: the label, then the button that opens the flyout
             React.createElement(
-                'label',
-                {style: labelStyle},
-                rowCount > 1 ? 'CHANGE REVISIONS' : 'CHANGE REVISION',
-                helpIcon(HELP_TEXT)
+                'div',
+                {style: {display: 'flex', alignItems: 'center'}},
+                React.createElement(
+                    'label',
+                    {style: labelStyle},
+                    rowCount > 1 ? 'CHANGE REVISIONS' : 'CHANGE REVISION',
+                    helpIcon(HELP_TEXT)
+                ),
+                React.createElement(
+                    'button',
+                    {
+                        className: 'argo-button application-status-panel__more-button',
+                        onClick: () => props.openFlyout && props.openFlyout()
+                    },
+                    React.createElement('i', {className: 'fa fa-ellipsis-h'})
+                )
             ),
             React.createElement('div', {className: 'application-status-panel__item-value'}, value)
         );
     };
 
-    extensionsAPI.registerStatusPanelExtension(ChangeRevisionPanelItem, TITLE, ID);
+    extensionsAPI.registerStatusPanelExtension(ChangeRevisionPanelItem, TITLE, ID, ChangeRevisionFlyout);
 })(window);

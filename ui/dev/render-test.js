@@ -76,7 +76,7 @@ const stubReact = {
             hooks.state[index] = initial;
         }
         return [hooks.state[index], (value) => {
-            hooks.state[index] = value;
+            hooks.state[index] = typeof value === 'function' ? value(hooks.state[index]) : value;
         }];
     },
     // the real React assigns the DOM node, the stub hands out a fake one so that
@@ -88,8 +88,46 @@ const stubReact = {
         }
         return hooks.state[index];
     },
-    useEffect: () => undefined
+    // recorded rather than run, so a test can decide when they fire
+    useEffect: (fn) => {
+        effects.push(fn);
+    }
 };
+
+// Effects queued by the last render, and the cleanups they returned.
+const effects = [];
+const cleanups = [];
+const clearEffects = () => {
+    effects.length = 0;
+    cleanups.length = 0;
+};
+const runEffects = () => {
+    effects.splice(0).forEach((fn) => {
+        const cleanup = fn();
+        if (typeof cleanup === 'function') {
+            cleanups.push(cleanup);
+        }
+    });
+};
+
+// Lets queued promise callbacks run.
+const flush = async () => {
+    for (let i = 0; i < 20; i++) {
+        await Promise.resolve();
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+};
+
+// The fetch stub and the calls it recorded.
+const fetchCalls = [];
+let fetchHandler = () => Promise.reject(new Error('no fetch handler installed'));
+const jsonResponse = (body, status) => Promise.resolve({
+    ok: status === undefined || (status >= 200 && status < 300),
+    status: status === undefined ? 200 : status,
+    json: () => Promise.resolve(body)
+});
+
+let baseURI = 'https://argocd.example.com/';
 
 // Loads the extension with a stub window and returns the registration it made.
 function loadExtension() {
@@ -101,7 +139,14 @@ function loadExtension() {
         ReactDOM: {
             createPortal: (node, container) => ({type: 'portal', props: {container}, children: [node]})
         },
-        document: {body: {tagName: 'BODY'}},
+        document: {body: {tagName: 'BODY'}, get baseURI() {
+            return baseURI;
+        }},
+        URL: URL,
+        fetch: (url, options) => {
+            fetchCalls.push({url, options});
+            return fetchHandler(url, options);
+        },
         addEventListener: () => undefined,
         removeEventListener: () => undefined,
         extensionsAPI: {
@@ -194,20 +239,43 @@ const renderHovered = (application) => {
 // The tooltip popups in a rendered tree, as their content elements.
 const popups = (tree) => findAll(tree, (el) => el.props.className === 'tippy-tooltip light-theme');
 
-const app = (spec, annotations) => ({metadata: {name: 'test-app', annotations}, spec});
+// Renders the flyout, runs its effect, waits for the requests, then renders again.
+const renderFlyout = async (application, handler) => {
+    clearHooks();
+    clearEffects();
+    fetchCalls.length = 0;
+    fetchHandler = handler || (() => Promise.reject(new Error('unexpected request')));
+
+    registration.flyout({application, tree: {}});
+    runEffects();
+    await flush();
+
+    resetHookIndex();
+    clearEffects();
+    const tree = registration.flyout({application, tree: {}});
+    clearEffects();
+    return tree;
+};
+
+// The label of each detail row, paired with its rendered value.
+const detailRows = (tree) =>
+    findAll(tree, (el) => el.props.className === 'row white-box__details-row').map((row) => ({
+        label: texts(row.children[0]).join(''),
+        value: texts(row.children[1]).join('')
+    }));
+
+const app = (spec, annotations) => ({metadata: {name: 'test-app', namespace: 'argocd', annotations}, spec});
 const gitSource = (repoURL, extra) => Object.assign({repoURL, path: '.', targetRevision: 'dev'}, extra || {});
 
-let passed = 0;
+const checks = [];
 function check(name, fn) {
-    fn();
-    passed++;
-    console.log('ok - ' + name);
+    checks.push({name, fn});
 }
 
 check('registration metadata', () => {
     assert.strictEqual(registration.title, 'Change Revision');
     assert.strictEqual(registration.id, 'monorepo_change_revision');
-    assert.strictEqual(registration.flyout, undefined);
+    assert.strictEqual(typeof registration.flyout, 'function', 'a flyout must be registered');
 });
 
 check('single spec.source shows the abbreviated change revision', () => {
@@ -454,4 +522,161 @@ check('an application with no source at all does not throw', () => {
     assert.deepStrictEqual(texts(tree), ['CHANGE REVISION', '2563efe']);
 });
 
-console.log('\n' + passed + ' checks passed');
+// ---------------------------------------------------------------------------
+// the flyout
+// ---------------------------------------------------------------------------
+
+const COMMIT = {
+    author: 'Jane Roe <jane@example.com>',
+    date: '2026-09-29T08:15:00Z',
+    message: 'fix: correct the replica count\n\nrefs #42',
+    tags: ['v1.2.3', 'stable'],
+    signatureInfo: 'signed by jane@example.com'
+};
+
+const singleSourceApp = app({source: gitSource('https://github.com/dudinea/cfrepo02.git'), project: 'default'},
+    {[CHANGE_REVISION_ANN]: SHA_1, [CHANGE_REVISIONS_ANN]: JSON.stringify([SHA_1])});
+
+check('the panel item has an ellipsis button wired to openFlyout', () => {
+    let opened = 0;
+    clearHooks();
+    const tree = registration.component({application: singleSourceApp, openFlyout: () => {
+        opened++;
+    }});
+
+    const buttons = findAll(tree, (el) => el.props.className === 'argo-button application-status-panel__more-button');
+    assert.strictEqual(buttons.length, 1, 'expected one ellipsis button');
+    assert.strictEqual(findAll(buttons[0], (el) => el.props.className === 'fa fa-ellipsis-h').length, 1);
+
+    buttons[0].props.onClick();
+    assert.strictEqual(opened, 1, 'clicking must open the flyout');
+});
+
+check('the panel item survives an absent openFlyout', () => {
+    clearHooks();
+    const tree = registration.component({application: singleSourceApp});
+    const button = findAll(tree, (el) => el.props.className === 'argo-button application-status-panel__more-button')[0];
+    assert.doesNotThrow(() => button.props.onClick());
+});
+
+check('the flyout requests commit metadata for the change revision', async () => {
+    await renderFlyout(singleSourceApp, () => jsonResponse(COMMIT));
+
+    assert.strictEqual(fetchCalls.length, 1, 'expected exactly one request');
+    assert.strictEqual(
+        fetchCalls[0].url,
+        'https://argocd.example.com/api/v1/applications/test-app/revisions/' + SHA_1 +
+            '/metadata?appNamespace=argocd&project=default&sourceIndex=0'
+    );
+    // the session is a cookie, and versionId is left off so the live spec is used
+    assert.strictEqual(fetchCalls[0].options.credentials, 'same-origin');
+    assert.ok(!fetchCalls[0].url.includes('versionId'));
+});
+
+check('the flyout honours the page base href, for sub path installations', async () => {
+    baseURI = 'https://example.com/argo-cd/';
+    try {
+        await renderFlyout(singleSourceApp, () => jsonResponse(COMMIT));
+        assert.ok(fetchCalls[0].url.startsWith('https://example.com/argo-cd/api/v1/applications/'),
+            'got ' + fetchCalls[0].url);
+    } finally {
+        baseURI = 'https://argocd.example.com/';
+    }
+});
+
+check('the flyout renders the commit details', async () => {
+    const rows = detailRows(await renderFlyout(singleSourceApp, () => jsonResponse(COMMIT)));
+    const byLabel = {};
+    rows.forEach((row) => {
+        byLabel[row.label] = row.value;
+    });
+
+    assert.strictEqual(byLabel.Repository, 'https://github.com/dudinea/cfrepo02.git');
+    assert.strictEqual(byLabel.Path, '.');
+    assert.strictEqual(byLabel['Target revision'], 'dev');
+    assert.strictEqual(byLabel['Change revision'], SHA_1, 'the full revision, not the abbreviation');
+    assert.strictEqual(byLabel.Author, 'Jane Roe <jane@example.com> - signed by jane@example.com');
+    assert.strictEqual(byLabel.Tags, 'v1.2.3, stable');
+    assert.strictEqual(byLabel.Message, COMMIT.message, 'the message must not be truncated');
+    assert.ok(byLabel.Date && byLabel.Date !== '', 'a formatted date is expected');
+});
+
+check('the flyout shows the server error inline', async () => {
+    const rows = detailRows(await renderFlyout(singleSourceApp,
+        () => jsonResponse({error: 'permission denied: applications, get', code: 7}, 403)));
+    const commit = rows.filter((row) => row.label === 'Commit');
+    assert.strictEqual(commit.length, 1);
+    assert.strictEqual(commit[0].value, 'permission denied: applications, get');
+
+    // the revision itself still comes from the annotation, so it is still shown
+    assert.ok(rows.some((row) => row.label === 'Change revision' && row.value === SHA_1));
+});
+
+check('the flyout reports a failure with no parsable body', async () => {
+    const rows = detailRows(await renderFlyout(singleSourceApp, () => Promise.resolve({
+        ok: false,
+        status: 502,
+        json: () => Promise.reject(new Error('not json'))
+    })));
+    assert.ok(rows.some((row) => row.label === 'Commit' && row.value === 'request failed with status 502'));
+});
+
+check('the flyout asks for each source by its own index, skipping chart sources', async () => {
+    const application = app({
+        sources: [
+            gitSource('https://github.com/dudinea/repo-a.git'),
+            {repoURL: 'https://charts.example.com', chart: 'my-chart', targetRevision: '1.4.2'},
+            gitSource('https://github.com/dudinea/repo-b.git')
+        ],
+        project: 'monorepo'
+    }, {[CHANGE_REVISIONS_ANN]: JSON.stringify([SHA_1, '1.4.2', SHA_2])});
+
+    const tree = await renderFlyout(application, (url) => jsonResponse(url.includes(SHA_1)
+        ? {author: 'first'}
+        : {author: 'second'}));
+
+    // the chart source is not looked up: a chart version is not a commit
+    assert.strictEqual(fetchCalls.length, 2);
+    const indexes = fetchCalls.map((call) => new URL(call.url).searchParams.get('sourceIndex'));
+    assert.deepStrictEqual(indexes.sort(), ['0', '2'], 'each source must use its own index');
+    assert.ok(fetchCalls.some((call) => call.url.includes('/revisions/' + SHA_1 + '/metadata')));
+    assert.ok(fetchCalls.some((call) => call.url.includes('/revisions/' + SHA_2 + '/metadata')));
+    fetchCalls.forEach((call) => assert.ok(new URL(call.url).searchParams.get('project') === 'monorepo'));
+
+    const rows = detailRows(tree);
+    assert.ok(rows.some((row) => row.label === 'Chart' && row.value === 'my-chart'));
+    assert.ok(rows.some((row) => row.label === 'Author' && row.value === 'first'));
+    assert.ok(rows.some((row) => row.label === 'Author' && row.value === 'second'));
+});
+
+check('the flyout makes no request for a revision that was never calculated', async () => {
+    const application = app({source: gitSource('https://github.com/dudinea/cfrepo02.git'), project: 'default'},
+        {[CHANGE_REVISIONS_ANN]: '[""]'});
+    const rows = detailRows(await renderFlyout(application));
+    assert.strictEqual(fetchCalls.length, 0);
+    assert.ok(rows.some((row) => row.label === 'Change revision' && row.value === EM_DASH));
+});
+
+check('the flyout copes with an application that has no change revision', async () => {
+    clearHooks();
+    clearEffects();
+    const tree = registration.flyout({
+        application: app({source: gitSource('https://github.com/argoproj/argo-cd.git')}, {}),
+        tree: {}
+    });
+    clearEffects();
+    assert.ok(texts(tree).join(' ').includes('no change revision'));
+});
+
+(async () => {
+    let passed = 0;
+    for (const item of checks) {
+        await item.fn();
+        passed++;
+        console.log('ok - ' + item.name);
+    }
+    console.log('\n' + passed + ' checks passed');
+})().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});
