@@ -51,7 +51,8 @@ function loadExtension() {
     return registrations[0];
 }
 
-// Collects the rendered text nodes, in order.
+// Collects the rendered text nodes, in order. Whitespace only nodes are layout,
+// not content, so they are skipped.
 function texts(element, collected) {
     const out = collected || [];
     if (element === null || element === undefined || element === false) {
@@ -62,10 +63,30 @@ function texts(element, collected) {
         return out;
     }
     if (typeof element === 'string' || typeof element === 'number') {
-        out.push(String(element));
+        const text = String(element);
+        if (text.trim() !== '') {
+            out.push(text);
+        }
         return out;
     }
     texts(element.children, out);
+    return out;
+}
+
+// Returns every element in the tree matching a predicate.
+function findAll(element, predicate, collected) {
+    const out = collected || [];
+    if (!element || typeof element !== 'object') {
+        return out;
+    }
+    if (Array.isArray(element)) {
+        element.forEach((child) => findAll(child, predicate, out));
+        return out;
+    }
+    if (predicate(element)) {
+        out.push(element);
+    }
+    findAll(element.children, predicate, out);
     return out;
 }
 
@@ -111,8 +132,9 @@ check('single spec.source shows the abbreviated change revision', () => {
         [CHANGE_REVISIONS_ANN]: JSON.stringify([SHA_1])
     }));
     assert.deepStrictEqual(texts(tree), ['CHANGE REVISION', '2563efe']);
-    // the full revision stays reachable as a tooltip, since it is not a link
-    assert.deepStrictEqual(titles(tree), [SHA_1]);
+    // the full revision stays reachable as a tooltip, since it is not a link.
+    // Scoped to the value, the label has the help icon's own tooltip.
+    assert.deepStrictEqual(titles(tree.children[1]), [SHA_1]);
 });
 
 check('single entry under spec.sources renders like a single source app', () => {
@@ -178,7 +200,7 @@ check('empty revision renders as an em dash with an explanatory tooltip', () => 
         [CHANGE_REVISIONS_ANN]: '[""]'
     }));
     assert.deepStrictEqual(texts(tree), ['CHANGE REVISION', EM_DASH]);
-    assert.deepStrictEqual(titles(tree), ['No change revision has been calculated for this source yet']);
+    assert.deepStrictEqual(titles(tree.children[1]), ['No change revision has been calculated for this source yet']);
 });
 
 check('multi source with a partially calculated array', () => {
@@ -247,6 +269,23 @@ check('revisions that are not full SHAs are shown verbatim', () => {
     const tag = render(app({source: gitSource('https://github.com/dudinea/cfrepo02.git')},
         {[CHANGE_REVISION_ANN]: 'v1.2.3'}));
     assert.deepStrictEqual(texts(tag), ['CHANGE REVISION', 'v1.2.3']);
+});
+
+check('the label carries a help icon with a description, like built in items', () => {
+    const tree = render(app({source: gitSource('https://github.com/dudinea/cfrepo02.git')},
+        {[CHANGE_REVISION_ANN]: SHA_1}));
+
+    // same markup argo-ui's HelpIcon produces for the built in panel items
+    const icons = findAll(tree, (el) => el.props.className === 'fa fa-question-circle help-tip');
+    assert.strictEqual(icons.length, 1, 'expected exactly one help icon');
+
+    const label = tree.children[0];
+    const described = findAll(label, (el) => typeof el.props.title === 'string' && el.props.title.length > 0);
+    assert.strictEqual(described.length, 1, 'expected the help icon to carry a title');
+    assert.match(described[0].props.title, /commit that actually changed the manifests/);
+
+    // the icon must not leak into the value, which has its own revision tooltips
+    assert.strictEqual(findAll(tree.children[1], (el) => el.props.className === 'fa fa-question-circle help-tip').length, 0);
 });
 
 check('renders the item as a status panel item', () => {
