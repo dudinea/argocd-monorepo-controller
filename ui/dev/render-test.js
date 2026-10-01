@@ -16,7 +16,9 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const EXTENSION_PATH = path.join(__dirname, '..', 'extension-monorepo-controller.js');
+// The built bundle, not the source: the tests then cover the real artifact,
+// including the bundled git-url-parse. Build it with "make build-ui-local".
+const EXTENSION_PATH = path.join(__dirname, '..', 'dist', 'extension-monorepo-controller.js');
 
 const CHANGE_REVISION_ANN = 'mrp-controller.argoproj.io/change-revision';
 const CHANGE_REVISIONS_ANN = 'mrp-controller.argoproj.io/change-revisions';
@@ -143,6 +145,8 @@ function loadExtension() {
             return baseURI;
         }},
         URL: URL,
+        // isValidURL falls back to resolving relative URLs against the origin
+        location: {origin: 'https://argocd.example.com'},
         fetch: (url, options) => {
             fetchCalls.push({url, options});
             return fetchHandler(url, options);
@@ -523,6 +527,109 @@ check('an application with no source at all does not throw', () => {
 });
 
 // ---------------------------------------------------------------------------
+// commit links
+// ---------------------------------------------------------------------------
+
+// Every anchor in a rendered tree, with the attributes that matter.
+const links = (tree) =>
+    findAll(tree, (el) => el.type === 'a').map((el) => ({
+        href: el.props.href,
+        target: el.props.target,
+        rel: el.props.rel,
+        text: texts(el).join(''),
+        icons: findAll(el, (child) => child.props.className === 'fa fa-external-link-alt').length
+    }));
+
+const panelLinks = (repoURL, revision, extra) => {
+    clearHooks();
+    return links(registration.component({
+        application: app({source: gitSource(repoURL, extra), project: 'default'},
+            {[CHANGE_REVISION_ANN]: revision}),
+        openFlyout: () => undefined
+    }));
+};
+
+check('the panel revision links to the commit, per host', () => {
+    // values produced by the ported Argo CD helpers, verified against git-url-parse
+    const expected = [
+        ['https://github.com/dudinea/cfrepo02.git', 'https://github.com/dudinea/cfrepo02/commit/' + SHA_3],
+        ['git@github.com:dudinea/cfrepo02.git', 'https://github.com/dudinea/cfrepo02/commit/' + SHA_3],
+        ['https://gitlab.com/group/project.git', 'https://gitlab.com/group/project/-/commit/' + SHA_3],
+        ['https://bitbucket.org/team/repo.git', 'https://bitbucket.org/team/repo/commits/' + SHA_3],
+        ['https://bb.example.com/scm/PROJ/repo.git', 'https://bb.example.com/projects/PROJ/repos/repo/commits/' + SHA_3],
+        ['https://bb.example.com/scm/~jane/repo.git', 'https://bb.example.com/users/jane/repos/repo/commits/' + SHA_3],
+        ['ssh://git@bitbucket.example.com:7999/PROJ/repo.git',
+            'https://bitbucket.example.com:7999/projects/PROJ/repos/repo/commits/' + SHA_3]
+    ];
+    expected.forEach(([repoURL, href]) => {
+        const found = panelLinks(repoURL, SHA_3);
+        assert.strictEqual(found.length, 1, 'expected one link for ' + repoURL);
+        assert.strictEqual(found[0].href, href, 'for ' + repoURL);
+    });
+});
+
+check('links carry the same attributes and icon as Argo CD uses', () => {
+    const found = panelLinks('https://github.com/dudinea/cfrepo02.git', SHA_3);
+    assert.strictEqual(found[0].target, '_blank');
+    assert.strictEqual(found[0].rel, 'noopener noreferrer');
+    assert.strictEqual(found[0].icons, 1, 'expected the fa-external-link-alt icon');
+    assert.strictEqual(found[0].text, 'fb119d0', 'the link text stays abbreviated');
+});
+
+check('a revision that is not a SHA links to the tree, not a commit', () => {
+    const found = panelLinks('https://github.com/dudinea/cfrepo02.git', 'dev');
+    assert.strictEqual(found[0].href, 'https://github.com/dudinea/cfrepo02/tree/dev');
+});
+
+check('an unsupported host is rendered without a link', () => {
+    // Argo CD itself only builds URLs for github, gitlab.com, bitbucket.org and
+    // Bitbucket Server, so self hosted GitLab and Gitea get no link
+    assert.deepStrictEqual(panelLinks('https://gitlab.example.com/group/project.git', SHA_3), []);
+    assert.deepStrictEqual(panelLinks('https://gitea.example.com/owner/repo.git', SHA_3), []);
+
+    // still shown, just as text
+    clearHooks();
+    const tree = registration.component({
+        application: app({source: gitSource('https://gitea.example.com/owner/repo.git')},
+            {[CHANGE_REVISION_ANN]: SHA_3}),
+        openFlyout: () => undefined
+    });
+    assert.deepStrictEqual(texts(tree), ['CHANGE REVISION', 'fb119d0']);
+});
+
+check('a chart version is never linked', () => {
+    clearHooks();
+    const tree = registration.component({
+        application: app({source: {repoURL: 'https://github.com/dudinea/charts.git', chart: 'my-chart', targetRevision: '1.4.2'}},
+            {[CHANGE_REVISION_ANN]: '1.4.2'}),
+        openFlyout: () => undefined
+    });
+    assert.deepStrictEqual(links(tree), [], 'a chart version is not a commit');
+    assert.deepStrictEqual(texts(tree), ['CHANGE REVISION', 'my-chart:1.4.2']);
+});
+
+check('an empty revision is never linked', () => {
+    assert.deepStrictEqual(panelLinks('https://github.com/dudinea/cfrepo02.git', ''), []);
+});
+
+check('multi source links each row to its own repository', () => {
+    clearHooks();
+    const tree = registration.component({
+        application: app({
+            sources: [
+                gitSource('https://github.com/dudinea/repo-a.git'),
+                gitSource('https://gitlab.com/group/repo-b.git')
+            ]
+        }, {[CHANGE_REVISIONS_ANN]: JSON.stringify([SHA_1, SHA_2])}),
+        openFlyout: () => undefined
+    });
+    assert.deepStrictEqual(links(tree).map((link) => link.href), [
+        'https://github.com/dudinea/repo-a/commit/' + SHA_1,
+        'https://gitlab.com/group/repo-b/-/commit/' + SHA_2
+    ]);
+});
+
+// ---------------------------------------------------------------------------
 // the flyout
 // ---------------------------------------------------------------------------
 
@@ -599,6 +706,31 @@ check('the flyout renders the commit details', async () => {
     assert.strictEqual(byLabel.Tags, 'v1.2.3, stable');
     assert.strictEqual(byLabel.Message, COMMIT.message, 'the message must not be truncated');
     assert.ok(byLabel.Date && byLabel.Date !== '', 'a formatted date is expected');
+});
+
+check('the flyout links the repository and the change revision', async () => {
+    const tree = await renderFlyout(singleSourceApp, () => jsonResponse(COMMIT));
+    const found = links(tree);
+
+    const repo = found.filter((link) => link.text === 'https://github.com/dudinea/cfrepo02.git');
+    assert.strictEqual(repo.length, 1, 'the Repository row must link to the repository');
+    assert.strictEqual(repo[0].href, 'https://github.com/dudinea/cfrepo02', 'built with repoUrl');
+
+    const revision = found.filter((link) => link.text === SHA_1);
+    assert.strictEqual(revision.length, 1, 'the Change revision row must link to the commit');
+    assert.strictEqual(revision[0].href, 'https://github.com/dudinea/cfrepo02/commit/' + SHA_1);
+    assert.strictEqual(revision[0].icons, 1);
+});
+
+check('the flyout leaves a chart source unlinked but still links its repository', async () => {
+    const application = app({
+        source: {repoURL: 'https://github.com/dudinea/charts.git', chart: 'my-chart', targetRevision: '1.4.2'},
+        project: 'default'
+    }, {[CHANGE_REVISION_ANN]: '1.4.2'});
+
+    const found = links(await renderFlyout(application));
+    assert.strictEqual(fetchCalls.length, 0);
+    assert.deepStrictEqual(found.map((link) => link.text), ['https://github.com/dudinea/charts.git']);
 });
 
 check('the flyout shows the server error inline', async () => {

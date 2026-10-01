@@ -14,7 +14,8 @@ The item shows the [Change Revision](terminology.md#change-revision) from the
 `mrp-controller.argoproj.io/change-revision(s)` annotations:
 
 * **Single source applications**: the change revision, abbreviated to seven
-  characters when it is a full commit SHA. Hover over it to see the full value.
+  characters when it is a full commit SHA, and linked to the commit. Hover over it
+  to see the full value.
 * **Multi source applications**: one row per source, in the order the sources are
   declared in the application, each labelled with the source `name` if it has one
   and with the repository name otherwise.
@@ -24,6 +25,14 @@ The item shows the [Change Revision](terminology.md#change-revision) from the
   as they are.
 * A source whose change revision has not been calculated yet shows as
   `—`. This is normal for an application that has not been synced yet.
+
+### Commit links
+
+Revisions link to the commit in the repository, using the same logic as Argo CD's
+own panels, so only the hosts Argo CD supports produce links: GitHub, `gitlab.com`,
+`bitbucket.org` and Bitbucket Server. On any other host, self hosted GitLab and
+Gitea included, the revision is shown as plain text. Helm chart versions are never
+linked, since a chart version is not a commit.
 
 The item is **not shown at all** for applications the controller does not track:
 
@@ -60,15 +69,33 @@ version is not a commit.
 
 ## How it works
 
-The extension is a single JavaScript file, `ui/extension-monorepo-controller.js`.
+The sources live in `ui/src` and are bundled by [esbuild](https://esbuild.github.io/)
+into a single file, `ui/dist/extension-monorepo-controller.js`. That bundle is
+committed, so installing the extension needs nothing but `kubectl`.
+
 Argo CD UI extensions are served by `argocd-server`: it collects every file named
 `extension*.js` under `/tmp/extensions` and serves them concatenated as
 `/extensions.js`, which the UI loads when the page is rendered. Each extension
 registers itself through the `extensionsAPI` global variable.
 
-The extension reads everything it needs from the Application object that the UI
-already has, so it needs no backend component and no access to the Monorepo
-Controller or its repo server.
+React is taken from the page rather than bundled. The only bundled dependency is
+`git-url-parse`, which Argo CD's URL helpers need; `ui/src/urls.js` is a port of
+those helpers, kept deliberately faithful so our links agree with the built in ones.
+
+The change revisions themselves are read from the Application object the UI already
+has. Only the commit details in the flyout need a request, to the Argo CD API, so
+the extension never talks to the Monorepo Controller or its repo server.
+
+### Building
+
+After changing anything under `ui/src`, rebuild the bundle and commit it:
+
+```bash
+make build-ui-local
+```
+
+`make verify-ui-dist-local` fails if the committed bundle does not match the
+sources, and `make test-ui-local` rebuilds before running the tests.
 
 ## Installing for development
 

@@ -1,0 +1,17 @@
+{
+  "name": "argocd-monorepo-controller-ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Argo CD UI extension for the Monorepo Controller",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "esbuild src/extension-monorepo-controller.js --bundle --format=iife --target=es2017 --charset=ascii --legal-comments=eof --outfile=dist/extension-monorepo-controller.js",
+    "test": "node dev/render-test.js"
+  },
+  "dependencies": {
+    "git-url-parse": "^13.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

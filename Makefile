@@ -487,9 +487,31 @@ run:
 	bash ./hack/goreman-start.sh
 
 
-# Tests the rendering logic of the UI extension. Requires node.
+# Installs the UI extension's build dependencies. Requires node and npm.
+.PHONY: ui-deps-local
+ui-deps-local:
+	cd ui && npm install --no-audit --no-fund
+
+# Bundles the UI extension into ui/dist. The result is committed, so that
+# installing the extension needs nothing but kubectl.
+.PHONY: build-ui-local
+build-ui-local: ui-deps-local
+	cd ui && npm run build
+
+# Fails if the committed bundle does not match the sources it was built from.
+# Uses git status rather than git diff so that an uncommitted bundle is caught too.
+.PHONY: verify-ui-dist-local
+verify-ui-dist-local: build-ui-local
+	@if [ -n "$$(git status --porcelain -- ui/dist)" ]; then \
+		echo 'ui/dist is out of date, run "make build-ui-local" and commit the result:' >&2; \
+		git status --porcelain -- ui/dist >&2; \
+		exit 1; \
+	fi
+	@echo 'ui/dist is up to date'
+
+# Tests the rendering logic of the UI extension against the built bundle.
 .PHONY: test-ui-local
-test-ui-local:
+test-ui-local: build-ui-local
 	node ui/dev/render-test.js
 
 # Installs the UI extension into the Argo CD installation in the current cluster.

@@ -8,17 +8,25 @@
 // The values are read from the annotations the controller maintains, which the
 // UI already has as part of the Application object, so this needs no backend.
 //
-// This file is served by argocd-server as part of /extensions.js: every file
-// under /tmp/extensions whose name matches ^extension(.*)\.js$ is concatenated
-// into that response, each one wrapped in its own try/catch block. Therefore:
+// This is bundled by esbuild into a single self contained script,
+// ui/dist/extension-monorepo-controller.js, which is what gets installed. Build it
+// with "make build-ui-local"; the built file is committed.
 //
-//   * the file must be self contained - no imports, no module system,
-//   * React is taken from the global scope, it must not be bundled,
+// argocd-server serves it as part of /extensions.js: every file under
+// /tmp/extensions whose name matches ^extension(.*)\.js$ is concatenated into that
+// response, each one wrapped in its own try/catch block. Therefore:
+//
+//   * the bundle must be self contained, which is why it is a bundle,
+//   * React is taken from the global scope, it must never be bundled,
 //   * nothing may leak into the global scope,
+//   * the output must stay ASCII, since the response has no charset,
 //   * a failure here is only visible in the browser console as
 //     "Extension extension-monorepo-controller.js failed to load: ...".
 //
-// ui/dev/render-test.js exercises the rendering, run it with "make test-ui-local".
+// ui/dev/render-test.js exercises the rendering against the built bundle, run it
+// with "make test-ui-local".
+
+import {repoUrl, revisionUrl} from './urls';
 
 ((window) => {
     const extensionsAPI = window.extensionsAPI;
@@ -255,6 +263,32 @@
         return revision;
     };
 
+    // A revision only has a commit URL when it really is a commit in a Git
+    // repository on a host Argo CD knows how to build URLs for. A Helm chart
+    // version is not a commit, so those are never linked even though the chart
+    // repository host might parse.
+    const commitURL = (revision, source) => {
+        if (!revision || !source || !source.repoURL || source.chart) {
+            return null;
+        }
+        return revisionUrl(source.repoURL, revision, false);
+    };
+
+    // Renders content as an external link when there is a URL for it, and as plain
+    // content when there is not. Mirrors Argo CD's Revision component.
+    const maybeLink = (url, content) => {
+        if (!url) {
+            return content;
+        }
+        return React.createElement(
+            'a',
+            {href: url, target: '_blank', rel: 'noopener noreferrer'},
+            content,
+            ' ',
+            React.createElement('i', {className: 'fa fa-external-link-alt'})
+        );
+    };
+
     const sourceName = (source, index) => {
         if (source && source.name) {
             return source.name;
@@ -291,7 +325,11 @@
                     : UNKNOWN_REVISION_TITLE,
                 text: revision || UNKNOWN_REVISION_TITLE
             },
-            React.createElement('div', {style: revisionStyle}, formatRevision(revision, source, withChartName))
+            React.createElement(
+                'div',
+                {style: revisionStyle},
+                maybeLink(commitURL(revision, source), formatRevision(revision, source, withChartName))
+            )
         );
 
     const sourceNameElement = (source, index) =>
@@ -408,7 +446,7 @@
     const sourceBox = (source, revision, result, index) => {
         const rows = [];
         if (source && source.repoURL) {
-            rows.push(detailRow('Repository', source.repoURL, 'repo'));
+            rows.push(detailRow('Repository', maybeLink(repoUrl(source.repoURL), source.repoURL), 'repo'));
         }
         if (source && source.chart) {
             rows.push(detailRow('Chart', source.chart, 'chart'));
@@ -419,7 +457,12 @@
             rows.push(detailRow('Target revision', source.targetRevision, 'target'));
         }
         rows.push(
-            detailRow('Change revision', revision || UNKNOWN_REVISION, 'revision', revision ? revisionStyle : undefined)
+            detailRow(
+                'Change revision',
+                revision ? maybeLink(commitURL(revision, source), revision) : UNKNOWN_REVISION,
+                'revision',
+                revision ? revisionStyle : undefined
+            )
         );
         metadataRows(result).forEach((row) => rows.push(row));
 

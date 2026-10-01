@@ -16,7 +16,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXTENSION_JS="${SCRIPT_DIR}/../extension-monorepo-controller.js"
+EXTENSION_JS="${SCRIPT_DIR}/../dist/extension-monorepo-controller.js"
 PATCH_FILE="${SCRIPT_DIR}/argocd-server-patch.yaml"
 
 CONFIGMAP_NAME="argocd-monorepo-ui-extension"
@@ -83,6 +83,7 @@ check_deployment() {
 install_extension() {
     if [ ! -f "${EXTENSION_JS}" ]; then
         echo "error: ${EXTENSION_JS} not found" >&2
+        echo "       build it first: make build-ui-local" >&2
         exit 1
     fi
     check_deployment
