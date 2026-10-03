@@ -162,6 +162,7 @@ function loadExtension() {
             return baseURI;
         }},
         URL: URL,
+        innerHeight: 900,
         // isValidURL falls back to resolving relative URLs against the origin
         location: {origin: 'https://argocd.example.com'},
         fetch: (url, options) => {
@@ -481,7 +482,8 @@ check('tooltips reuse tippy.js markup so they get the built in styling', () => {
         // the classes Argo CD's own tooltips carry: tippy.js 5 plus its light theme
         assert.strictEqual(tooltip.props.className, 'tippy-tooltip light-theme');
         assert.strictEqual(tooltip.props['data-state'], 'visible');
-        assert.strictEqual(tooltip.props['data-placement'], 'top');
+        // placement itself is covered by its own checks below
+        assert.strictEqual(tooltip.props['data-placement'], 'bottom');
         assert.strictEqual(findAll(tooltip, (el) => el.props.className === 'tippy-arrow').length, 1);
         assert.strictEqual(findAll(tooltip, (el) => el.props.className === 'tippy-content').length, 1);
     });
@@ -512,26 +514,37 @@ check('the revision tooltip shows the full unabbreviated revision', () => {
     assert.ok(shown.includes(SHA_1), 'the tooltip shows the full revision');
 });
 
-check('a tooltip flips below its target when there is no room above', () => {
+check('tooltips open downwards, like the built in help tooltips do', () => {
     const application = app({source: gitSource('https://github.com/dudinea/cfrepo02.git')},
         {[CHANGE_REVISION_ANN]: SHA_1});
 
-    // the default target sits at top 200, with room above it
-    const above = renderHovered(application);
-    assert.strictEqual(popups(above)[0].props['data-placement'], 'top');
-    const abovePopper = findAll(above, (el) => el.props.className === 'tippy-popper')[0];
-    assert.strictEqual(abovePopper.props.style.top, 192); // 200 - the 8px arrow gap
-    assert.strictEqual(abovePopper.props.style.transform, 'translate(-50%, -100%)');
-    assert.strictEqual(abovePopper.props.style.left, 120); // centred on the target
+    // the default target sits at top 200 in a 900px viewport, so below
+    const tree = renderHovered(application);
+    popups(tree).forEach((tooltip) => assert.strictEqual(tooltip.props['data-placement'], 'bottom'));
+    const popper = findAll(tree, (el) => el.props.className === 'tippy-popper')[0];
+    assert.strictEqual(popper.props['data-placement'], 'bottom');
+    assert.strictEqual(popper.props.style.top, 226); // 216 + the 10px gap
+    assert.strictEqual(popper.props.style.transform, 'translateX(-50%)');
+    assert.strictEqual(popper.props.style.left, 120); // centred on the target
+});
 
-    // near the top of the viewport it has to go below instead
-    withRect({top: 10, bottom: 26}, () => {
-        const flipped = renderHovered(application);
-        popups(flipped).forEach((tooltip) => assert.strictEqual(tooltip.props['data-placement'], 'bottom'));
-        const popper = findAll(flipped, (el) => el.props.className === 'tippy-popper')[0];
-        assert.strictEqual(popper.props['data-placement'], 'bottom');
-        assert.strictEqual(popper.props.style.top, 34); // 26 + the 8px arrow gap
-        assert.strictEqual(popper.props.style.transform, 'translateX(-50%)');
+check('a tooltip opens upwards only when there is no room below', () => {
+    const application = app({source: gitSource('https://github.com/dudinea/cfrepo02.git')},
+        {[CHANGE_REVISION_ANN]: SHA_1});
+
+    // near the bottom of the viewport, with more room above than below
+    withRect({top: 840, bottom: 856}, () => {
+        const tree = renderHovered(application);
+        popups(tree).forEach((tooltip) => assert.strictEqual(tooltip.props['data-placement'], 'top'));
+        const popper = findAll(tree, (el) => el.props.className === 'tippy-popper')[0];
+        assert.strictEqual(popper.props.style.top, 830); // 840 - the 10px gap
+        assert.strictEqual(popper.props.style.transform, 'translate(-50%, -100%)');
+    });
+
+    // cramped both ways, but still more room below: stay below
+    withRect({top: 40, bottom: 56}, () => {
+        const tree = renderHovered(application);
+        assert.strictEqual(popups(tree)[0].props['data-placement'], 'bottom');
     });
 });
 

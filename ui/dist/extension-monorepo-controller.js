@@ -745,9 +745,12 @@
     };
     const revisionStyle = { fontFamily: "monospace" };
     const TOOLTIP_MAX_WIDTH = 350;
-    const TOOLTIP_GAP = 8;
+    const TOOLTIP_GAP = 10;
+    const TOOLTIP_ESTIMATED_HEIGHT = 120;
     const tooltipPopup = (content, anchor) => {
-      const below = anchor.top < 80;
+      const roomBelow = (window2.innerHeight || 0) - anchor.bottom;
+      const above = roomBelow < TOOLTIP_ESTIMATED_HEIGHT && anchor.top > roomBelow;
+      const below = !above;
       const placement = below ? "bottom" : "top";
       return React.createElement(
         "div",

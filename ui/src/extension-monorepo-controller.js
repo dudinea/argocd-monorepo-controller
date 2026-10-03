@@ -101,11 +101,19 @@ import {repoUrl, revisionUrl} from './urls';
     // in font, background, colour and shadow - and keeps matching if Argo CD
     // restyles them - without being able to import tippy itself.
     const TOOLTIP_MAX_WIDTH = 350; // tippy's own default
-    const TOOLTIP_GAP = 8; // leaves room for the arrow, which overhangs by 7px
+    const TOOLTIP_GAP = 10; // tippy's default distance
+    // Only needed to decide which way to open, so a rough value is enough.
+    const TOOLTIP_ESTIMATED_HEIGHT = 120;
 
     const tooltipPopup = (content, anchor) => {
-        // tippy flips the tooltip below the target when it does not fit above
-        const below = anchor.top < 80;
+        // Argo CD's tooltips are tippy, whose default placement is 'top' - but tippy
+        // flips within the scroll parent rather than the viewport, and the status
+        // panel sits right at the top of Argo CD's scrollable content area, so in
+        // practice every built in help tooltip there opens downwards. Default to the
+        // same, and only open upwards when there is genuinely no room below.
+        const roomBelow = (window.innerHeight || 0) - anchor.bottom;
+        const above = roomBelow < TOOLTIP_ESTIMATED_HEIGHT && anchor.top > roomBelow;
+        const below = !above;
         const placement = below ? 'bottom' : 'top';
         return React.createElement(
             'div',
