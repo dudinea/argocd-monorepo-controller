@@ -132,9 +132,77 @@ make test-ui-local
 !!! note
     This patches the `argocd-server` Deployment, which belongs to the Argo CD
     installation and is not managed by this project. It is a development helper.
-    Production installation with the
-    [argocd-extension-installer](https://github.com/argoproj-labs/argocd-extension-installer)
-    init container is not implemented yet.
+    For a real installation use the archive described below.
+
+## Installing with argocd-extension-installer
+
+`build-ui-archive-local` packages the extension into an archive that
+[argocd-extension-installer](https://github.com/argoproj-labs/argocd-extension-installer)
+can install:
+
+```bash
+make build-ui-archive-local
+```
+
+It writes two files to `dist/`:
+
+```
+extension.tar.gz
+extension_checksums.txt
+```
+
+These are the names
+[argocd-ephemeral-access](https://github.com/argoproj-labs/argocd-ephemeral-access)
+and [argocd-extension-metrics](https://github.com/argoproj-labs/argocd-extension-metrics)
+publish. The archive carries no version in its name because the version lives in
+the release URL it is published under.
+
+The archive contains a top level `resources` directory, which is what the
+installer expects: it untars the archive and copies `resources/*` into
+`EXTENSIONS_DIR`, `/tmp/extensions/resources` by default.
+
+```
+resources/argocd-monorepo-controller/extension-monorepo-controller.js
+```
+
+Publish both files somewhere `argocd-server` can reach, such as a GitHub release,
+and add the init container to the `argocd-server` Deployment:
+
+```yaml
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: monorepo-ui-extension
+          image: quay.io/argoprojlabs/argocd-extension-installer:v0.0.9
+          env:
+            - name: EXTENSION_NAME
+              value: monorepo-controller
+            - name: EXTENSION_VERSION
+              value: <version>
+            - name: EXTENSION_URL
+              value: https://.../releases/download/<version>/extension.tar.gz
+            - name: EXTENSION_CHECKSUM_URL
+              value: https://.../releases/download/<version>/extension_checksums.txt
+          volumeMounts:
+            - name: extensions
+              mountPath: /tmp/extensions/
+          securityContext:
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+      containers:
+        - name: argocd-server
+          volumeMounts:
+            - name: extensions
+              mountPath: /tmp/extensions/
+      volumes:
+        - name: extensions
+          emptyDir: {}
+```
+
+`EXTENSION_CHECKSUM_URL` is optional. When it is set, the installer looks the
+archive's file name up in the fetched file, so the last path segment of
+`EXTENSION_URL` has to match an entry in `extension_checksums.txt`.
 
 ## Troubleshooting
 
