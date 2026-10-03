@@ -34,7 +34,23 @@ const EM_DASH = '—';
 // that the viewport dependent placement can be exercised.
 const DEFAULT_RECT = {left: 100, top: 200, bottom: 216, right: 140, width: 40, height: 16};
 let fakeRect = DEFAULT_RECT;
-const FAKE_NODE = {getBoundingClientRect: () => fakeRect};
+// Stands in for the .sliding-panel element Argo CD renders the flyout inside.
+const panelClasses = new Set();
+const FAKE_PANEL = {
+    classList: {
+        add: (name) => panelClasses.add(name),
+        remove: (name) => panelClasses.delete(name),
+        contains: (name) => panelClasses.has(name)
+    }
+};
+const FAKE_NODE = {
+    getBoundingClientRect: () => fakeRect,
+    closest: (selector) => (selector === '.sliding-panel' ? FAKE_PANEL : null)
+};
+
+// Timers the code deferred, so a test can decide when they fire.
+const timers = [];
+const runTimers = () => timers.splice(0).forEach((fn) => fn());
 const withRect = (rect, fn) => {
     fakeRect = Object.assign({}, DEFAULT_RECT, rect);
     try {
@@ -111,6 +127,7 @@ const runEffects = () => {
         }
     });
 };
+const runCleanups = () => cleanups.splice(0).forEach((fn) => fn());
 
 // Lets queued promise callbacks run.
 const flush = async () => {
@@ -150,6 +167,10 @@ function loadExtension() {
         fetch: (url, options) => {
             fetchCalls.push({url, options});
             return fetchHandler(url, options);
+        },
+        setTimeout: (fn) => {
+            timers.push(fn);
+            return timers.length;
         },
         addEventListener: () => undefined,
         removeEventListener: () => undefined,
@@ -798,6 +819,56 @@ check('the flyout copes with an application that has no change revision', async 
     });
     clearEffects();
     assert.ok(texts(tree).join(' ').includes('no change revision'));
+});
+
+// ---------------------------------------------------------------------------
+// sliding panel width
+// ---------------------------------------------------------------------------
+
+// Renders the flyout and runs its effects, leaving the cleanups pending.
+const mountFlyout = (application) => {
+    clearHooks();
+    clearEffects();
+    panelClasses.clear();
+    timers.length = 0;
+    fetchHandler = () => new Promise(() => undefined);
+    const tree = registration.flyout({application, tree: {}});
+    runEffects();
+    return tree;
+};
+
+check('the flyout widens the sliding panel to the built in width', () => {
+    mountFlyout(singleSourceApp);
+    // Argo CD passes no isMiddle for status panel extension flyouts, so without
+    // this they render at the default 90% instead of the built in 600px
+    assert.ok(panelClasses.has('sliding-panel--is-middle'), 'expected the middle width class');
+});
+
+check('the class outlives the closing animation before being removed', () => {
+    mountFlyout(singleSourceApp);
+    runCleanups();
+    assert.ok(panelClasses.has('sliding-panel--is-middle'),
+        'removing it at once would make the panel jump to full width mid animation');
+
+    runTimers();
+    assert.ok(!panelClasses.has('sliding-panel--is-middle'), 'it must not be left behind for other flyouts');
+});
+
+check('a panel Argo CD already widens is left alone', () => {
+    clearHooks();
+    clearEffects();
+    panelClasses.clear();
+    timers.length = 0;
+    panelClasses.add('sliding-panel--is-middle');
+    fetchHandler = () => new Promise(() => undefined);
+
+    registration.flyout({application: singleSourceApp, tree: {}});
+    runEffects();
+    runCleanups();
+    runTimers();
+
+    // we never claimed it, so we must not take it away
+    assert.ok(panelClasses.has('sliding-panel--is-middle'));
 });
 
 (async () => {
