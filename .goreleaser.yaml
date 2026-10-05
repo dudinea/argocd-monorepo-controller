@@ -50,9 +50,30 @@ archives:
     name_template: |-
       {{ .ProjectName }}-{{ .Os }}-{{ .Arch }}
     formats: [ binary ]
+  # The Argo CD UI extension, for argocd-extension-installer.
+  #
+  # meta: true because this archive holds no build output, just the committed
+  # bundle from ui/dist - so the release needs no node toolchain. Keep it in step
+  # with the sources using "make verify-ui-dist-local".
+  #
+  # The installer untars the archive and copies resources/* into EXTENSIONS_DIR
+  # (/tmp/extensions/resources by default), so the layout below has to be kept.
+  # name_template has no extension of its own: goreleaser appends the format, so
+  # this produces extension.tar.gz, the same asset name argocd-ephemeral-access
+  # and argocd-extension-metrics publish.
+  - id: ui-extension
+    meta: true
+    formats: [ tar.gz ]
+    name_template: extension
+    files:
+      - src: ui/dist/extension-monorepo-controller.js
+        dst: resources/argocd-monorepo-controller
+        strip_parent: true
 
 checksum:
-  name_template: 'cli_checksums.txt'
+  # Covers every release artifact, the CLI binaries and the UI extension archive
+  # alike, which is what EXTENSION_CHECKSUM_URL should point at.
+  name_template: 'checksums.txt'
   algorithm: sha256
 
 release:
