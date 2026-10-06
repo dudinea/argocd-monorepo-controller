@@ -19,7 +19,7 @@ jobs:
     if: github.repository == ${{ vars.RELEASE_GITHUB_REPOSITORY }}
     uses: ./.github/workflows/image-reuse.yaml
     with:
-      quay_image_name: ${{ vars.RELEASE_QUAY_IMAGE_NAME }}:${{ github.ref_name }}
+      quay_image_name: ${{ vars.RELEASE_IMAGE_REGISTRY }}/${{ vars.RELEASE_IMAGE_NAMESPACE }}/${{ vars.RELEASE_IMAGE_REPOSITORY }}:${{ github.ref_name }}
       #quay_image_name: quay.io/eugened/argocd-monorepo-controller:${{ github.ref_name }}
       # Note: cannot use env variables to set go-version (https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations)
       # renovate: datasource=golang-version packageName=golang
@@ -40,7 +40,7 @@ jobs:
     if: github.repository == ${{ vars.RELEASE_GITHUB_REPOSITORY }}
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
-      image: ${{ vars.RELEASE_QUAY_IMAGE_NAME }}
+      image: ${{ vars.RELEASE_IMAGE_REGISTRY }}/${{ vars.RELEASE_IMAGE_NAMESPACE }}/${{ vars.RELEASE_IMAGE_REPOSITORY }}:${{ github.ref_name }}
       #image: quay.io/eugened/argocd-monorepo-controller
       digest: ${{ needs.argocd-image.outputs.image-digest }}
     secrets:
