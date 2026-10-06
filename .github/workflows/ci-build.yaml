@@ -256,6 +256,10 @@ jobs:
           path: test-results/
 
   codegen:
+    env:
+      IMAGE_REGISTRY: ${{ vars.RELEASE_IMAGE_REGISTRY }}
+      IMAGE_NAMESPACE: ${{ vars.RELEASE_IMAGE_NAMESPACE }}
+      IMAGE_REPOSITORY: ${{ vars.RELEASE_IMAGE_REPOSITORY }}
     name: Check changes to generated code
     if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.docs == 'true'}}
     runs-on: ubuntu-24.04
