@@ -302,6 +302,7 @@ jobs:
           set -x
           export GOPATH=$(go env GOPATH)
           git checkout -- go.mod go.sum
+          set | grep IMAGE
           make codegen-local
         working-directory: /home/runner/go/src/github.com/argoproj-labs/argocd-monorepo-controller
       - name: Check nothing has changed
