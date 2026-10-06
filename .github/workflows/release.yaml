@@ -16,10 +16,10 @@ jobs:
       contents: read
       id-token: write # for creating OIDC tokens for signing.
       packages: write # used to push images to `ghcr.io` if used.
-    if: github.repository == ${{ env.RELEASE_GITHUB_REPOSITORY }}
+    if: github.repository == ${{ vars.RELEASE_GITHUB_REPOSITORY }}
     uses: ./.github/workflows/image-reuse.yaml
     with:
-      quay_image_name: ${{ env.RELEASE_QUAY_IMAGE_NAME }}:${{ github.ref_name }}
+      quay_image_name: ${{ vars.RELEASE_QUAY_IMAGE_NAME }}:${{ github.ref_name }}
       #quay_image_name: quay.io/eugened/argocd-monorepo-controller:${{ github.ref_name }}
       # Note: cannot use env variables to set go-version (https://docs.github.com/en/actions/using-workflows/reusing-workflows#limitations)
       # renovate: datasource=golang-version packageName=golang
@@ -37,10 +37,10 @@ jobs:
       id-token: write # for creating OIDC tokens for signing.
       packages: write # for uploading attestations. (https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#known-issues)
     # Must be refernced by a tag. https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/container/README.md#referencing-the-slsa-generator
-    if: github.repository == ${{ env.RELEASE_GITHUB_REPOSITORY }}
+    if: github.repository == ${{ vars.RELEASE_GITHUB_REPOSITORY }}
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
-      image: ${{ env.RELEASE_QUAY_IMAGE_NAME }}
+      image: ${{ vars.RELEASE_QUAY_IMAGE_NAME }}
       #image: quay.io/eugened/argocd-monorepo-controller
       digest: ${{ needs.argocd-image.outputs.image-digest }}
     secrets:
@@ -53,7 +53,7 @@ jobs:
       - argocd-image-provenance
     permissions:
       contents: write # used for uploading assets
-    if: github.repository == ${{ env.RELEASE_GITHUB_REPOSITORY }}
+    if: github.repository == ${{ vars.RELEASE_GITHUB_REPOSITORY }}
     runs-on: ubuntu-24.04
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
