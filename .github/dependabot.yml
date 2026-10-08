@@ -1,4 +1,5 @@
 version: 2
+# revive dependabot #0
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
