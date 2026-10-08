@@ -487,6 +487,78 @@ run:
 	bash ./hack/goreman-start.sh
 
 
+# Installs the UI extension's build dependencies. Requires node and npm.
+.PHONY: ui-deps-local
+ui-deps-local:
+	cd ui && npm install --no-audit --no-fund
+
+# Bundles the UI extension into ui/dist. The result is committed, so that
+# installing the extension needs nothing but kubectl.
+.PHONY: build-ui-local
+build-ui-local: ui-deps-local
+	cd ui && npm run build
+
+# Fails if the committed bundle does not match the sources it was built from.
+# Uses git status rather than git diff so that an uncommitted bundle is caught too.
+.PHONY: verify-ui-dist-local
+verify-ui-dist-local: build-ui-local
+	@if [ -n "$$(git status --porcelain -- ui/dist)" ]; then \
+		echo 'ui/dist is out of date, run "make build-ui-local" and commit the result:' >&2; \
+		git status --porcelain -- ui/dist >&2; \
+		exit 1; \
+	fi
+	@echo 'ui/dist is up to date'
+
+# Tests the rendering logic of the UI extension against the built bundle.
+.PHONY: test-ui-local
+test-ui-local: build-ui-local
+	node ui/dev/render-test.js
+
+# Packaging of the UI extension for argocd-extension-installer.
+#
+# The installer untars the archive and then runs "cp -Rf resources/* $$EXTENSIONS_DIR"
+# (EXTENSIONS_DIR defaults to /tmp/extensions/resources), so the archive has to
+# carry a top level resources/ directory. Putting the bundle in a subdirectory
+# named after the extension keeps it namespaced from any other extension
+# installed into the same directory, and argocd-server finds it either way
+# because it walks /tmp/extensions recursively.
+#
+# The archive and checksum file names follow argocd-ephemeral-access and
+# argocd-extension-metrics: extension.tar.gz carries no version, because the
+# version lives in the release URL it is published under, and the checksums go in
+# extension_checksums.txt. The installer looks the archive up in that file by its
+# exact name, which is why sha256sum is run from inside the dist directory - from
+# anywhere else the name would be recorded as dist/extension.tar.gz and never match.
+UI_EXTENSION_ARCHIVE=extension.tar.gz
+UI_EXTENSION_CHECKSUMS=extension_checksums.txt
+UI_EXTENSION_STAGE_DIR=$(DIST_DIR)/ui-extension
+UI_EXTENSION_BUNDLE=ui/dist/extension-monorepo-controller.js
+
+# Builds the tar.gz that argocd-extension-installer can install, with its checksum.
+.PHONY: build-ui-archive-local
+build-ui-archive-local: build-ui-local
+	rm -rf $(UI_EXTENSION_STAGE_DIR)
+	mkdir -p $(UI_EXTENSION_STAGE_DIR)/resources/argocd-monorepo-controller
+	cp $(UI_EXTENSION_BUNDLE) $(UI_EXTENSION_STAGE_DIR)/resources/argocd-monorepo-controller/
+	tar -czf $(DIST_DIR)/$(UI_EXTENSION_ARCHIVE) -C $(UI_EXTENSION_STAGE_DIR) resources
+	cd $(DIST_DIR) && sha256sum $(UI_EXTENSION_ARCHIVE) > $(UI_EXTENSION_CHECKSUMS)
+	rm -rf $(UI_EXTENSION_STAGE_DIR)
+	@echo
+	@echo "built $(DIST_DIR)/$(UI_EXTENSION_ARCHIVE)"
+	@echo "       $(DIST_DIR)/$(UI_EXTENSION_CHECKSUMS)"
+
+# Installs the UI extension into the Argo CD installation in the current cluster.
+# Set ARGOCD_NAMESPACE to use a namespace other than "argocd".
+.PHONY: install-ui-extension-local
+install-ui-extension-local:
+	./ui/dev/install-extension.sh
+
+# Removes the UI extension from the Argo CD installation in the current cluster.
+.PHONY: uninstall-ui-extension-local
+uninstall-ui-extension-local:
+	./ui/dev/install-extension.sh -u
+
+
 # Runs pre-commit validation with the virtualized toolchain
 .PHONY: pre-commit
 pre-commit: codegen build lint test

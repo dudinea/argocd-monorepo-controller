@@ -3,6 +3,8 @@
 .DS_Store
 .run/
 .githooks/
+attic/
+CLAUDE.local.md
 vendor/
 dist/*
 ui/dist/app/*

@@ -1,0 +1,24 @@
+# Strategic merge patch that makes argocd-server serve the Monorepo Controller
+# UI extension from the argocd-monorepo-ui-extension ConfigMap.
+#
+# It is additive: the patch merge keys (volumes[].name, containers[].name,
+# volumeMounts[].mountPath) mean existing volumes and mounts are kept, so the
+# patch can be applied repeatedly.
+#
+# The mount path matches the default EXTENSIONS_DIR of
+# argocd-extension-installer, so the layout stays the same once the extension is
+# installed the production way.
+#
+# This is a development helper: use ui/dev/install-extension.sh to apply it.
+spec:
+  template:
+    spec:
+      volumes:
+        - name: monorepo-ui-extension
+          configMap:
+            name: argocd-monorepo-ui-extension
+      containers:
+        - name: argocd-server
+          volumeMounts:
+            - name: monorepo-ui-extension
+              mountPath: /tmp/extensions/resources/argocd-monorepo-controller
