@@ -7,10 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
