@@ -213,8 +213,8 @@ ifdef IMAGE_NAMESPACE
 IMAGE_PREFIX=${IMAGE_NAMESPACE}/
 else
 # Neither namespace nor registry given - apply the default values
-IMAGE_REGISTRY="quay.io"
-IMAGE_NAMESPACE="argoproj-labs"
+IMAGE_REGISTRY=quay.io
+IMAGE_NAMESPACE=argoproj-labs
 IMAGE_PREFIX=${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/
 endif
 endif
