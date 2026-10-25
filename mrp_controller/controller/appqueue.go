@@ -20,17 +20,23 @@ type gaugeSetter interface {
 }
 
 type KeyedAppQueue struct {
-	mu          sync.RWMutex
-	items       *list.List
-	keyMap      map[string]*list.Element
+	mu     sync.RWMutex
+	items  *list.List
+	keyMap map[string]*list.Element
+	// currently handled keys
+	processing map[string]struct{}
+	// updates received during keys processing, re-queued by Done
+	pending     map[string]appv1.Application
 	notEmpty    *sync.Cond
 	lengthGauge gaugeSetter
 }
 
 func NewKeyedAppQueue() *KeyedAppQueue {
 	kaq := &KeyedAppQueue{
-		items:  list.New(),
-		keyMap: make(map[string]*list.Element),
+		items:      list.New(),
+		keyMap:     make(map[string]*list.Element),
+		processing: make(map[string]struct{}),
+		pending:    make(map[string]appv1.Application),
 	}
 	kaq.notEmpty = sync.NewCond(&kaq.mu)
 	return kaq
@@ -39,8 +45,18 @@ func NewKeyedAppQueue() *KeyedAppQueue {
 func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
+	kq.enqueueLocked(app)
+}
 
+func (kq *KeyedAppQueue) enqueueLocked(app appv1.Application) {
 	key := app.Namespace + "/" + app.Name
+
+	// put into pending list if it is currently being processed
+	if _, processing := kq.processing[key]; processing {
+		kq.pending[key] = app
+		kq.reportQueueLength()
+		return
+	}
 
 	item := AppQueueItem{Key: key, Value: app}
 	var newElem *list.Element
@@ -68,7 +84,7 @@ func (kq *KeyedAppQueue) SetLengthGauge(g gaugeSetter) {
 
 func (kq *KeyedAppQueue) reportQueueLength() {
 	if kq.lengthGauge != nil {
-		kq.lengthGauge.Set(float64(kq.items.Len()))
+		kq.lengthGauge.Set(float64(kq.items.Len() + len(kq.pending)))
 	}
 }
 
@@ -93,8 +109,31 @@ func (kq *KeyedAppQueue) DequeueWait(ctx context.Context) (*AppQueueItem, bool) 
 	item := elem.Value.(AppQueueItem)
 	kq.items.Remove(elem)
 	delete(kq.keyMap, item.Key)
+	// put into processing set, so the same app won't
+	// be processed by different gouroutines in parallel
+	kq.processing[item.Key] = struct{}{}
 	kq.reportQueueLength()
 	return &item, true
+}
+
+// Done removes the key from the processing set. If any updates for the app
+// were received while processing the app, the last one is requeued.
+func (kq *KeyedAppQueue) Done(key string) {
+	kq.mu.Lock()
+	defer kq.mu.Unlock()
+
+	if _, processing := kq.processing[key]; !processing {
+		log.Errorf("Done called for app %q which is not being processed. this cannot happen!", key)
+		return
+	}
+	delete(kq.processing, key)
+
+	app, ok := kq.pending[key]
+	if !ok {
+		return
+	}
+	delete(kq.pending, key)
+	kq.enqueueLocked(app)
 }
 
 type WorkerPool struct {
@@ -147,6 +186,7 @@ func NewWorkerPool(q *KeyedAppQueue, numWorkers int, f func(ctx context.Context,
 			for job := range wp.jobChan {
 				log.Debugf("Worker %d: handling app  %q", i, job.Key)
 				f(ctx, job.Value)
+				wp.queue.Done(job.Key)
 			}
 		}()
 	}

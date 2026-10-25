@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -40,7 +39,6 @@ type MRPService interface {
 
 type mrpService struct {
 	applicationClientset appclientset.Interface
-	lock                 sync.Mutex
 	logger               *log.Logger
 	db                   db.ArgoDB
 	repoClientset        repoapiclient.Clientset
@@ -291,9 +289,6 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	}()
 
 	logCtx.Infof("ChangeRevision called")
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
 
 	patch, err := c.makeChangeRevisionPatch(ctx, logCtx, a)
 	if err == nil {

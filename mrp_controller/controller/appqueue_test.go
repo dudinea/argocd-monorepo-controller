@@ -1432,3 +1432,216 @@ func TestKeyedAppQueue_GaugeTracksEnqueueDequeue(t *testing.T) {
 		t.Fatal("dequeue timed out")
 	}
 }
+
+// dequeue takes one item off the queue, failing the test if nothing arrives
+func dequeue(t *testing.T, queue *KeyedAppQueue) *AppQueueItem {
+	t.Helper()
+	done := make(chan *AppQueueItem, 1)
+	go func() {
+		item, _ := queue.DequeueWait(context.Background())
+		done <- item
+	}()
+
+	select {
+	case item := <-done:
+		require.NotNil(t, item)
+		return item
+	case <-time.After(2 * time.Second):
+		t.Fatal("dequeue timed out")
+		return nil
+	}
+}
+
+func TestKeyedAppQueue_CheckedOutKeyIsNotDequeuedAgain(t *testing.T) {
+	queue := NewKeyedAppQueue()
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+	item := dequeue(t, queue)
+	assert.Equal(t, "v1", item.Value.Status.Sync.Revision)
+
+	// events arriving while the app is checked out are coalesced into one
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v2"))
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v3"))
+
+	queue.mu.RLock()
+	assert.Equal(t, 0, queue.items.Len(), "the app being processed must not be requeued")
+	assert.Len(t, queue.pending, 1)
+	assert.Equal(t, "v3", queue.pending["ns/app"].Status.Sync.Revision, "only newest event is kept")
+	queue.mu.RUnlock()
+
+	// releasing the key requeues the newest event
+	queue.Done(item.Key)
+
+	queue.mu.RLock()
+	assert.Equal(t, 1, queue.items.Len())
+	assert.Empty(t, queue.pending)
+	assert.Empty(t, queue.processing)
+	queue.mu.RUnlock()
+
+	requeued := dequeue(t, queue)
+	assert.Equal(t, "ns/app", requeued.Key)
+	assert.Equal(t, "v3", requeued.Value.Status.Sync.Revision)
+}
+
+func TestKeyedAppQueue_CheckoutDoesNotBlockOtherKeys(t *testing.T) {
+	queue := NewKeyedAppQueue()
+
+	queue.Enqueue(createTestApplication("ns", "app-1"))
+	first := dequeue(t, queue)
+	assert.Equal(t, "ns/app-1", first.Key)
+
+	// a different app stays dequeuable while app-1 is checked out
+	queue.Enqueue(createTestApplication("ns", "app-2"))
+	second := dequeue(t, queue)
+	assert.Equal(t, "ns/app-2", second.Key)
+}
+
+func TestKeyedAppQueue_DoneWithoutPendingEventKeepsQueueEmpty(t *testing.T) {
+	queue := NewKeyedAppQueue()
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item := dequeue(t, queue)
+	queue.Done(item.Key)
+
+	queue.mu.RLock()
+	assert.Equal(t, 0, queue.items.Len())
+	assert.Empty(t, queue.keyMap)
+	assert.Empty(t, queue.pending)
+	assert.Empty(t, queue.processing)
+	queue.mu.RUnlock()
+}
+
+func TestKeyedAppQueue_DoneForUnknownKeyIsNoop(t *testing.T) {
+	queue := NewKeyedAppQueue()
+
+	queue.Done("ns/never-dequeued")
+
+	queue.mu.RLock()
+	assert.Equal(t, 0, queue.items.Len())
+	assert.Empty(t, queue.processing)
+	queue.mu.RUnlock()
+}
+
+func TestKeyedAppQueue_GaugeCountsSameAppEvents(t *testing.T) {
+	queue := NewKeyedAppQueue()
+	gauge := &testGauge{}
+	queue.SetLengthGauge(gauge)
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+
+	item := dequeue(t, queue)
+	assert.InDelta(t, float64(0), gauge.lastValue, 0)
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+	queue.Enqueue(createTestApplication("ns", "app"))
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+
+	queue.Done(item.Key)
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+
+	dequeue(t, queue)
+	assert.InDelta(t, float64(0), gauge.lastValue, 0)
+}
+
+func TestWorkerPool_SameAppNotProcessedConcurrently(t *testing.T) {
+	queue := NewKeyedAppQueue()
+	var mu sync.Mutex
+	inFlight := 0
+	maxInFlight := 0
+	processed := int32(0)
+
+	handler := func(_ context.Context, _ appv1.Application) {
+		mu.Lock()
+		inFlight++
+		if inFlight > maxInFlight {
+			maxInFlight = inFlight
+		}
+		mu.Unlock()
+
+		time.Sleep(20 * time.Millisecond)
+
+		mu.Lock()
+		inFlight--
+		mu.Unlock()
+		atomic.AddInt32(&processed, 1)
+	}
+
+	pool := NewWorkerPool(queue, 4, handler)
+	defer pool.Stop()
+
+	// hammer a single app from several goroutines
+	var wg sync.WaitGroup
+	for e := 0; e < 4; e++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				queue.Enqueue(createTestApplicationWithRevision("ns", "app", fmt.Sprintf("v%d", i)))
+				time.Sleep(5 * time.Millisecond)
+			}
+		}()
+	}
+	wg.Wait()
+
+	// let the last coalesced event drain
+	assert.Eventually(t, func() bool {
+		queue.mu.RLock()
+		defer queue.mu.RUnlock()
+		return queue.items.Len() == 0 && len(queue.pending) == 0 && len(queue.processing) == 0
+	}, 5*time.Second, 10*time.Millisecond, "queue should drain")
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, 1, maxInFlight, "the same app must never be processed by two workers at once")
+	assert.Positive(t, atomic.LoadInt32(&processed))
+}
+
+func TestWorkerPool_DistinctAppsStillRunInParallel(t *testing.T) {
+	queue := NewKeyedAppQueue()
+	var mu sync.Mutex
+	inFlight := 0
+	maxInFlight := 0
+	var wg sync.WaitGroup
+
+	handler := func(_ context.Context, _ appv1.Application) {
+		mu.Lock()
+		inFlight++
+		if inFlight > maxInFlight {
+			maxInFlight = inFlight
+		}
+		mu.Unlock()
+
+		time.Sleep(50 * time.Millisecond)
+
+		mu.Lock()
+		inFlight--
+		mu.Unlock()
+		wg.Done()
+	}
+
+	pool := NewWorkerPool(queue, 4, handler)
+	defer pool.Stop()
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("app-%d", i)))
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("job processing timed out")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Greater(t, maxInFlight, 1, "distinct apps should be processed in parallel")
+}
