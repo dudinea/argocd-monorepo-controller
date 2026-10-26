@@ -588,7 +588,7 @@ update-helm-docs-local:
 
 .PHONY: publish-helm-local
 publish-helm-local:
-	mkdir -p site && cd helm && helm package . -d ../site && helm push ../site/argocd-monorepo-controller-v$(VERSION).tgz $(HELM_CHART_REPO)
+	mkdir -p site && cd helm && helm package . -d ../site && helm push ../site/argocd-monorepo-controller-v$(VERSION).tgz "oci://$(HELM_CHART_REGISTRY)/$(HELM_CHART_REPO)"
 
 
 .PHONY: build-docs-local
