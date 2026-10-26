@@ -120,14 +120,14 @@ type sourceRevisions struct {
 func (c *mrpService) makeChangeRevisionPatch(ctx context.Context, logCtx *log.Entry, a *application.Application) (map[string]any, error) {
 	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Get(ctx, a.Name, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting application: %w", err)
 	}
 	logCtx.Debugf("retrieved application resource version %s", app.ResourceVersion)
 	// we just need to know it exists, actual use of the value will be in calculateChangeRevision
 	manifestGenerationPaths, ok := a.Annotations[application.AnnotationKeyManifestGeneratePaths]
 	if !ok || manifestGenerationPaths == "" {
 		logCtx.Warnf("manifest generation paths not set for the application")
-		return nil, status.Errorf(codes.FailedPrecondition, "manifest generation paths not set")
+		return nil, NewPermanentError(status.Errorf(codes.FailedPrecondition, "manifest generation paths not set"))
 	}
 	logCtx.Debugf("manifest generation paths is %s", manifestGenerationPaths)
 
@@ -231,11 +231,11 @@ func (c *mrpService) makeAnnotationPatch(a *application.Application,
 
 	changeRevisionJSON, err := json.Marshal(changeRevisions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshall changeRevisions %v: %w", changeRevisions, err)
+		return nil, NewPermanentError(fmt.Errorf("failed to marshall changeRevisions %v: %w", changeRevisions, err))
 	}
 	gitRevisionJSON, err := json.Marshal(gitRevisions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshall changeRevisions %v: %w", changeRevisions, err)
+		return nil, NewPermanentError(fmt.Errorf("failed to marshall gitRevisions %v: %w", gitRevisions, err))
 	}
 
 	addPatchIfNeeded(annotations, currentAnnotations, CHANGE_REVISION_ANN, changeRevision)
@@ -258,24 +258,13 @@ func (c *mrpService) annotateApplication(ctx context.Context, logCtx *log.Entry,
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		logCtx.Errorf("failed to marshal patch into json: %v", err)
-		return err
+		return NewPermanentError(err)
 	}
 	app, err := c.applicationClientset.ArgoprojV1alpha1().Applications(a.Namespace).Patch(ctx, a.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logCtx.Errorf("failed to annotate application: %v: %v", app, err)
 	}
 	return err
-}
-
-func isTimeout(err error) bool {
-	if errors.Is(err, context.DeadlineExceeded) {
-		return true
-	}
-	grpcStatus, ok := status.FromError(err)
-	if ok && grpcStatus.Code() == codes.DeadlineExceeded {
-		return true
-	}
-	return false
 }
 
 func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Application) error {
@@ -374,7 +363,7 @@ func (c *mrpService) calculateChangeRevision(ctx context.Context, logCtx *log.En
 		return nil, fmt.Errorf("error getting change revision: %w", err)
 	}
 	if changeRevisionResult == nil {
-		return nil, errors.New("got nil change revision result, this cannot not happen")
+		return nil, NewPermanentError(errors.New("got nil change revision result, this cannot not happen"))
 	}
 	logCtx.Infof("change revision result from repo server: %s", changeRevisionResult.Revision)
 	return &changeRevisionResult.Revision, nil
