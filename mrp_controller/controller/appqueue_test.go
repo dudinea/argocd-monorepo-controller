@@ -767,13 +767,14 @@ func TestWorkerPool_CreateAndStop(t *testing.T) {
 	processedApps := make([]*AppQueueItem, 0)
 	var mu sync.Mutex
 
-	handler := func(_ context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) error {
 		mu.Lock()
 		processedApps = append(processedApps, &AppQueueItem{
 			Key:   app.Namespace + "/" + app.Name,
 			Value: app,
 		})
 		mu.Unlock()
+		return nil
 	}
 
 	// Create pool with 2 workers
@@ -798,7 +799,7 @@ func TestWorkerPool_CreateAndStop(t *testing.T) {
 
 func TestWorkerPool_MultipleWorkersInitialization(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(_ context.Context, _ appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) error { return nil }
 
 	testCases := []int{1, 2, 5, 10}
 	for _, numWorkers := range testCases {
@@ -810,7 +811,7 @@ func TestWorkerPool_MultipleWorkersInitialization(t *testing.T) {
 
 func TestWorkerPool_StopCancelsContext(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(_ context.Context, _ appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) error { return nil }
 
 	pool := NewWorkerPool(queue, 1, handler)
 	ctx := pool.ctx
@@ -835,7 +836,7 @@ func TestWorkerPool_StopCancelsContext(t *testing.T) {
 
 func TestWorkerPool_ZeroWorkersHandling(t *testing.T) {
 	queue := NewKeyedAppQueue()
-	handler := func(_ context.Context, _ appv1.Application) {}
+	handler := func(_ context.Context, _ appv1.Application) error { return nil }
 
 	// Create pool with 0 workers - edge case
 	pool := NewWorkerPool(queue, 0, handler)
@@ -867,7 +868,7 @@ func TestWorkerPool_SingleJobProcessing(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) error {
 		mu.Lock()
 		processedApps = append(processedApps, &AppQueueItem{
 			Key:   app.Namespace + "/" + app.Name,
@@ -875,6 +876,7 @@ func TestWorkerPool_SingleJobProcessing(t *testing.T) {
 		})
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 1, handler)
@@ -907,11 +909,12 @@ func TestWorkerPool_MultipleJobsSequential(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) error {
 		mu.Lock()
 		processedKeys = append(processedKeys, app.Namespace+"/"+app.Name)
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 1, handler)
@@ -947,10 +950,11 @@ func TestWorkerPool_ParallelJobProcessing(t *testing.T) {
 	processedCount := int32(0)
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		time.Sleep(50 * time.Millisecond)
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 4, handler)
@@ -990,11 +994,12 @@ func TestWorkerPool_JobProcessingOrder(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) error {
 		mu.Lock()
 		processedKeys = append(processedKeys, app.Namespace+"/"+app.Name)
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	// Use single worker to verify FIFO order
@@ -1040,12 +1045,13 @@ func TestWorkerPool_JobDistributionAcrossWorkers(t *testing.T) {
 	workerChan := make(chan int, 100)
 	jobChan := make(chan string, 100)
 
-	handler := func(_ context.Context, app appv1.Application) {
+	handler := func(_ context.Context, app appv1.Application) error {
 		id := <-workerChan
 		mu.Lock()
 		workerIDMap[id] = append(workerIDMap[id], app.Name)
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 3, handler)
@@ -1105,9 +1111,10 @@ func TestWorkerPool_LoadBalancing(t *testing.T) {
 	processedCount := int32(0)
 
 	// Handler with varying processing time
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 5, handler)
@@ -1141,12 +1148,13 @@ func TestWorkerPool_WorkerCompletion(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		time.Sleep(50 * time.Millisecond)
 		mu.Lock()
 		completionOrder = append(completionOrder, time.Now().Unix())
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 2, handler)
@@ -1181,10 +1189,11 @@ func TestWorkerPool_BackpressureHandling(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		time.Sleep(10 * time.Millisecond)
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 1, handler)
@@ -1220,9 +1229,10 @@ func TestWorkerPool_StopWhileProcessing(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 2, handler)
@@ -1257,9 +1267,10 @@ func TestWorkerPool_ConcurrentJobAndStop(t *testing.T) {
 	processedCount := int32(0)
 	var stopWg sync.WaitGroup
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 3, handler)
@@ -1307,9 +1318,10 @@ func TestWorkerPool_ContextPropagation(t *testing.T) {
 	var wg sync.WaitGroup
 	contextReceived := make(chan context.Context, 1)
 
-	handler := func(ctx context.Context, _ appv1.Application) {
+	handler := func(ctx context.Context, _ appv1.Application) error {
 		contextReceived <- ctx
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 1, handler)
@@ -1334,9 +1346,10 @@ func TestWorkerPool_LargeScaleConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	processedCount := int32(0)
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		atomic.AddInt32(&processedCount, 1)
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 10, handler)
@@ -1552,7 +1565,7 @@ func TestWorkerPool_SameAppNotProcessedConcurrently(t *testing.T) {
 	maxInFlight := 0
 	processed := int32(0)
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		mu.Lock()
 		inFlight++
 		if inFlight > maxInFlight {
@@ -1566,6 +1579,7 @@ func TestWorkerPool_SameAppNotProcessedConcurrently(t *testing.T) {
 		inFlight--
 		mu.Unlock()
 		atomic.AddInt32(&processed, 1)
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 4, handler)
@@ -1605,7 +1619,7 @@ func TestWorkerPool_DistinctAppsStillRunInParallel(t *testing.T) {
 	maxInFlight := 0
 	var wg sync.WaitGroup
 
-	handler := func(_ context.Context, _ appv1.Application) {
+	handler := func(_ context.Context, _ appv1.Application) error {
 		mu.Lock()
 		inFlight++
 		if inFlight > maxInFlight {
@@ -1619,6 +1633,7 @@ func TestWorkerPool_DistinctAppsStillRunInParallel(t *testing.T) {
 		inFlight--
 		mu.Unlock()
 		wg.Done()
+		return nil
 	}
 
 	pool := NewWorkerPool(queue, 4, handler)

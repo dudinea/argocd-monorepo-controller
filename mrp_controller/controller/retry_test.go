@@ -1,0 +1,414 @@
+package controller
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/argoproj/argo-cd/v3/mrp_controller/service"
+	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
+)
+
+// ============================================================================
+// RETRY POLICY TESTS
+// ============================================================================
+
+func TestRetryPolicy_BackoffGrowsExponentially(t *testing.T) {
+	policy := RetryPolicy{MaxAttempts: 10, BaseDelay: 10 * time.Second, MaxDelay: 5 * time.Minute, Factor: 2}
+
+	tests := []struct {
+		attempt int
+		want    time.Duration
+	}{
+		{attempt: 0, want: 10 * time.Second}, // out of range, treated as the first
+		{attempt: 1, want: 10 * time.Second},
+		{attempt: 2, want: 20 * time.Second},
+		{attempt: 3, want: 40 * time.Second},
+		{attempt: 4, want: 80 * time.Second},
+		{attempt: 5, want: 160 * time.Second},
+		{attempt: 6, want: 5 * time.Minute}, // capped
+		{attempt: 100, want: 5 * time.Minute},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, policy.Backoff(tt.attempt), "attempt %d", tt.attempt)
+	}
+}
+
+func TestRetryPolicy_BackoffWithoutCapDoesNotOverflow(t *testing.T) {
+	policy := RetryPolicy{MaxAttempts: 100, BaseDelay: time.Second, Factor: 2}
+
+	assert.Positive(t, policy.Backoff(1000))
+	assert.LessOrEqual(t, policy.Backoff(1000), time.Duration(1<<63-1))
+}
+
+func TestRetryPolicy_BackoffJitterStaysWithinBounds(t *testing.T) {
+	policy := RetryPolicy{MaxAttempts: 10, BaseDelay: 10 * time.Second, MaxDelay: time.Minute, Factor: 2, Jitter: 0.2}
+
+	values := make(map[time.Duration]struct{})
+	for range 100 {
+		delay := policy.Backoff(2)
+		assert.GreaterOrEqual(t, delay, 16*time.Second)
+		assert.LessOrEqual(t, delay, 24*time.Second)
+		values[delay] = struct{}{}
+
+		// the jitter never pushes the delay over the cap
+		assert.LessOrEqual(t, policy.Backoff(10), time.Minute)
+	}
+	assert.Greater(t, len(values), 1, "the delay must be randomized")
+}
+
+func TestRetryPolicy_Enabled(t *testing.T) {
+	assert.True(t, DefaultRetryPolicy().Enabled())
+	assert.False(t, RetryPolicy{}.Enabled())
+	assert.False(t, RetryPolicy{MaxAttempts: -1}.Enabled())
+}
+
+// ============================================================================
+// QUEUE RETRY TESTS
+// ============================================================================
+
+// fakeTimers records the retries the queue schedules instead of waiting for
+// them, so that a test can run them when it wants to.
+type fakeTimers struct {
+	mu        sync.Mutex
+	scheduled []*fakeTimer
+}
+
+type fakeTimer struct {
+	timers  *fakeTimers
+	delay   time.Duration
+	run     func()
+	stopped bool
+}
+
+func (t *fakeTimer) Stop() bool {
+	t.timers.mu.Lock()
+	defer t.timers.mu.Unlock()
+	wasRunning := !t.stopped
+	t.stopped = true
+	return wasRunning
+}
+
+func (f *fakeTimers) factory() timerFactory {
+	return func(d time.Duration, run func()) retryTimer {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		timer := &fakeTimer{timers: f, delay: d, run: run}
+		f.scheduled = append(f.scheduled, timer)
+		return timer
+	}
+}
+
+// delays returns the delays of the retries which are still scheduled.
+func (f *fakeTimers) delays() []time.Duration {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var delays []time.Duration
+	for _, timer := range f.scheduled {
+		if !timer.stopped {
+			delays = append(delays, timer.delay)
+		}
+	}
+	return delays
+}
+
+// fire runs the retries which are still scheduled and reports how many of them
+// there were. Like a real timer, the scheduled function is run without holding
+// any of the locks of the timer itself.
+func (f *fakeTimers) fire() int {
+	f.mu.Lock()
+	var due []*fakeTimer
+	for _, timer := range f.scheduled {
+		if !timer.stopped {
+			due = append(due, timer)
+		}
+	}
+	f.scheduled = nil
+	f.mu.Unlock()
+
+	for _, timer := range due {
+		timer.run()
+	}
+	return len(due)
+}
+
+func newRetryTestQueue(policy RetryPolicy) (*KeyedAppQueue, *fakeTimers) {
+	timers := &fakeTimers{}
+	return NewKeyedAppQueue(WithRetryPolicy(policy), withTimerFactory(timers.factory())), timers
+}
+
+func testRetryPolicy() RetryPolicy {
+	return RetryPolicy{MaxAttempts: 3, BaseDelay: 10 * time.Second, MaxDelay: 5 * time.Minute, Factor: 2}
+}
+
+func retryableError() error {
+	return status.Error(codes.Unavailable, "connection refused")
+}
+
+// queueState reports the number of the queued and the delayed apps, and the
+// number of the attempts recorded for the given key.
+func queueState(queue *KeyedAppQueue, key string) (queued, delayed, attempts int) {
+	queue.mu.RLock()
+	defer queue.mu.RUnlock()
+	return queue.items.Len(), len(queue.delayed), queue.attempts[key]
+}
+
+func TestKeyedAppQueue_RetryableFailureIsRequeuedAfterBackoff(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	// the app is not queued yet, it waits for the backoff to pass
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 1, delayed)
+	assert.Equal(t, 1, attempts)
+	assert.Equal(t, []time.Duration{10 * time.Second}, timers.delays())
+
+	assert.Equal(t, 1, timers.fire())
+
+	queued, delayed, _ = queueState(queue, item.Key)
+	assert.Equal(t, 1, queued)
+	assert.Equal(t, 0, delayed)
+
+	requeued := dequeue(t, queue)
+	assert.Equal(t, "ns/app", requeued.Key)
+	assert.Equal(t, "v1", requeued.Value.Status.Sync.Revision, "the retry handles the same event")
+}
+
+func TestKeyedAppQueue_RetryDelayGrowsWithEveryAttempt(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	for _, want := range []time.Duration{10 * time.Second, 20 * time.Second, 40 * time.Second} {
+		item := dequeue(t, queue)
+		queue.DoneWithError(item.Key, item.Value, retryableError())
+		assert.Equal(t, []time.Duration{want}, timers.delays())
+		require.Equal(t, 1, timers.fire())
+	}
+
+	// the attempts allowed by the policy are used up now
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 0, delayed, "the application is given up on")
+	assert.Equal(t, 0, attempts, "the budget of the next event is not affected")
+	assert.Empty(t, timers.delays())
+}
+
+func TestKeyedAppQueue_PermanentFailureIsNotRetried(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, service.NewPermanentError(errors.New("no manifest generate paths")))
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Equal(t, 0, attempts)
+	assert.Empty(t, timers.delays())
+}
+
+func TestKeyedAppQueue_SuccessResetsTheRetryBudget(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	// two failed attempts
+	for range 2 {
+		item := dequeue(t, queue)
+		queue.DoneWithError(item.Key, item.Value, retryableError())
+		require.Equal(t, 1, timers.fire())
+	}
+
+	// followed by a successful one
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, nil)
+	_, _, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, attempts)
+
+	// so the next failure starts the backoff from the beginning again
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item = dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	assert.Equal(t, []time.Duration{10 * time.Second}, timers.delays())
+}
+
+func TestKeyedAppQueue_RetriesDisabled(t *testing.T) {
+	queue, timers := newRetryTestQueue(RetryPolicy{})
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	queued, delayed, _ := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Empty(t, timers.delays())
+}
+
+func TestKeyedAppQueue_NewEventSupersedesScheduledRetry(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Len(t, timers.delays(), 1)
+
+	// the event which arrives while the retry waits replaces it
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v2"))
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 1, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Equal(t, 0, attempts, "a new event is given a new retry budget")
+	assert.Empty(t, timers.delays(), "the scheduled retry is cancelled")
+
+	requeued := dequeue(t, queue)
+	assert.Equal(t, "v2", requeued.Value.Status.Sync.Revision)
+
+	// the cancelled retry does not queue the stale event when its timer fires
+	assert.Equal(t, 0, timers.fire())
+	queued, delayed, _ = queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 0, delayed)
+}
+
+func TestKeyedAppQueue_FiringTimerOfCancelledRetryIsIgnored(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	// the timer of the first retry is already running when the retry is
+	// cancelled and the app is scheduled again by a later attempt
+	stale := timers.scheduled[0]
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v2"))
+	second := dequeue(t, queue)
+	queue.DoneWithError(second.Key, second.Value, retryableError())
+
+	stale.run()
+
+	queued, delayed, _ := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued, "the cancelled retry must not requeue the application")
+	assert.Equal(t, 1, delayed, "the current retry is still scheduled")
+}
+
+func TestKeyedAppQueue_PendingEventSupersedesRetry(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+	item := dequeue(t, queue)
+
+	// an event received while the app is handled wins over the retry
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v2"))
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 1, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Equal(t, 0, attempts)
+	assert.Empty(t, timers.delays())
+
+	requeued := dequeue(t, queue)
+	assert.Equal(t, "v2", requeued.Value.Status.Sync.Revision)
+}
+
+func TestKeyedAppQueue_ForgetAppDropsScheduledRetry(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Len(t, timers.delays(), 1)
+
+	queue.ForgetApp(item.Key)
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Equal(t, 0, attempts)
+	assert.Empty(t, timers.delays())
+
+	assert.Equal(t, 0, timers.fire())
+	queued, _, _ = queueState(queue, item.Key)
+	assert.Equal(t, 0, queued, "a deleted application is not requeued")
+}
+
+func TestKeyedAppQueue_ScheduledRetryIsNotCountedAsQueueLength(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+	gauge := &testGauge{}
+	queue.SetLengthGauge(gauge)
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	assert.InDelta(t, float64(0), gauge.lastValue, 0, "an application waiting for its retry is not queued")
+
+	require.Equal(t, 1, timers.fire())
+	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+}
+
+func TestWorkerPool_FailedAppIsHandledAgain(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	handled := make(chan string, 4)
+	var attempts int
+	var mu sync.Mutex
+	handler := func(_ context.Context, a appv1.Application) error {
+		mu.Lock()
+		attempts++
+		attempt := attempts
+		mu.Unlock()
+		handled <- a.Status.Sync.Revision
+		if attempt == 1 {
+			return retryableError()
+		}
+		return nil
+	}
+
+	pool := NewWorkerPool(queue, 1, handler)
+	defer pool.Stop()
+
+	queue.Enqueue(createTestApplicationWithRevision("ns", "app", "v1"))
+
+	select {
+	case revision := <-handled:
+		assert.Equal(t, "v1", revision)
+	case <-time.After(2 * time.Second):
+		t.Fatal("the application was not handled")
+	}
+
+	// the failed attempt scheduled a retry, which the pool handles once its
+	// delay has passed
+	require.Eventually(t, func() bool { return len(timers.delays()) == 1 }, 2*time.Second, 10*time.Millisecond)
+	require.Equal(t, 1, timers.fire())
+
+	select {
+	case revision := <-handled:
+		assert.Equal(t, "v1", revision, "the retry handles the same event")
+	case <-time.After(2 * time.Second):
+		t.Fatal("the application was not handled again")
+	}
+
+	// the second attempt succeeded, so no further retry is scheduled
+	require.Eventually(t, func() bool {
+		_, _, attemptsLeft := queueState(queue, "ns/app")
+		return attemptsLeft == 0
+	}, 2*time.Second, 10*time.Millisecond)
+	assert.Empty(t, timers.delays())
+}

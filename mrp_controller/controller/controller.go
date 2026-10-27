@@ -35,7 +35,7 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 	if err != nil {
 		log.Error(err)
 	}
-	appQueue := NewKeyedAppQueue()
+	appQueue := NewKeyedAppQueue(WithRetryPolicy(DefaultRetryPolicy()))
 	appQueue.SetLengthGauge(metricsServer.QueueLengthGauge())
 	return &monorepoController{
 		appBroadcaster: appBroadcaster,
@@ -49,14 +49,13 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 func (c *monorepoController) Run(ctx context.Context) {
 	var logCtx log.FieldLogger = log.StandardLogger()
 
-	calculateIfPermitted := func(ctx context.Context, a appv1.Application) { //nolint:golint,unparam
+	// The error is reported to the queue, which logs it and decides whether
+	// the application is handled again.
+	calculateIfPermitted := func(ctx context.Context, a appv1.Application) error {
 		logCtx.Debugf("calculateIfPermitted called for application '%s/%s'", a.Namespace, a.Name)
 		ctx, cancel := context.WithTimeout(ctx, c.eventTimeout)
-		err := c.acrService.ChangeRevision(ctx, &a)
-		if err != nil {
-			logCtx.WithError(err).Error("failed to calculate change revision")
-		}
-		cancel()
+		defer cancel()
+		return c.acrService.ChangeRevision(ctx, &a)
 	}
 
 	enqueueFunc := func(event *appv1.ApplicationWatchEvent) error {
@@ -74,12 +73,23 @@ func (c *monorepoController) Run(ctx context.Context) {
 		return true
 	}
 
+	// A deleted application is not worth retrying anymore.
+	forgetFunc := func(event *appv1.ApplicationWatchEvent) error {
+		c.appQueue.ForgetApp(AppKey(&event.Application))
+		return nil
+	}
+	deletedFilterFunc := func(event *appv1.ApplicationWatchEvent) bool {
+		return event.Type == watch.Deleted
+	}
+
 	unsubscribe := c.appBroadcaster.Subscribe(enqueueFunc, filterFunc)
+	unsubscribeDeleted := c.appBroadcaster.Subscribe(forgetFunc, deletedFilterFunc)
 
 	wp := NewWorkerPool(c.appQueue, c.numWorkers, calculateIfPermitted)
 
 	defer func() {
 		unsubscribe()
+		unsubscribeDeleted()
 		wp.Stop()
 	}()
 	<-ctx.Done()
