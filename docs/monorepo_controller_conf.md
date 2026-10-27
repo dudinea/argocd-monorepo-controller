@@ -19,6 +19,10 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 | --------------------------------------- | ----------- | -------------------------------------------- | ------------------------------------------------------------ |
 | --address                               | string      | MONOREPO_CONTROLLER_LISTEN_ADDRESS           | Metrics server will listen on given address (default         |
 |                                         |             |                                              | "0.0.0.0")                                                   |
+| --app-resync-period                     | duration    | MONOREPO_CONTROLLER_APP_RESYNC_PERIOD        | Interval at which every application is handled again even    |
+|                                         |             |                                              | without an event, which recalculates the change revisions of |
+|                                         |             |                                              | the applications whose retries were used up. Disabled when   |
+|                                         |             |                                              | it is 0 (e.g. 1h)                                            |
 | --application-namespaces                | strings     | MONOREPO_CONTROLLER_APPLICATION_NAMESPACES   | Comma separated list of additional namespaces where          |
 |                                         |             |                                              | application resources can be managed in                      |
 | --as                                    | string      |                                              | Username to impersonate for the operation                    |

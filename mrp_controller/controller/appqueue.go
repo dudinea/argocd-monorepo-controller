@@ -37,6 +37,13 @@ type delayedRetry struct {
 	gen   uint64
 }
 
+// retryBudget counts the retries made for an application and records the
+// version of the application they were made for.
+type retryBudget struct {
+	attempts        int
+	resourceVersion string
+}
+
 type gaugeSetter interface {
 	Set(float64)
 }
@@ -67,9 +74,9 @@ type KeyedAppQueue struct {
 	lengthGauge gaugeSetter
 	// keys waiting to be requeued after a failed attempt to handle them
 	delayed map[string]*delayedRetry
-	// number of the attempts already made for a key, reset when the key is
-	// handled successfully or a new event for it is received
-	attempts map[string]int
+	// retries already made for a key, reset when the key is handled
+	// successfully or a new version of the application is received
+	budgets  map[string]retryBudget
 	retry    RetryPolicy
 	newTimer timerFactory
 	metrics  retryMetrics
@@ -110,7 +117,7 @@ func NewKeyedAppQueue(opts ...QueueOption) *KeyedAppQueue {
 		processing: make(map[string]struct{}),
 		pending:    make(map[string]appv1.Application),
 		delayed:    make(map[string]*delayedRetry),
-		attempts:   make(map[string]int),
+		budgets:    make(map[string]retryBudget),
 		newTimer:   realTimer,
 	}
 	kaq.notEmpty = sync.NewCond(&kaq.mu)
@@ -126,22 +133,50 @@ func NewKeyedAppQueue(opts ...QueueOption) *KeyedAppQueue {
 func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
-	// A new event carries fresher data than a scheduled retry, and is given a
-	// new retry budget of its own.
 	key := AppKey(&app)
+
+	if retry, waiting := kq.delayed[key]; waiting && sameVersion(&retry.app, &app) {
+		// The informer redelivered the very same application, which it does on
+		// every resync. It carries nothing the parked retry does not already
+		// have, so the retry is left to fire on its own schedule.
+		log.Debugf("application %q is already waiting for its retry, ignoring the redelivery", key)
+		return
+	}
+
+	// A new event carries fresher data than a scheduled retry.
 	kq.cancelRetryLocked(key)
-	delete(kq.attempts, key)
+	kq.resetBudgetLocked(key, &app)
 	kq.enqueueLocked(app)
 }
 
 // ForgetApp drops the retry scheduled for the application, if there is one,
-// together with the number of the attempts made for it. It is called when the
-// application is deleted.
+// together with the retries made for it. It is called when the application is
+// deleted.
 func (kq *KeyedAppQueue) ForgetApp(key string) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
 	kq.cancelRetryLocked(key)
-	delete(kq.attempts, key)
+	delete(kq.budgets, key)
+}
+
+// sameVersion reports whether the two applications are the same version of the
+// same object. An application with no resource version, which only a caller
+// outside the informer can produce, is never considered a redelivery.
+func sameVersion(a, b *appv1.Application) bool {
+	return a.ResourceVersion != "" && a.ResourceVersion == b.ResourceVersion
+}
+
+// resetBudgetLocked gives the application a new budget of retry attempts,
+// unless the attempts already counted were made for this very version of it.
+// The informer redelivers unchanged applications on every resync, and such a
+// redelivery must not hand a failing application an endless supply of
+// attempts.
+func (kq *KeyedAppQueue) resetBudgetLocked(key string, app *appv1.Application) {
+	budget, ok := kq.budgets[key]
+	if ok && app.ResourceVersion != "" && budget.resourceVersion == app.ResourceVersion {
+		return
+	}
+	delete(kq.budgets, key)
 }
 
 // scheduleRetryLocked requeues the app once the delay has passed.
@@ -285,20 +320,26 @@ func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err er
 	delete(kq.processing, key)
 
 	if pendingApp, ok := kq.pending[key]; ok {
-		// The update received while the app was handled carries fresher data
-		// than a retry would, and is given a new retry budget of its own.
 		delete(kq.pending, key)
-		delete(kq.attempts, key)
-		kq.enqueueLocked(pendingApp)
-		return
+		if !sameVersion(&pendingApp, &app) {
+			// The update received while the app was handled carries fresher
+			// data than a retry would, and is given a new retry budget of its
+			// own.
+			kq.resetBudgetLocked(key, &pendingApp)
+			kq.enqueueLocked(pendingApp)
+			return
+		}
+		// A resync redelivered the application while it was being handled: it
+		// is the version which was just handled, so there is nothing new to do
+		// and the result of the attempt decides what happens next.
 	}
 
 	if err == nil || !service.IsRetryable(err) {
-		delete(kq.attempts, key)
+		delete(kq.budgets, key)
 		return
 	}
 
-	attempt := kq.attempts[key] + 1
+	attempt := kq.budgets[key].attempts + 1
 	logCtx := log.WithFields(log.Fields{
 		"application": key,
 		"attempt":     attempt,
@@ -306,7 +347,7 @@ func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err er
 	})
 	namespace, name := splitAppKey(key)
 	if !kq.retry.Enabled() || attempt > kq.retry.MaxAttempts {
-		delete(kq.attempts, key)
+		delete(kq.budgets, key)
 		if kq.metrics != nil && kq.retry.Enabled() {
 			kq.metrics.IncAppRetryExhausted(namespace, name)
 		}
@@ -314,7 +355,7 @@ func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err er
 		return
 	}
 	delay := kq.retry.Backoff(attempt)
-	kq.attempts[key] = attempt
+	kq.budgets[key] = retryBudget{attempts: attempt, resourceVersion: app.ResourceVersion}
 	kq.scheduleRetryLocked(key, app, delay)
 	if kq.metrics != nil {
 		kq.metrics.IncAppRetry(namespace, name)

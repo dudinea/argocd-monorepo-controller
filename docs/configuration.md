@@ -6,6 +6,7 @@ components, are configured using the `argocd-monorepo-cmd-params-cm` configmap.
 
 | Key                                       | Default                           | Description                                                        |
 |-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
+| controller.app.resync.period              | disabled by default               | Interval of handling every application again without an event      |
 | controller.event.handling.timeout.seconds | "120"                             | Context deadline for processing a single application event         |
 | controller.log.level                      | "info"                            | Monorepo Controller log level                                      |
 | controller.log.format                     | "text"                            | Monorepo Controller log format (text or json)                      |
@@ -135,6 +136,40 @@ data:
   controller.retry.max.delay: "5m"
   controller.retry.backoff.factor: "2.0"
   controller.retry.jitter: "0.2"
+```
+
+## Configure the application resync period
+
+A failing application is retried a bounded number of times. Once those
+attempts are used up the application is left alone until its next event, so
+its [Change Revision](terminology.md#change-revision) annotations stay stale
+for as long as nothing happens to it. On a quiet installation that can be a
+long time.
+
+The resync period closes that gap: the controller asks the Kubernetes
+informer to redeliver every application it watches at that interval, and
+handles each of them again. An application whose annotations are up to date
+costs almost nothing to handle again, because the controller compares the
+recorded Git revision with the current one and stops there without calling
+the monorepo repo server. The applications which never got their revisions
+calculated are the ones that do real work.
+
+The resync is disabled by default. Set `controller.app.resync.period` to a
+Go duration string of at least one minute to enable it; something well above
+the time a sweep of all your applications takes, such as `1h`, is a
+reasonable starting point. A redelivered application which is already
+waiting for a retry, or which was just handled, is recognized as unchanged:
+it neither restarts the retry backoff nor hands the application a new budget
+of attempts.
+
+**Example:**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-monorepo-cmd-params-cm
+data:
+  controller.app.resync.period: "1h"
 ```
 
 ## Configuring network policies

@@ -197,7 +197,7 @@ func retryableError() error {
 func queueState(queue *KeyedAppQueue, key string) (queued, delayed, attempts int) {
 	queue.mu.RLock()
 	defer queue.mu.RUnlock()
-	return queue.items.Len(), len(queue.delayed), queue.attempts[key]
+	return queue.items.Len(), len(queue.delayed), queue.budgets[key].attempts
 }
 
 func TestKeyedAppQueue_RetryableFailureIsRequeuedAfterBackoff(t *testing.T) {
@@ -401,6 +401,178 @@ func TestKeyedAppQueue_ScheduledRetryIsNotCountedAsQueueLength(t *testing.T) {
 
 	require.Equal(t, 1, timers.fire())
 	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+}
+
+// ============================================================================
+// INFORMER RESYNC TESTS
+// ============================================================================
+
+// createTestApplicationWithVersion builds the application as the informer
+// delivers it, with the resource version the queue tells a redelivery by.
+func createTestApplicationWithVersion(namespace, name, resourceVersion string) appv1.Application {
+	app := createTestApplication(namespace, name)
+	app.ResourceVersion = resourceVersion
+	return app
+}
+
+func TestKeyedAppQueue_ResyncDoesNotDisturbAScheduledRetry(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Equal(t, []time.Duration{10 * time.Second}, timers.delays())
+
+	// the resync redelivers the very same application
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued, "the redelivery is not queued, the retry is already waiting")
+	assert.Equal(t, 1, delayed)
+	assert.Equal(t, 1, attempts, "the redelivery does not hand out a new budget")
+	assert.Equal(t, []time.Duration{10 * time.Second}, timers.delays(), "the scheduled retry is untouched")
+}
+
+func TestKeyedAppQueue_ResyncDoesNotRestartTheBackoff(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	// every attempt is preceded by a resync of the same application, which
+	// must not stop the application from being given up on
+	for _, want := range []time.Duration{10 * time.Second, 20 * time.Second, 40 * time.Second} {
+		item := dequeue(t, queue)
+		queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+		queue.DoneWithError(item.Key, item.Value, retryableError())
+		assert.Equal(t, []time.Duration{want}, timers.delays())
+		require.Equal(t, 1, timers.fire())
+	}
+
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	_, delayed, _ := queueState(queue, item.Key)
+	assert.Equal(t, 0, delayed, "the budget was used up despite the resyncs")
+	assert.Empty(t, timers.delays())
+}
+
+func TestKeyedAppQueue_ResyncRequeuesAnApplicationGivenUpOn(t *testing.T) {
+	queue, timers := newRetryTestQueue(RetryPolicy{MaxAttempts: 1, BaseDelay: 10 * time.Second, Factor: 2})
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	// use up the single attempt the policy allows
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Equal(t, 1, timers.fire())
+	item = dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	require.Equal(t, 0, queued)
+	require.Equal(t, 0, delayed)
+	require.Equal(t, 0, attempts)
+
+	// the resync is the only thing which gets the application looked at again
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	queued, _, _ = queueState(queue, item.Key)
+	assert.Equal(t, 1, queued, "an application nothing is scheduled for is handled again")
+}
+
+func TestKeyedAppQueue_NewVersionGetsANewBudget(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Len(t, timers.delays(), 1)
+
+	// a real update, not a redelivery
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "101"))
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 1, queued)
+	assert.Equal(t, 0, delayed, "the scheduled retry is superseded")
+	assert.Equal(t, 0, attempts, "the new version starts with a full budget")
+	assert.Empty(t, timers.delays())
+
+	requeued := dequeue(t, queue)
+	assert.Equal(t, "101", requeued.Value.ResourceVersion)
+}
+
+func TestKeyedAppQueue_ResyncWhileProcessingDoesNotRestartTheBackoff(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	item := dequeue(t, queue)
+	// the resync lands while the application is being handled, so it is
+	// recorded as a pending update
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	// the redelivery brought nothing the attempt did not already have, so the
+	// failure is retried as if it had never arrived
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued, "the redelivery is not handled again right away")
+	assert.Equal(t, 1, delayed)
+	assert.Equal(t, 1, attempts, "the failed attempt is counted")
+	assert.Equal(t, []time.Duration{10 * time.Second}, timers.delays())
+
+	require.Equal(t, 1, timers.fire())
+	item = dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	assert.Equal(t, []time.Duration{20 * time.Second}, timers.delays(), "the backoff continued where it left off")
+}
+
+func TestKeyedAppQueue_ResyncOfASucceededApplicationIsNotHandledAgain(t *testing.T) {
+	queue, _ := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	item := dequeue(t, queue)
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+	queue.DoneWithError(item.Key, item.Value, nil)
+
+	queued, _, _ := queueState(queue, item.Key)
+	assert.Equal(t, 0, queued, "the version which was just handled is not handled again")
+}
+
+func TestKeyedAppQueue_PendingUpdateOfANewVersionIsStillHandled(t *testing.T) {
+	queue, _ := newRetryTestQueue(testRetryPolicy())
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "100"))
+
+	item := dequeue(t, queue)
+	queue.Enqueue(createTestApplicationWithVersion("ns", "app", "101"))
+	queue.DoneWithError(item.Key, item.Value, nil)
+
+	queued, _, _ := queueState(queue, item.Key)
+	require.Equal(t, 1, queued)
+	assert.Equal(t, "101", dequeue(t, queue).Value.ResourceVersion)
+}
+
+func TestKeyedAppQueue_ApplicationsWithoutResourceVersionAreAlwaysNew(t *testing.T) {
+	queue, timers := newRetryTestQueue(testRetryPolicy())
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	require.Len(t, timers.delays(), 1)
+
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	queued, delayed, attempts := queueState(queue, item.Key)
+	assert.Equal(t, 1, queued)
+	assert.Equal(t, 0, delayed)
+	assert.Equal(t, 0, attempts)
+}
+
+func TestSameVersion(t *testing.T) {
+	versioned := createTestApplicationWithVersion("ns", "app", "100")
+	other := createTestApplicationWithVersion("ns", "app", "101")
+	unversioned := createTestApplication("ns", "app")
+
+	assert.True(t, sameVersion(&versioned, &versioned))
+	assert.False(t, sameVersion(&versioned, &other))
+	assert.False(t, sameVersion(&unversioned, &unversioned), "an application with no version is never a redelivery")
+	assert.False(t, sameVersion(&versioned, &unversioned))
 }
 
 // ============================================================================

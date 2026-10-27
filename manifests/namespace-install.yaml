@@ -224,6 +224,12 @@ spec:
               key: controller.workers
               name: argocd-monorepo-cmd-params-cm
               optional: true
+        - name: MONOREPO_CONTROLLER_APP_RESYNC_PERIOD
+          valueFrom:
+            configMapKeyRef:
+              key: controller.app.resync.period
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
         - name: MONOREPO_CONTROLLER_RETRY_MAX_ATTEMPTS
           valueFrom:
             configMapKeyRef:

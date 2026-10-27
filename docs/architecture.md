@@ -101,11 +101,11 @@ annotation, a patch the API server rejects as invalid, and a request the
 repo server answers with an argument error are all permanent: retrying them
 would only waste the queue.
 
-A new event for an application always wins over a retry that is waiting for
-its delay. The event carries fresher data than the retry does, so the
-pending retry is dropped, the application is queued immediately and its
-budget of attempts starts again. Deleting an application drops its retry as
-well.
+An event which brings a new version of an application wins over a retry that
+is waiting for its delay. The event carries fresher data than the retry
+does, so the pending retry is dropped, the application is queued immediately
+and its budget of attempts starts again. Deleting an application drops its
+retry as well.
 
 For multisource applications the sources are calculated independently, so a
 failure of one source does not discard the work done for the others: the
@@ -116,6 +116,17 @@ sources are left at their previous values. That keeps the invariant the
 annotations rely on - a source is up to date only when its Git revision is
 current - so the retry recalculates exactly the sources which failed,
 instead of considering them already done.
+
+An application whose retries were all used up is only looked at again when
+its next event arrives. The optional application resync period closes that
+gap: the informer is asked to redeliver every application it watches at a
+fixed interval, and the controller handles each of them again. A redelivery
+carries the same version of the application that was handled before, which
+the queue recognizes: an application which is already waiting for a retry is
+left waiting, and one which was handled a moment ago is not handled twice,
+so the resync neither restarts a backoff nor gives a failing application an
+endless supply of attempts. Only the applications which genuinely have
+something left to calculate do any work. The resync is disabled by default.
 
 ## The Manifest Generate Paths Annotation
 
@@ -181,14 +192,14 @@ etc.).
 * We'll look into possible performance optimizations of the operations.
 * A minimum interval between two attempts to handle the same application
   (`--retry-min-interval`). The retry backoff only spaces out the retries of
-  a failed application; an application which fails and is then updated gets
-  a fresh budget on every event, so a flapping application can still be
-  handled as often as its events arrive. This was deliberately left out of
-  the initial implementation: it overlaps with the coalescing the queue
-  already does for the events that arrive while an application is being
-  handled, and the event rate of a healthy installation does not call for
-  it. It is worth adding if rate limiting per application turns out to be
-  needed in practice.
+  a failed application; an application which fails and is then genuinely
+  updated gets a fresh budget on every event, so a flapping application can
+  still be handled as often as its events arrive. This was deliberately left
+  out of the initial implementation: it overlaps with the coalescing the
+  queue already does for the events that arrive while an application is
+  being handled, and the event rate of a healthy installation does not call
+  for it. It is worth adding if rate limiting per application turns out to
+  be needed in practice.
 
 As the long-term goal, when the things will stabilize and performance
 will look good, we'll start working on integrating the changes into

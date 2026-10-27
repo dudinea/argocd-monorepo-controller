@@ -64,6 +64,7 @@ type MRPServerOpts struct {
 	EventHandlingTimeout   int
 	NumWorkers             int
 	RetryPolicy            mrp_controller.RetryPolicy
+	AppResyncPeriod        time.Duration
 }
 
 /*type handlerSwitcher struct {
@@ -193,7 +194,11 @@ func NewMRPServer(ctx context.Context, opts MRPServerOpts) *MRPServer {
 	if len(opts.ApplicationNamespaces) > 0 {
 		appInformerNs = ""
 	}
-	appFactory := appinformer.NewSharedInformerFactoryWithOptions(opts.AppClientset, 0, appinformer.WithNamespace(appInformerNs), appinformer.WithTweakListOptions(func(_ *metav1.ListOptions) {}))
+	// With a resync period the informer redelivers every application it has
+	// cached, which gets the applications whose handling kept failing looked
+	// at again. The queue recognizes such a redelivery and does not let it
+	// interfere with a retry which is already scheduled.
+	appFactory := appinformer.NewSharedInformerFactoryWithOptions(opts.AppClientset, opts.AppResyncPeriod, appinformer.WithNamespace(appInformerNs), appinformer.WithTweakListOptions(func(_ *metav1.ListOptions) {}))
 
 	appInformer := appFactory.Argoproj().V1alpha1().Applications().Informer()
 	appLister := appFactory.Argoproj().V1alpha1().Applications().Lister()
