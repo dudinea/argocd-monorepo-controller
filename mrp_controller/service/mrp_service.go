@@ -292,9 +292,6 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 	logCtx.Infof("ChangeRevision called")
 
 	patch, err := c.makeChangeRevisionPatch(ctx, logCtx, a)
-	if err != nil {
-		logCtx.Errorf("Failed to make change revision patch: %v", err)
-	}
 
 	if patch != nil {
 		// Some of the sources may have been calculated even if the others
@@ -307,7 +304,7 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 			status = "patch-error"
 			return errors.Join(err, patchErr)
 		case err != nil:
-			logCtx.Infof("Partially patched the application")
+			logCtx.Errorf("Partially patched the application, some of the revisions failed to calculate: %v", err)
 			status = "partial"
 		default:
 			logCtx.Infof("Successfully patched the application")
@@ -316,13 +313,16 @@ func (c *mrpService) ChangeRevision(ctx context.Context, a *application.Applicat
 		return err
 	}
 
-	switch {
-	case err == nil:
+	if err == nil {
 		logCtx.Infof("no need to patch the application")
 		status = "up-to-date"
-	case isTimeout(err):
+		return nil
+	}
+
+	logCtx.Errorf("Failed to make change revision patch: %v", err)
+	if isTimeout(err) {
 		status = "timeout"
-	default:
+	} else {
 		status = "error"
 	}
 	return err
