@@ -3,6 +3,7 @@ package controller
 import (
 	"container/list"
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +23,13 @@ func AppKey(app *appv1.Application) string {
 	return app.Namespace + "/" + app.Name
 }
 
+// splitAppKey splits the queue key back into the namespace and the name of the
+// application. A name cannot contain a slash, so the key is unambiguous.
+func splitAppKey(key string) (namespace, name string) {
+	namespace, name, _ = strings.Cut(key, "/")
+	return namespace, name
+}
+
 // delayedRetry is an application waiting for its retry delay to pass.
 type delayedRetry struct {
 	app   appv1.Application
@@ -31,6 +39,20 @@ type delayedRetry struct {
 
 type gaugeSetter interface {
 	Set(float64)
+}
+
+// retryMetrics records what the queue does with the applications whose
+// handling failed. The queue works without it, which keeps the tests and the
+// queue itself free of a metrics server.
+type retryMetrics interface {
+	// IncAppRetry counts a retry scheduled for the application.
+	IncAppRetry(namespace, name string)
+	// IncAppRetryExhausted counts an application given up on because all the
+	// retries the policy allows have failed.
+	IncAppRetryExhausted(namespace, name string)
+	// SetRetryQueueLength records how many applications are waiting for their
+	// retry delay to pass.
+	SetRetryQueueLength(length int)
 }
 
 type KeyedAppQueue struct {
@@ -50,6 +72,7 @@ type KeyedAppQueue struct {
 	attempts map[string]int
 	retry    RetryPolicy
 	newTimer timerFactory
+	metrics  retryMetrics
 	// number of the retries scheduled so far, used to recognize a retry which
 	// was cancelled while its timer was already firing
 	retryGen uint64
@@ -63,6 +86,13 @@ type QueueOption func(*KeyedAppQueue)
 func WithRetryPolicy(policy RetryPolicy) QueueOption {
 	return func(kq *KeyedAppQueue) {
 		kq.retry = policy
+	}
+}
+
+// WithRetryMetrics makes the queue report the retries it schedules.
+func WithRetryMetrics(m retryMetrics) QueueOption {
+	return func(kq *KeyedAppQueue) {
+		kq.metrics = m
 	}
 }
 
@@ -87,6 +117,9 @@ func NewKeyedAppQueue(opts ...QueueOption) *KeyedAppQueue {
 	for _, opt := range opts {
 		opt(kaq)
 	}
+	// report the empty retry queue, so that the metric does not appear only
+	// once something has failed
+	kaq.reportRetryQueueLength()
 	return kaq
 }
 
@@ -123,6 +156,7 @@ func (kq *KeyedAppQueue) scheduleRetryLocked(key string, app appv1.Application, 
 		gen:   gen,
 		timer: kq.newTimer(delay, func() { kq.requeueRetry(key, gen) }),
 	}
+	kq.reportRetryQueueLength()
 }
 
 func (kq *KeyedAppQueue) cancelRetryLocked(key string) {
@@ -132,6 +166,7 @@ func (kq *KeyedAppQueue) cancelRetryLocked(key string) {
 	}
 	retry.timer.Stop()
 	delete(kq.delayed, key)
+	kq.reportRetryQueueLength()
 }
 
 // requeueRetry puts the delayed app back into the queue once its delay has
@@ -146,6 +181,7 @@ func (kq *KeyedAppQueue) requeueRetry(key string, gen uint64) {
 		return
 	}
 	delete(kq.delayed, key)
+	kq.reportRetryQueueLength()
 	log.Debugf("retrying application %q", key)
 	kq.enqueueLocked(retry.app)
 }
@@ -187,6 +223,15 @@ func (kq *KeyedAppQueue) SetLengthGauge(g gaugeSetter) {
 func (kq *KeyedAppQueue) reportQueueLength() {
 	if kq.lengthGauge != nil {
 		kq.lengthGauge.Set(float64(kq.items.Len() + len(kq.pending)))
+	}
+}
+
+// reportRetryQueueLength reports the applications waiting for their retry
+// delay. They are deliberately kept out of reportQueueLength, which counts the
+// applications waiting to be handled by a worker.
+func (kq *KeyedAppQueue) reportRetryQueueLength() {
+	if kq.metrics != nil {
+		kq.metrics.SetRetryQueueLength(len(kq.delayed))
 	}
 }
 
@@ -259,14 +304,21 @@ func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err er
 		"attempt":     attempt,
 		"maxAttempts": kq.retry.MaxAttempts,
 	})
+	namespace, name := splitAppKey(key)
 	if !kq.retry.Enabled() || attempt > kq.retry.MaxAttempts {
 		delete(kq.attempts, key)
+		if kq.metrics != nil && kq.retry.Enabled() {
+			kq.metrics.IncAppRetryExhausted(namespace, name)
+		}
 		logCtx.WithError(err).Error("failed to handle the application, giving up")
 		return
 	}
 	delay := kq.retry.Backoff(attempt)
 	kq.attempts[key] = attempt
 	kq.scheduleRetryLocked(key, app, delay)
+	if kq.metrics != nil {
+		kq.metrics.IncAppRetry(namespace, name)
+	}
 	logCtx.WithError(err).Warnf("failed to handle the application, retrying in %v", delay)
 }
 

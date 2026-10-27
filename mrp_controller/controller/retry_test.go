@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/argoproj/argo-cd/v3/mrp_controller/service"
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -400,6 +401,169 @@ func TestKeyedAppQueue_ScheduledRetryIsNotCountedAsQueueLength(t *testing.T) {
 
 	require.Equal(t, 1, timers.fire())
 	assert.InDelta(t, float64(1), gauge.lastValue, 0)
+}
+
+// ============================================================================
+// RETRY METRICS TESTS
+// ============================================================================
+
+// testRetryMetrics records what the queue reports about the retries.
+type testRetryMetrics struct {
+	mu          sync.Mutex
+	retries     map[string]int
+	exhausted   map[string]int
+	queueLength int
+}
+
+func newTestRetryMetrics() *testRetryMetrics {
+	return &testRetryMetrics{
+		retries:   make(map[string]int),
+		exhausted: make(map[string]int),
+		// a value no report can produce, so that a reported zero is told apart
+		// from the queue never reporting at all
+		queueLength: -1,
+	}
+}
+
+func (m *testRetryMetrics) IncAppRetry(namespace, name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.retries[namespace+"/"+name]++
+}
+
+func (m *testRetryMetrics) IncAppRetryExhausted(namespace, name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.exhausted[namespace+"/"+name]++
+}
+
+func (m *testRetryMetrics) SetRetryQueueLength(length int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.queueLength = length
+}
+
+func (m *testRetryMetrics) counts(key string) (retries, exhausted, queueLength int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.retries[key], m.exhausted[key], m.queueLength
+}
+
+func newRetryTestQueueWithMetrics(policy RetryPolicy) (*KeyedAppQueue, *fakeTimers, *testRetryMetrics) {
+	timers := &fakeTimers{}
+	metrics := newTestRetryMetrics()
+	queue := NewKeyedAppQueue(WithRetryPolicy(policy), withTimerFactory(timers.factory()), WithRetryMetrics(metrics))
+	return queue, timers, metrics
+}
+
+func TestKeyedAppQueue_RetryQueueLengthIsReportedOnCreation(t *testing.T) {
+	_, _, metrics := newRetryTestQueueWithMetrics(testRetryPolicy())
+
+	_, _, queueLength := metrics.counts("ns/app")
+	assert.Equal(t, 0, queueLength, "the empty retry queue must be reported, not left unset")
+}
+
+func TestKeyedAppQueue_RetryMetricsCountAttemptsAndExhaustion(t *testing.T) {
+	queue, timers, metrics := newRetryTestQueueWithMetrics(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	// the three attempts the policy allows
+	for attempt := 1; attempt <= 3; attempt++ {
+		item := dequeue(t, queue)
+		queue.DoneWithError(item.Key, item.Value, retryableError())
+
+		retries, exhausted, queueLength := metrics.counts("ns/app")
+		assert.Equal(t, attempt, retries)
+		assert.Equal(t, 0, exhausted)
+		assert.Equal(t, 1, queueLength, "the application waits for its retry delay")
+
+		require.Equal(t, 1, timers.fire())
+		_, _, queueLength = metrics.counts("ns/app")
+		assert.Equal(t, 0, queueLength, "the application left the retry queue")
+	}
+
+	// the budget is used up, so this failure gives up on the application
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	retries, exhausted, queueLength := metrics.counts("ns/app")
+	assert.Equal(t, 3, retries, "the attempt which was given up on is not a retry")
+	assert.Equal(t, 1, exhausted)
+	assert.Equal(t, 0, queueLength)
+}
+
+func TestKeyedAppQueue_RetryQueueLengthCountsEveryDelayedApp(t *testing.T) {
+	queue, timers, metrics := newRetryTestQueueWithMetrics(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app-1"))
+	queue.Enqueue(createTestApplication("ns", "app-2"))
+
+	for range 2 {
+		item := dequeue(t, queue)
+		queue.DoneWithError(item.Key, item.Value, retryableError())
+	}
+	_, _, queueLength := metrics.counts("")
+	assert.Equal(t, 2, queueLength)
+
+	require.Equal(t, 2, timers.fire())
+	_, _, queueLength = metrics.counts("")
+	assert.Equal(t, 0, queueLength)
+}
+
+func TestKeyedAppQueue_CancelledRetryLeavesTheRetryQueue(t *testing.T) {
+	queue, _, metrics := newRetryTestQueueWithMetrics(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+	_, _, queueLength := metrics.counts("ns/app")
+	require.Equal(t, 1, queueLength)
+
+	queue.ForgetApp(item.Key)
+	_, _, queueLength = metrics.counts("ns/app")
+	assert.Equal(t, 0, queueLength)
+}
+
+func TestKeyedAppQueue_PermanentFailureIsNotCounted(t *testing.T) {
+	queue, _, metrics := newRetryTestQueueWithMetrics(testRetryPolicy())
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, service.NewPermanentError(errors.New("no manifest generate paths")))
+
+	retries, exhausted, queueLength := metrics.counts("ns/app")
+	assert.Equal(t, 0, retries)
+	assert.Equal(t, 0, exhausted, "an error which cannot succeed on a retry exhausts nothing")
+	assert.Equal(t, 0, queueLength)
+}
+
+func TestKeyedAppQueue_DisabledRetriesExhaustNothing(t *testing.T) {
+	queue, _, metrics := newRetryTestQueueWithMetrics(RetryPolicy{})
+	queue.Enqueue(createTestApplication("ns", "app"))
+
+	item := dequeue(t, queue)
+	queue.DoneWithError(item.Key, item.Value, retryableError())
+
+	retries, exhausted, _ := metrics.counts("ns/app")
+	assert.Equal(t, 0, retries)
+	assert.Equal(t, 0, exhausted, "a failure is not an exhausted retry budget when retries are off")
+}
+
+func TestSplitAppKey(t *testing.T) {
+	tests := []struct {
+		key           string
+		wantNamespace string
+		wantName      string
+	}{
+		{key: "argocd/my-app", wantNamespace: "argocd", wantName: "my-app"},
+		{key: AppKey(&appv1.Application{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "app"}}), wantNamespace: "ns", wantName: "app"},
+		{key: "no-separator", wantNamespace: "no-separator", wantName: ""},
+		{key: "", wantNamespace: "", wantName: ""},
+	}
+	for _, tt := range tests {
+		namespace, name := splitAppKey(tt.key)
+		assert.Equal(t, tt.wantNamespace, namespace, "key %q", tt.key)
+		assert.Equal(t, tt.wantName, name, "key %q", tt.key)
+	}
 }
 
 func TestWorkerPool_FailedAppIsHandledAgain(t *testing.T) {

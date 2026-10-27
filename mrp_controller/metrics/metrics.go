@@ -41,6 +41,8 @@ type MetricsServer struct {
 	repoServerRequestCounter   *prometheus.CounterVec
 	reconcileHistogram         *prometheus.HistogramVec
 	repoServerRequestHistogram *prometheus.HistogramVec
+	appRetryCounter            *prometheus.CounterVec
+	appRetryExhaustedCounter   *prometheus.CounterVec
 	registry                   *prometheus.Registry //nolint:all
 	hostname                   string
 	cron                       *cron.Cron
@@ -153,6 +155,27 @@ var (
 		Name: "monorepo_app_queue_length",
 		Help: "Number of applications currently queued for change revision processing.",
 	}, []string{"hostname"})
+
+	retryQueueLengthGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "monorepo_app_retry_queue_length",
+		Help: "Number of applications waiting for their retry delay to pass.",
+	}, []string{"hostname"})
+
+	appRetryCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "monorepo_app_retry_total",
+			Help: "Number of retries scheduled for applications whose handling failed with a retryable error.",
+		},
+		[]string{"namespace", "application"},
+	)
+
+	appRetryExhaustedCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "monorepo_app_retry_exhausted_total",
+			Help: "Number of applications given up on because all the retries allowed have failed.",
+		},
+		[]string{"namespace", "application"},
+	)
 )
 
 // NewMetricsServer returns a new prometheus server which collects application metrics
@@ -208,6 +231,9 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 	registry.MustRegister(resourceEventsProcessingHistogram)
 	registry.MustRegister(resourceEventsNumberGauge)
 	registry.MustRegister(queueLengthGauge)
+	registry.MustRegister(retryQueueLengthGauge)
+	registry.MustRegister(appRetryCounter)
+	registry.MustRegister(appRetryExhaustedCounter)
 
 	kubectl.RegisterWithClientGo()
 	kubectl.RegisterWithPrometheus(registry)
@@ -227,6 +253,8 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		reconcileHistogram:         reconcileHistogram,
 		repoServerRequestCounter:   repoServerRequestCounter,
 		repoServerRequestHistogram: repoServerRequestHistogram,
+		appRetryCounter:            appRetryCounter,
+		appRetryExhaustedCounter:   appRetryExhaustedCounter,
 		hostname:                   hostname,
 		// This cron is used to expire the metrics cache.
 		// Currently clearing the metrics cache is logging and deleting from the map
@@ -288,6 +316,24 @@ func (m *MetricsServer) QueueLengthGauge() prometheus.Gauge {
 	return queueLengthGauge.WithLabelValues(m.hostname)
 }
 
+// SetRetryQueueLength records how many applications are waiting for their
+// retry delay to pass. They are not counted by the application queue length.
+func (m *MetricsServer) SetRetryQueueLength(length int) {
+	retryQueueLengthGauge.WithLabelValues(m.hostname).Set(float64(length))
+}
+
+// IncAppRetry counts a retry scheduled for an application whose handling
+// failed with a retryable error.
+func (m *MetricsServer) IncAppRetry(namespace, name string) {
+	m.appRetryCounter.WithLabelValues(namespace, name).Inc()
+}
+
+// IncAppRetryExhausted counts an application given up on because all the
+// retries the policy allows have failed.
+func (m *MetricsServer) IncAppRetryExhausted(namespace, name string) {
+	m.appRetryExhaustedCounter.WithLabelValues(namespace, name).Inc()
+}
+
 // HasExpiration return true if expiration is set
 func (m *MetricsServer) HasExpiration() bool {
 	return len(m.cron.Entries()) > 0
@@ -310,6 +356,8 @@ func (m *MetricsServer) SetExpiration(cacheExpiration time.Duration) error {
 		m.repoServerRequestCounter.Reset()
 		m.reconcileHistogram.Reset()
 		m.repoServerRequestHistogram.Reset()
+		m.appRetryCounter.Reset()
+		m.appRetryExhaustedCounter.Reset()
 		kubectl.ResetAll()
 	})
 	if err != nil {

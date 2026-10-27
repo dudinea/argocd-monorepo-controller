@@ -44,7 +44,7 @@ func NewMonorepoController(appInformer cache.SharedIndexInformer, applicationCli
 	if err != nil {
 		log.Error(err)
 	}
-	appQueue := NewKeyedAppQueue(WithRetryPolicy(opts.Retry))
+	appQueue := NewKeyedAppQueue(WithRetryPolicy(opts.Retry), WithRetryMetrics(metricsServer))
 	appQueue.SetLengthGauge(metricsServer.QueueLengthGauge())
 	return &monorepoController{
 		appBroadcaster: appBroadcaster,
