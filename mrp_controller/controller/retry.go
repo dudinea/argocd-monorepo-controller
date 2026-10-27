@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"time"
@@ -47,6 +49,36 @@ func DefaultRetryPolicy() RetryPolicy {
 // Enabled reports whether the applications which failed are retried at all.
 func (p RetryPolicy) Enabled() bool {
 	return p.MaxAttempts > 0
+}
+
+// Validate reports every problem of the policy at once, so that a
+// misconfiguration does not have to be fixed one value per restart. A disabled
+// policy is validated as well: the values are kept meaningful for the case the
+// retries are enabled again.
+func (p RetryPolicy) Validate() error {
+	var errs []error
+	if p.MaxAttempts < 0 {
+		errs = append(errs, fmt.Errorf("max attempts is %d, must not be negative", p.MaxAttempts))
+	}
+	if p.BaseDelay <= 0 {
+		errs = append(errs, fmt.Errorf("base delay is %v, must be positive", p.BaseDelay))
+	}
+	if p.MaxDelay < 0 {
+		errs = append(errs, fmt.Errorf("max delay is %v, must not be negative", p.MaxDelay))
+	}
+	if p.MaxDelay > 0 && p.BaseDelay > p.MaxDelay {
+		errs = append(errs, fmt.Errorf("base delay %v is longer than max delay %v", p.BaseDelay, p.MaxDelay))
+	}
+	if p.Factor < 1 {
+		errs = append(errs, fmt.Errorf("backoff factor is %v, must be at least 1", p.Factor))
+	}
+	if p.Jitter < 0 || p.Jitter > 1 {
+		errs = append(errs, fmt.Errorf("jitter is %v, must be between 0 and 1", p.Jitter))
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return fmt.Errorf("invalid retry policy: %w", errors.Join(errs...))
 }
 
 // Backoff returns the delay before the given retry attempt, counted from 1.

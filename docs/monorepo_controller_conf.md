@@ -61,6 +61,19 @@ The ArgoCD Monorepo Controller is a service that listens for application events 
 |                                         |             |                                              | server request. Non-zero values should contain a             |
 |                                         |             |                                              | corresponding time unit (e.g. 1s, 2m, 3h). A value of zero   |
 |                                         |             |                                              | means don't timeout requests. (default "0")                  |
+| --retry-backoff-factor                  | float       | MONOREPO_CONTROLLER_RETRY_BACKOFF_FACTOR     | Multiplier applied to the retry delay after every attempt    |
+|                                         |             |                                              | (default 2)                                                  |
+| --retry-base-delay                      | duration    | MONOREPO_CONTROLLER_RETRY_BASE_DELAY         | Delay before the first retry of a failed application (e.g.   |
+|                                         |             |                                              | 10s) (default 10s)                                           |
+| --retry-jitter                          | float       | MONOREPO_CONTROLLER_RETRY_JITTER             | Fraction by which the retry delay is randomized, so that the |
+|                                         |             |                                              | applications which failed together are not all retried at    |
+|                                         |             |                                              | once (default 0.2)                                           |
+| --retry-max-attempts                    | int         | MONOREPO_CONTROLLER_RETRY_MAX_ATTEMPTS       | Number of times handling of an application is retried after  |
+|                                         |             |                                              | a transient failure. Retries are disabled when it is 0       |
+|                                         |             |                                              | (default 5)                                                  |
+| --retry-max-delay                       | duration    | MONOREPO_CONTROLLER_RETRY_MAX_DELAY          | Upper bound of the delay between the retries of a failed     |
+|                                         |             |                                              | application. The delay is not capped when it is 0 (e.g. 5m)  |
+|                                         |             |                                              | (default 5m0s)                                               |
 | --server                                | string      |                                              | The address and port of the Kubernetes API server            |
 | --tls-server-name                       | string      |                                              | If provided, this name will be used to validate server       |
 |                                         |             |                                              | certificate. If this is not provided, hostname used to       |

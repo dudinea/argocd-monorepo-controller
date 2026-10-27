@@ -64,6 +64,45 @@ func TestRetryPolicy_BackoffJitterStaysWithinBounds(t *testing.T) {
 	assert.Greater(t, len(values), 1, "the delay must be randomized")
 }
 
+func TestRetryPolicy_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		policy  RetryPolicy
+		wantErr string
+	}{
+		{name: "default policy", policy: DefaultRetryPolicy()},
+		{name: "retries disabled", policy: RetryPolicy{MaxAttempts: 0, BaseDelay: time.Second, Factor: 1}},
+		{name: "delay not capped", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Second, Factor: 1}},
+		{name: "negative max attempts", policy: RetryPolicy{MaxAttempts: -1, BaseDelay: time.Second, Factor: 1}, wantErr: "max attempts is -1"},
+		{name: "zero base delay", policy: RetryPolicy{MaxAttempts: 1, Factor: 1}, wantErr: "base delay is 0s"},
+		{name: "negative max delay", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Second, MaxDelay: -time.Second, Factor: 1}, wantErr: "max delay is -1s"},
+		{name: "base delay over max delay", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Minute, MaxDelay: time.Second, Factor: 1}, wantErr: "base delay 1m0s is longer than max delay 1s"},
+		{name: "shrinking backoff factor", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Second, Factor: 0.5}, wantErr: "backoff factor is 0.5"},
+		{name: "jitter over one", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Second, Factor: 1, Jitter: 1.5}, wantErr: "jitter is 1.5"},
+		{name: "negative jitter", policy: RetryPolicy{MaxAttempts: 1, BaseDelay: time.Second, Factor: 1, Jitter: -0.1}, wantErr: "jitter is -0.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.policy.Validate()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestRetryPolicy_ValidateReportsEveryProblem(t *testing.T) {
+	err := RetryPolicy{MaxAttempts: -1, BaseDelay: -time.Second, MaxDelay: -time.Minute, Factor: 0, Jitter: 2}.Validate()
+
+	require.ErrorContains(t, err, "max attempts is -1")
+	require.ErrorContains(t, err, "base delay is -1s")
+	require.ErrorContains(t, err, "max delay is -1m0s")
+	require.ErrorContains(t, err, "backoff factor is 0")
+	require.ErrorContains(t, err, "jitter is 2")
+}
+
 func TestRetryPolicy_Enabled(t *testing.T) {
 	assert.True(t, DefaultRetryPolicy().Enabled())
 	assert.False(t, RetryPolicy{}.Enabled())
