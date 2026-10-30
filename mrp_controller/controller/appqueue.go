@@ -18,27 +18,23 @@ type AppQueueItem struct {
 	Value appv1.Application
 }
 
-// AppKey returns the key under which the application is tracked in the queue.
 func AppKey(app *appv1.Application) string {
 	return app.Namespace + "/" + app.Name
 }
 
-// splitAppKey splits the queue key back into the namespace and the name of the
-// application. A name cannot contain a slash, so the key is unambiguous.
 func splitAppKey(key string) (namespace, name string) {
 	namespace, name, _ = strings.Cut(key, "/")
 	return namespace, name
 }
 
-// delayedRetry is an application waiting for its retry delay to pass.
+// delayedRetry represents an application waiting for its retry delay to pass.
 type delayedRetry struct {
 	app   appv1.Application
 	timer retryTimer
 	gen   uint64
 }
 
-// retryBudget counts the retries made for an application and records the
-// version of the application they were made for.
+// retryBudget counts the retries made for an version of an application
 type retryBudget struct {
 	attempts        int
 	resourceVersion string
@@ -48,17 +44,12 @@ type gaugeSetter interface {
 	Set(float64)
 }
 
-// retryMetrics records what the queue does with the applications whose
-// handling failed. The queue works without it, which keeps the tests and the
-// queue itself free of a metrics server.
 type retryMetrics interface {
 	// IncAppRetry counts a retry scheduled for the application.
 	IncAppRetry(namespace, name string)
-	// IncAppRetryExhausted counts an application given up on because all the
-	// retries the policy allows have failed.
+	// IncAppRetryExhausted counts an application given up on retries
 	IncAppRetryExhausted(namespace, name string)
-	// SetRetryQueueLength records how many applications are waiting for their
-	// retry delay to pass.
+	// SetRetryQueueLength records applications waiting for their retry delay to pass.
 	SetRetryQueueLength(length int)
 }
 
@@ -89,7 +80,7 @@ type KeyedAppQueue struct {
 type QueueOption func(*KeyedAppQueue)
 
 // WithRetryPolicy makes the queue retry the applications whose handling failed
-// with a transient error, as defined by the given policy.
+// with a retriable error
 func WithRetryPolicy(policy RetryPolicy) QueueOption {
 	return func(kq *KeyedAppQueue) {
 		kq.retry = policy
@@ -136,9 +127,6 @@ func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	key := AppKey(&app)
 
 	if retry, waiting := kq.delayed[key]; waiting && sameVersion(&retry.app, &app) {
-		// The informer redelivered the very same application, which it does on
-		// every resync. It carries nothing the parked retry does not already
-		// have, so the retry is left to fire on its own schedule.
 		log.Debugf("application %q is already waiting for its retry, ignoring the redelivery", key)
 		return
 	}
@@ -149,9 +137,8 @@ func (kq *KeyedAppQueue) Enqueue(app appv1.Application) {
 	kq.enqueueLocked(app)
 }
 
-// ForgetApp drops the retry scheduled for the application, if there is one,
-// together with the retries made for it. It is called when the application is
-// deleted.
+// ForgetApp drops the retry scheduled for the application, It is
+// called when the application is deleted.
 func (kq *KeyedAppQueue) ForgetApp(key string) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
@@ -159,18 +146,13 @@ func (kq *KeyedAppQueue) ForgetApp(key string) {
 	delete(kq.budgets, key)
 }
 
-// sameVersion reports whether the two applications are the same version of the
-// same object. An application with no resource version, which only a caller
-// outside the informer can produce, is never considered a redelivery.
 func sameVersion(a, b *appv1.Application) bool {
 	return a.ResourceVersion != "" && a.ResourceVersion == b.ResourceVersion
 }
 
-// resetBudgetLocked gives the application a new budget of retry attempts,
-// unless the attempts already counted were made for this very version of it.
-// The informer redelivers unchanged applications on every resync, and such a
-// redelivery must not hand a failing application an endless supply of
-// attempts.
+// resetBudgetLocked gives the application a new budget of retry attempts only if
+// its version has changed (to avoid periodic resinc resetting retry attempts
+// for failing applications),
 func (kq *KeyedAppQueue) resetBudgetLocked(key string, app *appv1.Application) {
 	budget, ok := kq.budgets[key]
 	if ok && app.ResourceVersion != "" && budget.resourceVersion == app.ResourceVersion {
@@ -261,9 +243,8 @@ func (kq *KeyedAppQueue) reportQueueLength() {
 	}
 }
 
-// reportRetryQueueLength reports the applications waiting for their retry
-// delay. They are deliberately kept out of reportQueueLength, which counts the
-// applications waiting to be handled by a worker.
+// reportRetryQueueLength reports the applications waiting for their
+// retry delay.
 func (kq *KeyedAppQueue) reportRetryQueueLength() {
 	if kq.metrics != nil {
 		kq.metrics.SetRetryQueueLength(len(kq.delayed))
@@ -307,8 +288,7 @@ func (kq *KeyedAppQueue) Done(key string) {
 // DoneWithError removes the key from the processing set and reports the result
 // of handling the app. If any updates for the app were received while
 // processing it, the last one is requeued. Otherwise, when handling the app
-// failed with an error which may not happen again, the app is requeued after a
-// growing delay, until the retries allowed by the policy are used up.
+// failed with a retriable error, the app is requeued after a growing delay.
 func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err error) {
 	kq.mu.Lock()
 	defer kq.mu.Unlock()
@@ -322,16 +302,11 @@ func (kq *KeyedAppQueue) DoneWithError(key string, app appv1.Application, err er
 	if pendingApp, ok := kq.pending[key]; ok {
 		delete(kq.pending, key)
 		if !sameVersion(&pendingApp, &app) {
-			// The update received while the app was handled carries fresher
-			// data than a retry would, and is given a new retry budget of its
-			// own.
+			// New app version received while retrying
 			kq.resetBudgetLocked(key, &pendingApp)
 			kq.enqueueLocked(pendingApp)
 			return
 		}
-		// A resync redelivered the application while it was being handled: it
-		// is the version which was just handled, so there is nothing new to do
-		// and the result of the attempt decides what happens next.
 	}
 
 	if err == nil || !service.IsRetryable(err) {

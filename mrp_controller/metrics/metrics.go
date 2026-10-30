@@ -49,12 +49,10 @@ type MetricsServer struct {
 }
 
 const (
-	// MetricsPath is the endpoint to collect application metrics
 	MetricsPath = "/metrics"
 )
 
-// Follow Prometheus naming practices
-// https://prometheus.io/docs/practices/naming/
+// Follow Prometheus naming practices https://prometheus.io/docs/practices/naming/
 var (
 	descAppDefaultLabels = []string{"namespace", "name", "project"}
 
@@ -178,7 +176,6 @@ var (
 	)
 )
 
-// NewMetricsServer returns a new prometheus server which collects application metrics
 func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFilter func(obj any) bool, healthCheck func(r *http.Request) error, appLabels []string, appConditions []string, db db.ArgoDB) (*MetricsServer, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -257,8 +254,6 @@ func NewMetricsServer(addr string, appLister applister.ApplicationLister, appFil
 		appRetryExhaustedCounter:   appRetryExhaustedCounter,
 		hostname:                   hostname,
 		// This cron is used to expire the metrics cache.
-		// Currently clearing the metrics cache is logging and deleting from the map
-		// so there is no possibility of panic, but we will add a chain to keep robfig/cron v1 behavior.
 		cron: cron.New(cron.WithChain(cron.Recover(cron.PrintfLogger(log.StandardLogger())))),
 	}
 
@@ -416,24 +411,9 @@ func (c *appCollector) Collect(ch chan<- prometheus.Metric) {
 		if !c.appFilter(app) {
 			continue
 		}
-		// destCluster, err := argo.GetDestinationCluster(context.Background(), app.Spec.Destination, c.db)
-		// if err != nil {
-		// 	log.Warnf("Failed to get destination cluster for application %s: %v", app.Name, err)
-		// }
-		// destServer := ""
-		// if destCluster != nil {
-		// 	destServer = destCluster.Server
-		// }
 		c.collectApps(ch, app)
 	}
 }
-
-// func boolFloat64(b bool) float64 {
-// 	if b {
-// 		return 1
-// 	}
-// 	return 0
-// }
 
 func (c *appCollector) collectApps(ch chan<- prometheus.Metric, app *argoappv1.Application) {
 	addConstMetric := func(desc *prometheus.Desc, t prometheus.ValueType, v float64, lv ...string) {

@@ -8,25 +8,23 @@ import (
 	"time"
 )
 
-// Default values of the retry policy of the application queue.
+// Default retry policy
 const (
-	DefaultRetryMaxAttempts   = 5
-	DefaultRetryBaseDelay     = 10 * time.Second
-	DefaultRetryMaxDelay      = 5 * time.Minute
+	DefaultRetryMaxAttempts   = 3
+	DefaultRetryBaseDelay     = 20 * time.Second
+	DefaultRetryMaxDelay      = 15 * time.Minute
 	DefaultRetryBackoffFactor = 2.0
-	DefaultRetryJitter        = 0.2
+	DefaultRetryJitter        = 0.4
 )
 
 // RetryPolicy defines how an application whose handling failed with a
-// transient error is retried.
+// retriable error is retried.
 type RetryPolicy struct {
 	// MaxAttempts is the number of retries of a single application event.
-	// Failed applications are not retried at all when it is not positive.
 	MaxAttempts int
 	// BaseDelay is the delay before the first retry.
 	BaseDelay time.Duration
-	// MaxDelay caps the delay between the retries. It is not capped when the
-	// value is not positive.
+	// MaxDelay caps the delay between the retries. Not capped when <= 0
 	MaxDelay time.Duration
 	// Factor is the multiplier applied to the delay of every next retry.
 	Factor float64
@@ -35,7 +33,6 @@ type RetryPolicy struct {
 	Jitter float64
 }
 
-// DefaultRetryPolicy returns the retry policy used unless it is configured.
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
 		MaxAttempts: DefaultRetryMaxAttempts,
@@ -46,15 +43,10 @@ func DefaultRetryPolicy() RetryPolicy {
 	}
 }
 
-// Enabled reports whether the applications which failed are retried at all.
 func (p RetryPolicy) Enabled() bool {
 	return p.MaxAttempts > 0
 }
 
-// Validate reports every problem of the policy at once, so that a
-// misconfiguration does not have to be fixed one value per restart. A disabled
-// policy is validated as well: the values are kept meaningful for the case the
-// retries are enabled again.
 func (p RetryPolicy) Validate() error {
 	var errs []error
 	if p.MaxAttempts < 0 {
@@ -92,13 +84,10 @@ func (p RetryPolicy) Backoff(attempt int) time.Duration {
 	if p.Jitter <= 0 {
 		return delay
 	}
-	// The delay is capped before the jitter is applied, so that the delays of
-	// the applications which all reached the cap still differ from each other.
 	return p.clampDelay(float64(delay) * (1 + p.Jitter*(2*rand.Float64()-1)))
 }
 
-// clampDelay keeps the delay within MaxDelay, and within the range a
-// time.Duration can hold when the exponential growth overflows it.
+// clampDelay keeps the delay within MaxDelay
 func (p RetryPolicy) clampDelay(delay float64) time.Duration {
 	maxDelay := time.Duration(math.MaxInt64)
 	if p.MaxDelay > 0 {
@@ -108,8 +97,6 @@ func (p RetryPolicy) clampDelay(delay float64) time.Duration {
 	case delay < 0:
 		return 0
 	case delay >= float64(maxDelay):
-		// converting a float which does not fit into a time.Duration, such as
-		// the infinity the exponential growth reaches, overflows it
 		return maxDelay
 	default:
 		return time.Duration(delay)
@@ -124,8 +111,7 @@ type retryTimer interface {
 }
 
 // timerFactory runs f after the delay d and returns the handle of the
-// scheduled call. It is the only place where the application queue depends on
-// the wall clock, which lets the tests run the retries when they want to.
+// scheduled call.
 type timerFactory func(d time.Duration, f func()) retryTimer
 
 func realTimer(d time.Duration, f func()) retryTimer {

@@ -15,8 +15,6 @@ import (
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
 
-// Helper functions
-
 func createTestApplication(namespace, name string) appv1.Application {
 	return appv1.Application{
 		ObjectMeta: metav1.ObjectMeta{
@@ -32,9 +30,7 @@ func createTestApplicationWithRevision(namespace, name, revision string) appv1.A
 	return app
 }
 
-// ============================================================================
-// KEYEDAPPQUEUE BASIC OPERATIONS TESTS
-// ============================================================================
+/* keyedappqueue basic operations tests */
 
 func TestKeyedAppQueue_EnqueueSingle(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -123,24 +119,19 @@ func TestKeyedAppQueue_DequeueEmpty(_ *testing.T) {
 	// Wait for goroutine with timeout
 	select {
 	case result := <-done:
-		// If the goroutine returned due to context cancellation check
-		// Note: Due to sync.Cond limitation, this might not work as expected
 		_ = result
 	case <-time.After(500 * time.Millisecond):
-		// It's ok if it blocks - that's how sync.Cond.Wait behaves with cancelled context
-		// This test validates the behavior rather than expecting a specific result
+		// It's ok if it blocks - that's what sync.Cond.Wait does with cancelled context
 	}
 }
 
 func TestKeyedAppQueue_QueueLength(t *testing.T) {
 	queue := NewKeyedAppQueue()
 
-	// Verify length 0
 	queue.mu.RLock()
 	assert.Equal(t, 0, queue.items.Len())
 	queue.mu.RUnlock()
 
-	// Enqueue 3 items
 	for i := 1; i <= 3; i++ {
 		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("app-%d", i)))
 	}
@@ -176,9 +167,7 @@ func TestKeyedAppQueue_QueueLength(t *testing.T) {
 	queue.mu.RUnlock()
 }
 
-// ============================================================================
-// KEYEDAPPQUEUE KEY-BASED REPLACEMENT TESTS
-// ============================================================================
+/* KEYEDAPPQUEUE KEY-BASED REPLACEMENT TESTS */
 
 func TestKeyedAppQueue_ReplaceExistingKey(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -339,9 +328,7 @@ func TestKeyedAppQueue_MultipleReplacementsCycle(t *testing.T) {
 	queue.mu.RUnlock()
 }
 
-// ============================================================================
-// KEYEDAPPQUEUE WAIT/CONDITION VARIABLE TESTS
-// ============================================================================
+/* keyedappqueue wait/condition variable tests */
 
 func TestKeyedAppQueue_DequeueWaitBlocksUntilItem(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -453,9 +440,7 @@ func TestKeyedAppQueue_DequeueWaitSignalDispatch(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// KEYEDAPPQUEUE CONCURRENCY TESTS
-// ============================================================================
+/* keyedappqueue concurrency tests */
 
 func TestKeyedAppQueue_ConcurrentEnqueue(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -758,9 +743,7 @@ func TestKeyedAppQueue_ConcurrentEnqueueDequeue(t *testing.T) {
 	assert.LessOrEqual(t, dq, eq, "dequeued should be <= enqueued")
 }
 
-// ============================================================================
-// WORKERPOOL INITIALIZATION & LIFECYCLE TESTS
-// ============================================================================
+/* WORKERPOOL INITIALIZATION & LIFECYCLE TESTS */
 
 func TestWorkerPool_CreateAndStop(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -838,7 +821,6 @@ func TestWorkerPool_ZeroWorkersHandling(t *testing.T) {
 	queue := NewKeyedAppQueue()
 	handler := func(_ context.Context, _ appv1.Application) error { return nil }
 
-	// Create pool with 0 workers - edge case
 	pool := NewWorkerPool(queue, 0, handler)
 	assert.Equal(t, 0, pool.workers)
 
@@ -858,9 +840,7 @@ func TestWorkerPool_ZeroWorkersHandling(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// WORKERPOOL JOB PROCESSING TESTS
-// ============================================================================
+/* workerpool job processing tests */
 
 func TestWorkerPool_SingleJobProcessing(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -960,7 +940,6 @@ func TestWorkerPool_ParallelJobProcessing(t *testing.T) {
 	pool := NewWorkerPool(queue, 4, handler)
 	defer pool.Stop()
 
-	// Enqueue 8 jobs
 	startTime := time.Now()
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
@@ -1031,9 +1010,7 @@ func TestWorkerPool_JobProcessingOrder(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// WORKERPOOL WORKER DISTRIBUTION TESTS
-// ============================================================================
+/* workerpool worker distribution tests */
 
 func TestWorkerPool_JobDistributionAcrossWorkers(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -1077,7 +1054,6 @@ func TestWorkerPool_JobDistributionAcrossWorkers(t *testing.T) {
 		}(i + 1)
 	}
 
-	// Enqueue 15 jobs
 	for i := 0; i < 15; i++ {
 		wg.Add(1)
 		jobChan <- fmt.Sprintf("job-%d", i)
@@ -1120,7 +1096,6 @@ func TestWorkerPool_LoadBalancing(t *testing.T) {
 	pool := NewWorkerPool(queue, 5, handler)
 	defer pool.Stop()
 
-	// Enqueue 50 jobs
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("job-%d", i)))
@@ -1160,7 +1135,6 @@ func TestWorkerPool_WorkerCompletion(t *testing.T) {
 	pool := NewWorkerPool(queue, 2, handler)
 	defer pool.Stop()
 
-	// Enqueue 4 jobs
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
 		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("app-%d", i)))
@@ -1220,9 +1194,7 @@ func TestWorkerPool_BackpressureHandling(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// WORKERPOOL EDGE CASES & CONCURRENCY TESTS
-// ============================================================================
+/* workerpool edge cases & concurrency tests */
 
 func TestWorkerPool_StopWhileProcessing(t *testing.T) {
 	queue := NewKeyedAppQueue()
@@ -1355,7 +1327,6 @@ func TestWorkerPool_LargeScaleConcurrency(t *testing.T) {
 	pool := NewWorkerPool(queue, 10, handler)
 	defer pool.Stop()
 
-	// Enqueue 1000 jobs
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		queue.Enqueue(createTestApplication("ns", fmt.Sprintf("job-%d", i)))
@@ -1376,9 +1347,7 @@ func TestWorkerPool_LargeScaleConcurrency(t *testing.T) {
 	}
 }
 
-// ============================================================================
-// QUEUE GAUGE METRICS TESTS
-// ============================================================================
+/* queue gauge metrics tests */
 
 type testGauge struct {
 	lastValue float64

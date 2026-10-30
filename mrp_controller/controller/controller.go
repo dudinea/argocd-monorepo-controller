@@ -21,7 +21,6 @@ type MRPController interface {
 	Run(ctx context.Context)
 }
 
-// ControllerOpts is the tunable part of the controller configuration.
 type ControllerOpts struct {
 	// EventTimeout is the context deadline for handling a single application.
 	EventTimeout time.Duration
@@ -81,7 +80,7 @@ func (c *monorepoController) Run(ctx context.Context) {
 		return true
 	}
 
-	// A deleted application is not worth retrying anymore.
+	// No sense to retry a deleted application
 	forgetFunc := func(event *appv1.ApplicationWatchEvent) error {
 		c.appQueue.ForgetApp(AppKey(&event.Application))
 		return nil

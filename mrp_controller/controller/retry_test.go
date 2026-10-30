@@ -17,9 +17,7 @@ import (
 	appv1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
 
-// ============================================================================
-// RETRY POLICY TESTS
-// ============================================================================
+/* retry policy tests */
 
 func TestRetryPolicy_BackoffGrowsExponentially(t *testing.T) {
 	policy := RetryPolicy{MaxAttempts: 10, BaseDelay: 10 * time.Second, MaxDelay: 5 * time.Minute, Factor: 2}
@@ -110,9 +108,7 @@ func TestRetryPolicy_Enabled(t *testing.T) {
 	assert.False(t, RetryPolicy{MaxAttempts: -1}.Enabled())
 }
 
-// ============================================================================
-// QUEUE RETRY TESTS
-// ============================================================================
+/* queue retry tests */
 
 // fakeTimers records the retries the queue schedules instead of waiting for
 // them, so that a test can run them when it wants to.
@@ -403,9 +399,7 @@ func TestKeyedAppQueue_ScheduledRetryIsNotCountedAsQueueLength(t *testing.T) {
 	assert.InDelta(t, float64(1), gauge.lastValue, 0)
 }
 
-// ============================================================================
-// INFORMER RESYNC TESTS
-// ============================================================================
+/* informer resync tests */
 
 // createTestApplicationWithVersion builds the application as the informer
 // delivers it, with the resource version the queue tells a redelivery by.
@@ -575,9 +569,7 @@ func TestSameVersion(t *testing.T) {
 	assert.False(t, sameVersion(&versioned, &unversioned))
 }
 
-// ============================================================================
-// RETRY METRICS TESTS
-// ============================================================================
+/* retry metrics tests */
 
 // testRetryMetrics records what the queue reports about the retries.
 type testRetryMetrics struct {
@@ -589,10 +581,8 @@ type testRetryMetrics struct {
 
 func newTestRetryMetrics() *testRetryMetrics {
 	return &testRetryMetrics{
-		retries:   make(map[string]int),
-		exhausted: make(map[string]int),
-		// a value no report can produce, so that a reported zero is told apart
-		// from the queue never reporting at all
+		retries:     make(map[string]int),
+		exhausted:   make(map[string]int),
 		queueLength: -1,
 	}
 }
@@ -768,8 +758,7 @@ func TestWorkerPool_FailedAppIsHandledAgain(t *testing.T) {
 		t.Fatal("the application was not handled")
 	}
 
-	// the failed attempt scheduled a retry, which the pool handles once its
-	// delay has passed
+	// the failed attempt scheduled a retry, which the pool handles once its delay has passed
 	require.Eventually(t, func() bool { return len(timers.delays()) == 1 }, 2*time.Second, 10*time.Millisecond)
 	require.Equal(t, 1, timers.fire())
 

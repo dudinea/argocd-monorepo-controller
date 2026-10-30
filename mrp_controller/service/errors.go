@@ -9,10 +9,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// PermanentError marks an error as not worth retrying: handling the
-// application keeps failing the same way until the application itself or the
-// environment around it changes. Errors which are not marked this way are
-// treated as transient.
+// PermanentError marks an error as not worth retrying,
+// other errors are treated as transient.
 type PermanentError struct {
 	Err error
 }
@@ -62,11 +60,11 @@ func IsRetryable(err error) bool {
 		return false
 	}
 
-	// The context of a single event is cancelled on shutdown and expires on the
-	// event handling timeout. Only the latter is worth retrying.
+	// The context of a single event is cancelled on shutdown
 	if errors.Is(err, context.Canceled) {
 		return false
 	}
+	// The context that expires on the event handling timeout. Worth retrying.
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
