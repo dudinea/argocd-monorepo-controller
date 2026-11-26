@@ -55,6 +55,13 @@ type fakeRepo struct {
 	// the boundary of the fetched history although both ends of the range are
 	// available.
 	rangeHook func(linear []string) []string
+	// unreachable holds the revisions whose commit is in the local repository
+	// while the commits that connect them to the tip are not. An earlier,
+	// shallower window of a repository that has grown by more commits than
+	// the window holds since leaves such a revision behind: its object
+	// survives, so git reports it as present, and a range that starts at it
+	// contains no commit at all.
+	unreachable map[string]bool
 	// t reports the calls a correct search must never make.
 	t *testing.T
 }
@@ -91,6 +98,13 @@ func (r *fakeRepo) isShallow() bool {
 	return r.fetched > 0 && r.fetched < len(r.commits)
 }
 
+// present reports whether the commit of a revision is in the local
+// repository, which is what git answers, reachable or not.
+func (r *fakeRepo) present(sha string) bool {
+	idx := r.index(sha)
+	return idx >= 0 && (idx < r.fetched || r.unreachable[sha])
+}
+
 func (r *fakeRepo) boundary() string {
 	if !r.isShallow() {
 		return ""
@@ -119,8 +133,8 @@ func (r *fakeRepo) register(client *gitmocks.Client, root string) {
 		return nil, nil
 	})
 	client.EXPECT().IsRevisionPresent(mock.Anything).RunAndReturn(func(revision string) bool {
-		idx := r.index(revision)
-		return idx >= 0 && idx < r.fetched
+		// git reports the commit of a revision, not whether it is reachable.
+		return r.present(revision)
 	})
 
 	client.EXPECT().FetchShallow(mock.Anything).RunAndReturn(func(depth int) error {
@@ -162,11 +176,17 @@ func (r *fakeRepo) register(client *gitmocks.Client, root string) {
 	})
 	client.EXPECT().ListRevisions(mock.Anything, mock.Anything).RunAndReturn(func(previous string, target string) ([]string, error) {
 		previousIdx, targetIdx := r.index(previous), r.index(target)
-		if previousIdx < 0 || previousIdx >= r.fetched {
+		if !r.present(previous) {
 			return nil, errors.New("unknown revision " + previous)
 		}
-		if targetIdx < 0 || targetIdx >= r.fetched {
+		if !r.present(target) {
 			return nil, errors.New("unknown revision " + target)
+		}
+		if previousIdx >= r.fetched || targetIdx >= r.fetched {
+			// One of the revisions is present but unreachable, so no commit
+			// of the one descends from the other in the fetched history and
+			// `rev-list --ancestry-path` lists nothing instead of failing.
+			return []string{}, nil
 		}
 		if previousIdx <= targetIdx {
 			return nil, nil
@@ -302,6 +322,68 @@ func TestGetChangeRevision_Incremental_WindowOfAnotherSearch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, testSHA(450), response.Revision)
 	assert.Equal(t, []string{"depth:500"}, repo.fetches)
+}
+
+// TestGetChangeRevision_Incremental_PreviousRevisionUnreachable covers a
+// previous revision whose commit is in the local repository while the commits
+// that connect it to the current revision are not, which an earlier window of
+// a repository that has grown by more commits than the window holds since
+// leaves behind. The range between the revisions is empty then, and taking it
+// for an answer would report the current revision as the change revision.
+func TestGetChangeRevision_Incremental_PreviousRevisionUnreachable(t *testing.T) {
+	t.Run("the window holds the change", func(t *testing.T) {
+		repo := newFakeRepo(t, 1000, map[int][]string{20: {appFile}})
+		repo.unreachable = map[string]bool{testSHA(300): true}
+		service := newTestService(t, repo, incrementalOptions())
+
+		response, err := service.GetChangeRevision(context.Background(), changeRevisionRequest(testSHA(0), testSHA(300)))
+		require.NoError(t, err)
+		assert.Equal(t, testSHA(20), response.Revision,
+			"the newest commit that changed the application, not the current revision")
+		assert.Equal(t, []string{"depth:50"}, repo.fetches)
+	})
+
+	t.Run("the change lies deeper", func(t *testing.T) {
+		repo := newFakeRepo(t, 1000, map[int][]string{120: {appFile}})
+		repo.unreachable = map[string]bool{testSHA(300): true}
+		service := newTestService(t, repo, incrementalOptions())
+
+		response, err := service.GetChangeRevision(context.Background(), changeRevisionRequest(testSHA(0), testSHA(300)))
+		require.NoError(t, err)
+		assert.Equal(t, testSHA(120), response.Revision)
+		assert.Equal(t, []string{"depth:50", "depth:150"}, repo.fetches,
+			"an empty range must not end the search while the history can still grow")
+	})
+
+	t.Run("the complete history has no path between the revisions", func(t *testing.T) {
+		repo := newFakeRepo(t, 20, map[int][]string{5: {appFile}})
+		service := newTestService(t, repo, incrementalOptions())
+
+		// The previous revision is a descendant of the current one, as a
+		// rollback leaves behind, and the complete history proves it: the
+		// empty range is the answer here.
+		response, err := service.GetChangeRevision(context.Background(), changeRevisionRequest(testSHA(10), testSHA(5)))
+		require.NoError(t, err)
+		assert.Equal(t, testSHA(10), response.Revision, "the current revision, as a complete history reports it")
+	})
+}
+
+// TestGetChangeRevision_Incremental_RollbackToAnEarlierRevision covers a
+// current revision that the previous one descends from, which a rollback
+// leaves behind. The range between the revisions is empty, and the truncated
+// history holds the proof that it is empty for good, so the search answers
+// with the current revision instead of deepening the history for nothing.
+func TestGetChangeRevision_Incremental_RollbackToAnEarlierRevision(t *testing.T) {
+	repo := newFakeRepo(t, 1000, map[int][]string{20: {appFile}})
+	opts := incrementalOptions()
+	opts.OnExhaustion = ExhaustionError
+	service := newTestService(t, repo, opts)
+
+	response, err := service.GetChangeRevision(context.Background(), changeRevisionRequest(testSHA(100), testSHA(50)))
+	require.NoError(t, err)
+	assert.Equal(t, testSHA(100), response.Revision, "the current revision, as a complete history reports it")
+	assert.Equal(t, []string{"depth:50", "depth:150"}, repo.fetches,
+		"the window is deepened to reach the revisions, and no further")
 }
 
 func TestGetChangeRevision_Incremental_NoRelevantChange(t *testing.T) {
@@ -533,7 +615,16 @@ func createGitRepo(t *testing.T, commits int, appCommits map[int]bool) (string, 
 	runGit(t, origin, "init", "--initial-branch=master")
 	runGit(t, origin, "config", "user.email", "test@example.com")
 	runGit(t, origin, "config", "user.name", "test")
+	return origin, addGitCommits(t, origin, commits, appCommits, "commit")
+}
 
+// addGitCommits adds commits on top of the tip of origin, every one of them
+// changing a file of the application or one outside of it, and returns their
+// SHAs by distance from the new tip. The label keeps the content of the files
+// of one call apart from the content of another, because a commit that changes
+// nothing cannot be created.
+func addGitCommits(t *testing.T, origin string, commits int, appCommits map[int]bool, label string) []string {
+	t.Helper()
 	for i := commits - 1; i >= 0; i-- {
 		path := "other/notes.md"
 		if appCommits[i] {
@@ -541,16 +632,16 @@ func createGitRepo(t *testing.T, commits int, appCommits map[int]bool) (string, 
 		}
 		file := filepath.Join(origin, path)
 		require.NoError(t, os.MkdirAll(filepath.Dir(file), 0o755))
-		require.NoError(t, os.WriteFile(file, []byte(fmt.Sprintf("commit %d\n", i)), 0o644))
+		require.NoError(t, os.WriteFile(file, []byte(fmt.Sprintf("%s %d\n", label, i)), 0o644))
 		runGit(t, origin, "add", "-A")
-		runGit(t, origin, "commit", "-m", fmt.Sprintf("commit at distance %d", i))
+		runGit(t, origin, "commit", "-m", fmt.Sprintf("%s at distance %d", label, i))
 	}
 
 	shas := make([]string, commits)
 	for i := 0; i < commits; i++ {
 		shas[i] = runGit(t, origin, "rev-parse", fmt.Sprintf("HEAD~%d", i))
 	}
-	return origin, shas
+	return shas
 }
 
 // newRealGitService returns a service that works on real git repositories.
@@ -640,6 +731,90 @@ func TestGetChangeRevision_RealRepo_IncrementalMatchesFullFetch(t *testing.T) {
 // TestGetChangeRevision_RealRepo_UnshallowsWhenDisabled covers a repository
 // that an incremental search truncated and that is then used with the feature
 // turned off again.
+// TestGetChangeRevision_RealRepo_PreviousRevisionUnreachable covers a
+// repository that has grown by more commits than a window holds since the
+// previous revision was calculated. git keeps the commit of the previous
+// revision, so it is present in the local repository, while the commits that
+// connect it to the current revision are not: the range between the revisions
+// is empty, and taking it for an answer would report the current revision as
+// the change revision.
+func TestGetChangeRevision_RealRepo_PreviousRevisionUnreachable(t *testing.T) {
+	origin, shas := createGitRepo(t, 30, map[int]bool{25: true})
+
+	opts := IncrementalFetchOptions{
+		Enabled:      true,
+		InitialDepth: 10,
+		BatchDepth:   10,
+		MaxDepth:     DefaultIncrementalFetchMaxDepth,
+		Budget:       DefaultIncrementalFetchBudget,
+		OnExhaustion: ExhaustionError,
+	}
+	service := newRealGitService(t, opts)
+
+	// A first request leaves a window of the newest commits behind, and the
+	// revision it was given stays in the local repository.
+	previous := shas[3]
+	_, err := service.GetChangeRevision(context.Background(), realGitRequest(origin, shas[0], shas[8]))
+	require.NoError(t, err)
+	require.True(t, localRepoIsShallow(t, service, "file://"+origin))
+
+	// The repository grows by far more commits than that window holds.
+	added := addGitCommits(t, origin, 40, map[int]bool{4: true}, "added")
+	request := realGitRequest(origin, added[0], previous)
+
+	response, err := service.GetChangeRevision(context.Background(), request)
+	require.NoError(t, err)
+	assert.Equal(t, added[4], response.Revision,
+		"the newest commit that changed the application, not the current revision")
+
+	// The same request answered from the complete history, to be sure that is
+	// the answer the incremental search has to give.
+	full := newRealGitService(t, IncrementalFetchOptions{})
+	expected, err := full.GetChangeRevision(context.Background(), realGitRequest(origin, added[0], previous))
+	require.NoError(t, err)
+	assert.Equal(t, expected.Revision, response.Revision)
+}
+
+// TestGetChangeRevision_RealRepo_RollbackToAnEarlierRevision covers a current
+// revision that the previous one descends from, which a rollback to an
+// earlier revision leaves behind. The range between the revisions is empty,
+// and the truncated history holds the proof that deepening it cannot change
+// that: the range of the other direction holds the commits between them. The
+// depth limit and the behavior on exhaustion of this search turn a deepening
+// beyond the two revisions into a failure.
+func TestGetChangeRevision_RealRepo_RollbackToAnEarlierRevision(t *testing.T) {
+	// The only commit that changes the application sits below the depth this
+	// search may reach, so a search that walks the history instead of
+	// answering runs out of its depth limit.
+	origin, shas := createGitRepo(t, 40, map[int]bool{35: true})
+
+	opts := IncrementalFetchOptions{
+		Enabled:      true,
+		InitialDepth: 5,
+		BatchDepth:   5,
+		MaxDepth:     20,
+		Budget:       DefaultIncrementalFetchBudget,
+		OnExhaustion: ExhaustionError,
+	}
+	service := newRealGitService(t, opts)
+
+	// The application was synchronized to a newer revision before, so the
+	// current revision is an ancestor of the previous one.
+	request := realGitRequest(origin, shas[10], shas[2])
+	response, err := service.GetChangeRevision(context.Background(), request)
+	require.NoError(t, err)
+	assert.Equal(t, shas[10], response.Revision, "the current revision, as a complete history reports it")
+	assert.True(t, localRepoIsShallow(t, service, request.Repo.Repo),
+		"the answer comes from the window, so the complete history is never fetched")
+
+	// The same request answered from the complete history, to be sure that is
+	// the answer the incremental search has to give.
+	full := newRealGitService(t, IncrementalFetchOptions{})
+	expected, err := full.GetChangeRevision(context.Background(), realGitRequest(origin, shas[10], shas[2]))
+	require.NoError(t, err)
+	assert.Equal(t, expected.Revision, response.Revision)
+}
+
 func TestGetChangeRevision_RealRepo_UnshallowsWhenDisabled(t *testing.T) {
 	origin, shas := createGitRepo(t, 40, map[int]bool{35: true})
 	root := t.TempDir()

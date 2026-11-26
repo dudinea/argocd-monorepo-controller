@@ -338,8 +338,34 @@ func (c *changeRevisionSearch) tryWindow() (response *apiclient.ChangeRevisionRe
 			c.logCtx.Debug("the range between the revisions reaches the boundary of the fetched history")
 			return nil, len(revisions), deeper, nil
 		}
-		response, err := c.answerFromRevisions(revisions)
-		return response, len(revisions), deeper, err
+		// An empty range says that no commit of the current revision descends
+		// from the previous one, which is an answer only once the history is
+		// complete. While it is truncated, the commits that connect the two
+		// revisions may simply not have been fetched: the previous revision
+		// keeps the object of a window that an earlier request fetched, so it
+		// stays present in the local repository while it is unreachable, and
+		// that is what more commits than a window holds being pushed since
+		// that request leaves behind. Taking the empty range for an answer
+		// would report the current revision as the change revision.
+		connected := len(revisions) > 0 || !deeper
+		if !connected {
+			// The current revision being an ancestor of the previous one, as
+			// a rollback to an earlier revision leaves behind, is a
+			// connection of the two as well, and the range of the other
+			// direction holds the commits between them. Both ranges are empty
+			// only while the fetched history connects the revisions not at
+			// all, and deepening it cannot answer a rollback.
+			reverse, err := c.listRevisionsBetween(c.target, c.previous)
+			if err != nil {
+				return nil, 0, false, err
+			}
+			connected = len(reverse) > 0
+		}
+		if connected {
+			response, err := c.answerFromRevisions(revisions)
+			return response, len(revisions), deeper, err
+		}
+		c.logCtx.Debugf("the previous revision %s is present but not connected to the current revision in the fetched history", c.previous)
 	}
 
 	// The previous revision is not available, so the exact range cannot be
@@ -405,12 +431,18 @@ func (c *changeRevisionSearch) answerFromRevisions(revisions []string) (*apiclie
 }
 
 func (c *changeRevisionSearch) listRevisions() ([]string, error) {
-	c.logCtx.Debugf("running list revisions '%s' .. '%s'", c.previous, c.target)
-	revisions, err := c.gitClient.ListRevisions(c.previous, c.target)
+	return c.listRevisionsBetween(c.previous, c.target)
+}
+
+// listRevisionsBetween lists the commits of the current revision that descend
+// from the previous one, newest first.
+func (c *changeRevisionSearch) listRevisionsBetween(previous string, target string) ([]string, error) {
+	c.logCtx.Debugf("running list revisions '%s' .. '%s'", previous, target)
+	revisions, err := c.gitClient.ListRevisions(previous, target)
 	if err != nil {
-		c.logCtx.Errorf("failed to get revisions %s..%s: %v", c.previous, c.target, err)
+		c.logCtx.Errorf("failed to get revisions %s..%s: %v", previous, target, err)
 		c.service.metricsServer.IncRevListFail(c.repo.Repo, c.app, c.namespace)
-		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s: %v", c.previous, c.target, err)
+		return nil, status.Errorf(codes.Internal, "failed to get revisions %s..%s: %v", previous, target, err)
 	}
 	c.logCtx.Debugf("got list of %d revisions: %v", len(revisions), revisions)
 	return revisions, nil

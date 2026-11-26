@@ -210,9 +210,10 @@ applications. `monorepo_incremental_fetch_exhausted_total` counts the searches
 that ran out of their budget.
 
 Two limits are worth knowing about. While the previous revision is not among
-the commits that have been fetched, the search walks the history of the current
-revision by commit date instead of restricting it to the commits on a path
-between the two revisions, as the calculation of the complete history does. A
+the commits that have been fetched, or is not connected to the current revision
+in them, the search walks the history of the current revision by commit date
+instead of restricting it to the commits on a path between the two revisions,
+as the calculation of the complete history does. A
 commit that the previous revision already contains can only be reached first if
 its committer date is more recent, which takes a skewed clock or a rewritten
 history.
