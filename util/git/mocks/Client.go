@@ -549,6 +549,110 @@ func (_c *Client_Fetch_Call) RunAndReturn(run func(revision string) error) *Clie
 	return _c
 }
 
+// FetchShallow provides a mock function for the type Client
+func (_mock *Client) FetchShallow(depth int) error {
+	ret := _mock.Called(depth)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchShallow")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(int) error); ok {
+		r0 = returnFunc(depth)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Client_FetchShallow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchShallow'
+type Client_FetchShallow_Call struct {
+	*mock.Call
+}
+
+// FetchShallow is a helper method to define mock.On call
+//   - depth int
+func (_e *Client_Expecter) FetchShallow(depth any) *Client_FetchShallow_Call {
+	return &Client_FetchShallow_Call{Call: _e.mock.On("FetchShallow", depth)}
+}
+
+func (_c *Client_FetchShallow_Call) Run(run func(depth int)) *Client_FetchShallow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 int
+		if args[0] != nil {
+			arg0 = args[0].(int)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Client_FetchShallow_Call) Return(err error) *Client_FetchShallow_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Client_FetchShallow_Call) RunAndReturn(run func(depth int) error) *Client_FetchShallow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HasCommits provides a mock function for the type Client
+func (_mock *Client) HasCommits() (bool, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasCommits")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() (bool, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Client_HasCommits_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasCommits'
+type Client_HasCommits_Call struct {
+	*mock.Call
+}
+
+// HasCommits is a helper method to define mock.On call
+func (_e *Client_Expecter) HasCommits() *Client_HasCommits_Call {
+	return &Client_HasCommits_Call{Call: _e.mock.On("HasCommits")}
+}
+
+func (_c *Client_HasCommits_Call) Run(run func()) *Client_HasCommits_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_HasCommits_Call) Return(b bool, err error) *Client_HasCommits_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *Client_HasCommits_Call) RunAndReturn(run func() (bool, error)) *Client_HasCommits_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Init provides a mock function for the type Client
 func (_mock *Client) Init() error {
 	ret := _mock.Called()
@@ -695,6 +799,59 @@ func (_c *Client_IsRevisionPresent_Call) RunAndReturn(run func(revision string) 
 	return _c
 }
 
+// IsShallow provides a mock function for the type Client
+func (_mock *Client) IsShallow() (bool, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsShallow")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() (bool, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Client_IsShallow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsShallow'
+type Client_IsShallow_Call struct {
+	*mock.Call
+}
+
+// IsShallow is a helper method to define mock.On call
+func (_e *Client_Expecter) IsShallow() *Client_IsShallow_Call {
+	return &Client_IsShallow_Call{Call: _e.mock.On("IsShallow")}
+}
+
+func (_c *Client_IsShallow_Call) Run(run func()) *Client_IsShallow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_IsShallow_Call) Return(b bool, err error) *Client_IsShallow_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *Client_IsShallow_Call) RunAndReturn(run func() (bool, error)) *Client_IsShallow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListRevisions provides a mock function for the type Client
 func (_mock *Client) ListRevisions(revision string, targetRevision string) ([]string, error) {
 	ret := _mock.Called(revision, targetRevision)
@@ -759,6 +916,74 @@ func (_c *Client_ListRevisions_Call) Return(strings []string, err error) *Client
 }
 
 func (_c *Client_ListRevisions_Call) RunAndReturn(run func(revision string, targetRevision string) ([]string, error)) *Client_ListRevisions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListRevisionsFrom provides a mock function for the type Client
+func (_mock *Client) ListRevisionsFrom(revision string, limit int) ([]string, error) {
+	ret := _mock.Called(revision, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListRevisionsFrom")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string, int) ([]string, error)); ok {
+		return returnFunc(revision, limit)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string, int) []string); ok {
+		r0 = returnFunc(revision, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(string, int) error); ok {
+		r1 = returnFunc(revision, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Client_ListRevisionsFrom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListRevisionsFrom'
+type Client_ListRevisionsFrom_Call struct {
+	*mock.Call
+}
+
+// ListRevisionsFrom is a helper method to define mock.On call
+//   - revision string
+//   - limit int
+func (_e *Client_Expecter) ListRevisionsFrom(revision any, limit any) *Client_ListRevisionsFrom_Call {
+	return &Client_ListRevisionsFrom_Call{Call: _e.mock.On("ListRevisionsFrom", revision, limit)}
+}
+
+func (_c *Client_ListRevisionsFrom_Call) Run(run func(revision string, limit int)) *Client_ListRevisionsFrom_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *Client_ListRevisionsFrom_Call) Return(strings []string, err error) *Client_ListRevisionsFrom_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *Client_ListRevisionsFrom_Call) RunAndReturn(run func(revision string, limit int) ([]string, error)) *Client_ListRevisionsFrom_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1171,6 +1396,61 @@ func (_c *Client_SetAuthor_Call) RunAndReturn(run func(name string, email string
 	return _c
 }
 
+// ShallowBoundaries provides a mock function for the type Client
+func (_mock *Client) ShallowBoundaries() ([]string, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ShallowBoundaries")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() ([]string, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() []string); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Client_ShallowBoundaries_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ShallowBoundaries'
+type Client_ShallowBoundaries_Call struct {
+	*mock.Call
+}
+
+// ShallowBoundaries is a helper method to define mock.On call
+func (_e *Client_Expecter) ShallowBoundaries() *Client_ShallowBoundaries_Call {
+	return &Client_ShallowBoundaries_Call{Call: _e.mock.On("ShallowBoundaries")}
+}
+
+func (_c *Client_ShallowBoundaries_Call) Run(run func()) *Client_ShallowBoundaries_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_ShallowBoundaries_Call) Return(strings []string, err error) *Client_ShallowBoundaries_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *Client_ShallowBoundaries_Call) RunAndReturn(run func() ([]string, error)) *Client_ShallowBoundaries_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Submodule provides a mock function for the type Client
 func (_mock *Client) Submodule() error {
 	ret := _mock.Called()
@@ -1211,6 +1491,50 @@ func (_c *Client_Submodule_Call) Return(err error) *Client_Submodule_Call {
 }
 
 func (_c *Client_Submodule_Call) RunAndReturn(run func() error) *Client_Submodule_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Unshallow provides a mock function for the type Client
+func (_mock *Client) Unshallow() error {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Unshallow")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func() error); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Client_Unshallow_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unshallow'
+type Client_Unshallow_Call struct {
+	*mock.Call
+}
+
+// Unshallow is a helper method to define mock.On call
+func (_e *Client_Expecter) Unshallow() *Client_Unshallow_Call {
+	return &Client_Unshallow_Call{Call: _e.mock.On("Unshallow")}
+}
+
+func (_c *Client_Unshallow_Call) Run(run func()) *Client_Unshallow_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Client_Unshallow_Call) Return(err error) *Client_Unshallow_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Client_Unshallow_Call) RunAndReturn(run func() error) *Client_Unshallow_Call {
 	_c.Call.Return(run)
 	return _c
 }

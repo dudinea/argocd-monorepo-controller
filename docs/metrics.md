@@ -34,6 +34,9 @@ Both Monorepo Controller and Monorepo Repo Server expose Prometheus metrics
 | `monorepo_repo_pending_request_total`                 | counter   | Number of pending requests requiring repository lock     |
 | `monorepo_redis_request_total`                        | counter   | Number of redis requests executed.                       |
 | `monorepo_redis_request_duration_seconds`             | histogram | Redis requests duration seconds.                         |
+| `monorepo_incremental_fetch_commits`                  | histogram | Commits of the application history available when the incremental search answered |
+| `monorepo_incremental_fetch_batches`                  | histogram | History windows the incremental search had to fetch      |
+| `monorepo_incremental_fetch_exhausted_total`          | counter   | Incremental searches that ran out of their depth or time budget |
 
 The server does not expose the gRPC metrics by default.  Those metrics can be enabled using `ARGOCD_ENABLE_GRPC_TIME_HISTOGRAM=true`
  environment variable.

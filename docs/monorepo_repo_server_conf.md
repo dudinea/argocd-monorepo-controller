@@ -34,10 +34,31 @@ Monorepo Repository Server is an internal service that Monorepo Controller uses 
 | --logformat                             | string      | ARGOCD_REPO_SERVER_LOGFORMAT                 | Set the logging format. One of: json,text (default "json")   |
 | --loglevel                              | string      | ARGOCD_REPO_SERVER_LOGLEVEL                  | Set the logging level. One of: debug,info,warn,error         |
 |                                         |             |                                              | (default "info")                                             |
-| --max-combined-directory-manifests-size | strin       | ARGOCD_REPO_SERVER_MAX_COMBINED_DIRECTORY_MANIFESTS_SIZE | g   Max combined size of manifest files in a directory-type  |
+| --max-combined-directory-manifests-size | string      | ARGOCD_REPO_SERVER_MAX_COMBINED_DIRECTORY_MANIFESTS_SIZE | Max combined size of manifest files in a directory-type      |
 |                                         |             |                                              | Application (default "10M")                                  |
 | --metrics-address                       | string      | ARGOCD_MONOREPO_REPO_SERVER_LISTEN_METRICS_ADDRESS | Listen on given address for metrics (default "0.0.0.0")      |
 | --metrics-port                          | int         |                                              | Start metrics server on given port (default 8094)            |
+| --monorepo-repo-server-incremental-fetch | bool        | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH | Fetch the history of a repository in portions and search it  |
+|                                         |             |                                              | for the change revision as it grows, instead of fetching the |
+|                                         |             |                                              | complete history at once. Useful for monorepos whose         |
+|                                         |             |                                              | complete history cannot be fetched within the git command    |
+|                                         |             |                                              | timeout.                                                     |
+| --monorepo-repo-server-incremental-fetch-batch-depth | int         | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BATCH_DEPTH | Number of commits every further fetched portion of the       |
+|                                         |             |                                              | history adds. Applies only when the incremental fetch is     |
+|                                         |             |                                              | enabled. (default 200)                                       |
+| --monorepo-repo-server-incremental-fetch-budget | duration    | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BUDGET | Time the incremental search of one request may spend on      |
+|                                         |             |                                              | fetching and walking the history. Keep it below the repo     |
+|                                         |             |                                              | server call timeout of the monorepo controller. (default     |
+|                                         |             |                                              | 1m0s)                                                        |
+| --monorepo-repo-server-incremental-fetch-initial-depth | int         | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_INITIAL_DEPTH | Number of commits the first fetched portion of the history   |
+|                                         |             |                                              | holds. Applies only when the incremental fetch is enabled.   |
+|                                         |             |                                              | (default 50)                                                 |
+| --monorepo-repo-server-incremental-fetch-max-depth | int         | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_MAX_DEPTH | Maximum number of commits of the history of an application   |
+|                                         |             |                                              | the incremental search may examine. Zero means no limit.     |
+|                                         |             |                                              | (default 5000)                                               |
+| --monorepo-repo-server-incremental-fetch-on-exhaustion | string      | ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_ON_EXHAUSTION | What the incremental search does when it reaches its depth   |
+|                                         |             |                                              | or time budget without an answer. One of: full-              |
+|                                         |             |                                              | fetch,error,current-revision (default "full-fetch")          |
 | --monorepo-repo-server-use-cache        | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE        | Use Redis cache (default true)                               |
 | --monorepo-repo-server-use-diff-tree-cache | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_DIFF_TREE_CACHE | Use Redis for diff tree cache (default true)                 |
 | --monorepo-repo-server-use-list-rev-cache | bool        | ARGOCD_MONOREPO_REPO_SERVER_USE_LIST_REV_CACHE | Use Redis for list revisions cache (default true)            |

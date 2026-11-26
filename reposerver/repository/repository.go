@@ -13,6 +13,8 @@ import (
 	//	imagev1 "github.com/opencontainers/image-spec/specs-go/v1"
 	// "sigs.k8s.io/yaml"
 
+	argosync "github.com/argoproj/pkg/v2/sync"
+
 	"github.com/argoproj/argo-cd/v3/util/oci"
 
 	// "github.com/argoproj/gitops-engine/pkg/utils/kube"
@@ -79,7 +81,12 @@ type Service struct {
 	// ociPaths           utilio.TempPaths
 	gitRepoInitializer func(rootPath string) goio.Closer
 	repoLock           *repositoryLock
-	cache              *cache.Cache
+	// fetchLock serializes the git fetches of a single local repository. The
+	// repository lock lets requests for the same revision run concurrently,
+	// and git refuses two fetches that change the window of one repository at
+	// the same time.
+	fetchLock argosync.KeyLock
+	cache     *cache.Cache
 	// parallelismLimitSemaphore *semaphore.Weighted
 	metricsServer *metrics.MetricsServer
 	// newOCIClient              func(repoURL string, creds oci.Creds, proxy string, noProxy string, mediaTypes []string, opts ...oci.ClientOpts) (oci.Client, error)
@@ -112,6 +119,7 @@ type RepoServerInitConstants struct {
 	UseCache                                     bool
 	UseListRevisionsCache                        bool
 	UseDiffTreeCache                             bool
+	IncrementalFetch                             IncrementalFetchOptions
 }
 
 // var manifestGenerateLock = sync.NewKeyLock()
@@ -129,6 +137,7 @@ func NewService(metricsServer *metrics.MetricsServer, cache *cache.Cache, initCo
 	return &Service{
 		// parallelismLimitSemaphore: parallelismLimitSemaphore,
 		repoLock:      repoLock,
+		fetchLock:     argosync.NewKeyLock(),
 		cache:         cache,
 		metricsServer: metricsServer,
 		newGitClient:  git.NewClientExt,
@@ -2680,6 +2689,20 @@ func checkoutRevision(gitClient git.Client, revision string, submoduleEnabled bo
 	err := gitClient.Init()
 	if err != nil {
 		return status.Errorf(codes.Internal, "Failed to initialize git repo: %v", err)
+	}
+
+	// An incremental fetch leaves the repository with a truncated history, and
+	// a plain fetch does not restore it on its own: the walk of the revisions
+	// between two revisions would silently stop at the graft.
+	shallow, err := gitClient.IsShallow()
+	if err != nil {
+		return status.Errorf(codes.Internal, "Failed to check whether git repo is shallow: %v", err)
+	}
+	if shallow {
+		log.Infof("Restoring the complete history of %s, truncated by an earlier incremental fetch", gitClient.Root())
+		if err := gitClient.Unshallow(); err != nil {
+			return status.Errorf(codes.Internal, "Failed to restore the complete history: %v", err)
+		}
 	}
 
 	revisionPresent := gitClient.IsRevisionPresent(revision)

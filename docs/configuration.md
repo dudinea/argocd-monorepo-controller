@@ -29,6 +29,12 @@ components, are configured using the `argocd-monorepo-cmd-params-cm` configmap.
 | reposerver.listen.address                 | "0.0.0.0"                         | Repo Server will listen on given address for incoming connections  |
 | reposerver.use.list.rev.cache             | "true"                            | Enable List Revisions requests cache                               | 
 | reposerver.use.diff.tree.cache            | "true"                            | Enable Diff Tree requests cache                                    |
+| reposerver.incremental.fetch              | "false"                           | Fetch the history of a repository in portions                      |
+| reposerver.incremental.fetch.initial.depth | "50"                             | Commits the first fetched portion of the history holds             |
+| reposerver.incremental.fetch.batch.depth  | "200"                             | Commits every further fetched portion adds                         |
+| reposerver.incremental.fetch.max.depth    | "5000"                            | Commits of an application history the search may examine, "0" is no limit |
+| reposerver.incremental.fetch.budget       | "1m"                              | Time one incremental search may spend fetching and walking         |
+| reposerver.incremental.fetch.on.exhaustion | "full-fetch"                     | What an incremental search that ran out of budget does             |
 |-------------------------------------------|-----------------------------------|--------------------------------------------------------------------|
 
 The following parameters reuse ArgoCD configuration from ConfigMaps:
@@ -139,6 +145,87 @@ metadata:
 data:
   controller.app.resync.period: "1h"
 ```
+
+## Configure the incremental fetch
+
+Calculating a [Change Revision](terminology.md#change-revision) needs the
+commits between the revision an application was synchronized to before and the
+one it is synchronized to now. The monorepo repo server fetches the repository
+to get them, and for a large monorepo that fetch of the complete history does
+not finish within the timeout of a git command:
+
+```
+git fetch origin --tags --force --prune failed fatal timeout after 1m40s
+```
+
+The incremental fetch replaces the one fetch of everything with a history that
+grows in portions. The repo server fetches the newest
+`reposerver.incremental.fetch.initial.depth` commits, looks for the commit that
+changed the application in them, and fetches
+`reposerver.incremental.fetch.batch.depth` commits more only if the answer is
+not there yet. Most of the time the first portion is enough, because the commit
+that changed an application is usually close to the tip of the branch, and an
+application whose paths nothing touches keeps the revisions it was annotated
+with earlier instead of being calculated again.
+
+The history a search fetches stays in the local repository, so the next request
+for the same repository, including a retry of a request that ran out of its
+budget, starts from the depth the previous one reached. The changed files of
+every commit are cached, so examining a grown portion of the history only pays
+for the commits it added.
+
+The depth applies to every branch and tag of the repository, counted from its
+own tip, because the repo server fetches all of them, the way a fetch of the
+complete history does. A portion of N commits therefore holds about N commits
+of every branch, and a branch or tag that was created since the last fetch is
+bounded by the same depth instead of arriving with its complete history.
+
+The feature is disabled by default. Enable it for installations whose
+repositories are too large to fetch at once:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-monorepo-cmd-params-cm
+data:
+  reposerver.incremental.fetch: "true"
+```
+
+A search gives up when it has examined `reposerver.incremental.fetch.max.depth`
+commits of the history of the application, or when it has spent
+`reposerver.incremental.fetch.budget` on fetching and walking. Keep the budget
+below `controller.repo.server.timeout.seconds`, which bounds the whole request.
+`reposerver.incremental.fetch.on.exhaustion` then selects what happens:
+
+| Value              | Behavior                                                                                               |
+|--------------------|--------------------------------------------------------------------------------------------------------|
+| `full-fetch`       | Fetch the complete history and calculate the change revision as a disabled incremental fetch would. The default. |
+| `error`            | Fail the request. The controller retries it, and the retry resumes from the depth this search reached, which is the value for a repository whose complete history cannot be fetched at all. |
+| `current-revision` | Report the current revision as the change revision, which is what the calculation does anyway when it finds no path between the two revisions. |
+
+Watch `monorepo_incremental_fetch_batches`: a value above one means that
+`reposerver.incremental.fetch.initial.depth` is too small for your
+applications. `monorepo_incremental_fetch_exhausted_total` counts the searches
+that ran out of their budget.
+
+Two limits are worth knowing about. While the previous revision is not among
+the commits that have been fetched, the search walks the history of the current
+revision by commit date instead of restricting it to the commits on a path
+between the two revisions, as the calculation of the complete history does. A
+commit that the previous revision already contains can only be reached first if
+its committer date is more recent, which takes a skewed clock or a rewritten
+history.
+
+The second limit is that a local copy which already holds the complete history,
+which is what a repo server that ran with the feature disabled leaves behind,
+is never truncated to a window: fetching it again only transfers the commits
+that are new anyway. The copies live under `/tmp/_argocd-repo`, which the
+shipped manifests mount as an `emptyDir`, so restarting the monorepo repo
+server is enough for the portioned fetch to take effect. An installation that
+keeps that directory on a persistent volume keeps its complete histories until
+they are removed. Turning the feature off again restores the complete history
+of a truncated copy on the next request for it.
 
 ## Configuring network policies
 
