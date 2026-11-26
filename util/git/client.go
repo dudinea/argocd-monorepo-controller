@@ -133,6 +133,19 @@ type Client interface {
 	CommitAndPush(branch, message string) (string, error)
 	ListRevisions(revision string, targetRevision string) ([]string, error)
 	DiffTree(targetRevision string) ([]string, error)
+	// IsShallow reports whether the local repository holds a truncated history.
+	IsShallow() (bool, error)
+	// HasCommits reports whether the local repository holds any commit.
+	HasCommits() (bool, error)
+	// ShallowBoundaries returns the grafted commits at the bottom of a shallow history.
+	ShallowBoundaries() ([]string, error)
+	// FetchShallow fetches the refs of Fetch(""), truncating every history to depth commits.
+	// Successive calls must not lower depth, see the implementation.
+	FetchShallow(depth int) error
+	// Unshallow restores the full history of a shallow repository.
+	Unshallow() error
+	// ListRevisionsFrom lists the locally available history of revision, newest first.
+	ListRevisionsFrom(revision string, limit int) ([]string, error)
 }
 
 type EventHandlers struct {

@@ -413,6 +413,42 @@ spec:
               key: reposerver.use.diff.tree.cache
               name: argocd-monorepo-cmd-params-cm
               optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_INITIAL_DEPTH
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch.initial.depth
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BATCH_DEPTH
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch.batch.depth
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_MAX_DEPTH
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch.max.depth
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BUDGET
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch.budget
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
+        - name: ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_ON_EXHAUSTION
+          valueFrom:
+            configMapKeyRef:
+              key: reposerver.incremental.fetch.on.exhaustion
+              name: argocd-monorepo-cmd-params-cm
+              optional: true
         - name: ARGOCD_REPO_SERVER_DISABLE_TLS
           valueFrom:
             configMapKeyRef:

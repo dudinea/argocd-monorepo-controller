@@ -23,6 +23,9 @@ type MetricsServer struct {
 	repoPendingRequestsGauge          *prometheus.GaugeVec
 	redisRequestCounter               *prometheus.CounterVec
 	redisRequestHistogram             *prometheus.HistogramVec
+	incrementalFetchExhaustedCounter  *prometheus.CounterVec
+	incrementalFetchCommitsHistogram  *prometheus.HistogramVec
+	incrementalFetchBatchesHistogram  *prometheus.HistogramVec
 	PrometheusRegistry                *prometheus.Registry
 }
 
@@ -143,6 +146,35 @@ func NewMetricsServer() *MetricsServer {
 	)
 	registry.MustRegister(redisRequestHistogram)
 
+	incrementalFetchExhaustedCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "monorepo_incremental_fetch_exhausted_total",
+			Help: "Number of incremental change revision searches that ran out of their depth or time budget.",
+		},
+		[]string{"repo", "application", "namespace", "behavior"},
+	)
+	registry.MustRegister(incrementalFetchExhaustedCounter)
+
+	incrementalFetchCommitsHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "monorepo_incremental_fetch_commits",
+			Help:    "Number of commits of the application history that were available when the incremental change revision search answered.",
+			Buckets: []float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000},
+		},
+		[]string{"repo", "application", "namespace"},
+	)
+	registry.MustRegister(incrementalFetchCommitsHistogram)
+
+	incrementalFetchBatchesHistogram := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "monorepo_incremental_fetch_batches",
+			Help:    "Number of history windows the incremental change revision search had to fetch.",
+			Buckets: []float64{1, 2, 3, 5, 10, 20},
+		},
+		[]string{"repo", "application", "namespace"},
+	)
+	registry.MustRegister(incrementalFetchBatchesHistogram)
+
 	return &MetricsServer{
 		handler:                           promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 		gitFetchFailCounter:               gitFetchFailCounter,
@@ -156,6 +188,9 @@ func NewMetricsServer() *MetricsServer {
 		repoPendingRequestsGauge:          repoPendingRequestsGauge,
 		redisRequestCounter:               redisRequestCounter,
 		redisRequestHistogram:             redisRequestHistogram,
+		incrementalFetchExhaustedCounter:  incrementalFetchExhaustedCounter,
+		incrementalFetchCommitsHistogram:  incrementalFetchCommitsHistogram,
+		incrementalFetchBatchesHistogram:  incrementalFetchBatchesHistogram,
 		PrometheusRegistry:                registry,
 	}
 }
@@ -211,4 +246,24 @@ func (m *MetricsServer) IncGetChangeRevisionRequest(repo string, failed bool, ap
 
 func (m *MetricsServer) ObserveGetChangeRevisionRequestDuration(duration time.Duration, repo string, app string, namespace string) {
 	m.getChangeRevisionRequestHistogram.WithLabelValues(repo, app, namespace).Observe(duration.Seconds())
+}
+
+// IncIncrementalFetchExhausted counts the incremental change revision searches
+// that could not answer within their depth or time budget, by the behavior
+// they fell back to.
+func (m *MetricsServer) IncIncrementalFetchExhausted(repo string, app string, namespace string, behavior string) {
+	m.incrementalFetchExhaustedCounter.WithLabelValues(repo, app, namespace, behavior).Inc()
+}
+
+// ObserveIncrementalFetchCommits records how much of the application history
+// the incremental change revision search had available when it answered.
+func (m *MetricsServer) ObserveIncrementalFetchCommits(repo string, app string, namespace string, commits int) {
+	m.incrementalFetchCommitsHistogram.WithLabelValues(repo, app, namespace).Observe(float64(commits))
+}
+
+// ObserveIncrementalFetchBatches records how many history windows the
+// incremental change revision search had to fetch before it answered. A value
+// above one means that the initial depth is too small for this application.
+func (m *MetricsServer) ObserveIncrementalFetchBatches(repo string, app string, namespace string, batches int) {
+	m.incrementalFetchBatchesHistogram.WithLabelValues(repo, app, namespace).Observe(float64(batches))
 }

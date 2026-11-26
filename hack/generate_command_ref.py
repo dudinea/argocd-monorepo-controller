@@ -5,6 +5,22 @@ import os
 import re
 import textwrap
 
+# A flag of the help output: an optional short name, the long name, an optional
+# type and the description, which is separated from the rest by two spaces or
+# more.
+FLAG_RE = re.compile("^\\s*(?:(-\\w,)\\s+)?(--[A-Za-z0-9-]+)(?:\\s(.*))?$")
+
+# The type names pflag prints for a flag. A first word of the description that
+# is none of them means that the flag has no type, as a boolean flag has.
+FLAG_TYPES = {
+    "bool", "boolSlice", "bytesBase64", "bytesHex", "count", "duration",
+    "durationSlice", "float", "float32", "float64", "int", "int8", "int16", "int32",
+    "int64", "intSlice", "ip", "ipMask", "ipNet", "ipSlice", "string",
+    "stringArray", "stringSlice", "stringToInt", "stringToString", "strings",
+    "uint", "uint8", "uint16", "uint32", "uint64", "uintSlice",
+}
+
+
 def printline(formatstr, shortOpt, longOpt, argType, envVar, descr):
     #envVar = envVar.replace("_", "\_")
     descrLines = textwrap.wrap(descr, width=60)
@@ -57,12 +73,23 @@ for line in output.splitlines():
         print("%s\n\n" % line)
         state = "nop"
     if state == "flg":
-        shortOpt = line[0:6].strip()
-        spec = line[6:51].strip()
-        descr = line[51:].strip()
-        (longOpt, sep, optType) = spec.partition(" ")
-        longOpt = longOpt.strip()
-        optType = optType.strip()
+        # The description column of the help output starts right after the
+        # longest flag name, so the line is parsed by its shape instead of by
+        # fixed offsets: a single long flag name would otherwise shift the
+        # columns and cut every name and description of the command in two.
+        flagMatch = FLAG_RE.match(line)
+        if not flagMatch:
+            print("UNPARSED FLAG LINE", line, file=sys.stderr)
+            continue
+        shortOpt = flagMatch.group(1) or ""
+        longOpt = flagMatch.group(2)
+        optType = ""
+        descr = (flagMatch.group(3) or "").strip()
+        if descr:
+            parts = re.split("\\s{2,}", descr, maxsplit=1)
+            if parts[0] in FLAG_TYPES:
+                optType = parts[0]
+                descr = parts[1].strip() if len(parts) > 1 else ""
         print("short=", shortOpt, "long=", longOpt, "type=", optType, "descr=", descr, file=sys.stderr)
         arglist.append((shortOpt, longOpt, optType, descr))
 

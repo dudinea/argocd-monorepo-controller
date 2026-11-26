@@ -83,6 +83,12 @@ func NewCommand() *cobra.Command {
 		useCache                           bool
 		useListRevisionsCache              bool
 		useDiffTreeCache                   bool
+		incrementalFetch                   bool
+		incrementalFetchInitialDepth       int
+		incrementalFetchBatchDepth         int
+		incrementalFetchMaxDepth           int
+		incrementalFetchBudget             time.Duration
+		incrementalFetchOnExhaustion       string
 	)
 	command := cobra.Command{
 		Use:               cliName,
@@ -137,6 +143,16 @@ func NewCommand() *cobra.Command {
 			helmRegistryMaxIndexSizeQuantity, err := resource.ParseQuantity(helmRegistryMaxIndexSize)
 			errors.CheckError(err)
 
+			incrementalFetchOpts := repository.IncrementalFetchOptions{
+				Enabled:      incrementalFetch,
+				InitialDepth: incrementalFetchInitialDepth,
+				BatchDepth:   incrementalFetchBatchDepth,
+				MaxDepth:     incrementalFetchMaxDepth,
+				Budget:       incrementalFetchBudget,
+				OnExhaustion: incrementalFetchOnExhaustion,
+			}
+			errors.CheckError(incrementalFetchOpts.Validate())
+
 			askPassServer := askpass.NewServer(askpass.SocketPath)
 			metricsServer := metrics.NewMetricsServer()
 			cacheutil.CollectMetrics(redisClient, metricsServer, nil)
@@ -161,6 +177,7 @@ func NewCommand() *cobra.Command {
 				UseCache:                                     useCache,
 				UseListRevisionsCache:                        useListRevisionsCache,
 				UseDiffTreeCache:                             useDiffTreeCache,
+				IncrementalFetch:                             incrementalFetchOpts,
 			}, askPassServer)
 			errors.CheckError(err)
 
@@ -274,6 +291,12 @@ func NewCommand() *cobra.Command {
 	command.Flags().BoolVar(&useCache, "monorepo-repo-server-use-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_CACHE", true), "Use Redis cache")
 	command.Flags().BoolVar(&useListRevisionsCache, "monorepo-repo-server-use-list-rev-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_LIST_REV_CACHE", true), "Use Redis for list revisions cache")
 	command.Flags().BoolVar(&useDiffTreeCache, "monorepo-repo-server-use-diff-tree-cache", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_USE_DIFF_TREE_CACHE", true), "Use Redis for diff tree cache")
+	command.Flags().BoolVar(&incrementalFetch, "monorepo-repo-server-incremental-fetch", env.ParseBoolFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH", false), "Fetch the history of a repository in portions and search it for the change revision as it grows, instead of fetching the complete history at once. Useful for monorepos whose complete history cannot be fetched within the git command timeout.")
+	command.Flags().IntVar(&incrementalFetchInitialDepth, "monorepo-repo-server-incremental-fetch-initial-depth", env.ParseNumFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_INITIAL_DEPTH", repository.DefaultIncrementalFetchInitialDepth, 1, math.MaxInt32), "Number of commits the first fetched portion of the history holds. Applies only when the incremental fetch is enabled.")
+	command.Flags().IntVar(&incrementalFetchBatchDepth, "monorepo-repo-server-incremental-fetch-batch-depth", env.ParseNumFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BATCH_DEPTH", repository.DefaultIncrementalFetchBatchDepth, 1, math.MaxInt32), "Number of commits every further fetched portion of the history adds. Applies only when the incremental fetch is enabled.")
+	command.Flags().IntVar(&incrementalFetchMaxDepth, "monorepo-repo-server-incremental-fetch-max-depth", env.ParseNumFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_MAX_DEPTH", repository.DefaultIncrementalFetchMaxDepth, 0, math.MaxInt32), "Maximum number of commits of the history of an application the incremental search may examine. Zero means no limit.")
+	command.Flags().DurationVar(&incrementalFetchBudget, "monorepo-repo-server-incremental-fetch-budget", env.ParseDurationFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_BUDGET", repository.DefaultIncrementalFetchBudget, 0, math.MaxInt64), "Time the incremental search of one request may spend on fetching and walking the history. Keep it below the repo server call timeout of the monorepo controller.")
+	command.Flags().StringVar(&incrementalFetchOnExhaustion, "monorepo-repo-server-incremental-fetch-on-exhaustion", env.StringFromEnv("ARGOCD_MONOREPO_REPO_SERVER_INCREMENTAL_FETCH_ON_EXHAUSTION", repository.ExhaustionFullFetch), "What the incremental search does when it reaches its depth or time budget without an answer. One of: full-fetch|error|current-revision")
 	tlsConfigCustomizerSrc = tls.AddTLSFlagsToCmd(&command)
 	cacheSrc = reposervercache.AddCacheFlagsToCmd(&command, cacheutil.Options{
 		OnClientCreated: func(client *redis.Client) {
